@@ -1,0 +1,50 @@
+[package]
+name = "twatch"
+version = "0.1.0"
+edition = "2024"
+description = "Terminal torrent streaming client"
+
+[lib]
+name = "twatch"
+path = "src/lib.rs"
+
+[[bin]]
+name = "twatch"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.30"
+crossterm = "0.28"
+librqbit = { version = "8", default-features = false, features = ["rust-tls"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+shaku = { version = "0.6", features = ["thread_safe"] }
+async-trait = "0.1"
+
+[dev-dependencies]
+rstest = "0.25"
+proptest = "1"
+pretty_assertions = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_sign_loss = "warn"
+missing_const_for_fn = "warn"
+module_name_repetitions = "allow"
+similar_names = "allow"
+doc_markdown = "warn"
+must_use_candidate = "warn"
+return_self_not_must_use = "warn"
+unnecessary_wraps = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+wildcard_imports = "warn"

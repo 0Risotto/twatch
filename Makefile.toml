@@ -1,0 +1,67 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+CARGO_MAKE_WORKSPACE_EMULATION = true
+
+[tasks.fmt]
+description = "Format all code"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.fmt-check]
+description = "Check code formatting"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.lint]
+description = "Run clippy with warnings as errors"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
+
+[tasks.lint-fix]
+description = "Auto-fix clippy warnings"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features", "--fix", "--allow-dirty", "--allow-staged", "--", "-D", "warnings"]
+
+[tasks.test]
+description = "Run all tests"
+command = "cargo"
+args = ["test", "--all-features"]
+
+[tasks.test-release]
+description = "Run tests in release mode"
+command = "cargo"
+args = ["test", "--all-features", "--release"]
+
+[tasks.coverage]
+description = "Generate code coverage report with tarpaulin"
+command = "cargo"
+args = ["tarpaulin", "--out", "Html", "--out", "Xml", "--out", "Lcov", "--all-features", "--workspace", "--skip-clean"]
+
+[tasks.coverage-html]
+description = "Generate HTML coverage report only"
+command = "cargo"
+args = ["tarpaulin", "--out", "Html", "--all-features", "--workspace", "--skip-clean"]
+
+[tasks.check-all]
+description = "Run all checks: fmt, lint, and test"
+dependencies = ["fmt-check", "lint", "test"]
+
+[tasks.build]
+description = "Build the project"
+command = "cargo"
+args = ["build", "--all-features"]
+
+[tasks.build-release]
+description = "Build in release mode"
+command = "cargo"
+args = ["build", "--all-features", "--release"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+[tasks.doc]
+description = "Generate documentation"
+command = "cargo"
+args = ["doc", "--all-features", "--no-deps", "--open"]
