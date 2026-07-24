@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use std::sync::Mutex;
 use twatch::service::player::{PlayerState, RealPlayer};
 use twatch::traits::PlayerService;

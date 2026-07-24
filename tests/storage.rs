@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use std::sync::Mutex;
 use twatch::model::display_name;
 use twatch::service::storage::{RealStorage, StorageState};

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use crossterm::event::KeyCode;
 use twatch::app::App;
 use twatch::config::Config;

@@ -8,7 +8,7 @@ pub struct MockPlayerService {
 }
 
 impl MockPlayerService {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { last_url: Mutex::new(None), last_title: Mutex::new(None), killed: Mutex::new(false) }
     }
 }

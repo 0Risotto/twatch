@@ -8,7 +8,7 @@ pub struct MockStorageService {
 }
 
 impl MockStorageService {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { entries: Mutex::new(Vec::new()) }
     }
 }
