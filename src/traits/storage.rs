@@ -4,10 +4,7 @@ use crate::model::HistoryEntry;
 use anyhow::Result;
 use shaku::Interface;
 
-/// CRUD operations for a JSON-backed torrent history store.
-///
-/// All methods take `&self` (interior mutability) so implementations
-/// are compatible with shaku's `Arc<dyn StorageService>` storage.
+/// `CRUD` operations for a JSON-backed torrent history store.
 pub trait StorageService: Interface {
     /// Return a snapshot of every history entry (newest last).
     fn history(&self) -> Vec<HistoryEntry>;

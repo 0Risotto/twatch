@@ -1,4 +1,4 @@
-use twatch::model::validate_torrent_input;
+use twatch::model::{fuzzy_match, validate_torrent_input};
 
 #[test]
 fn magnet_link_passes() {
@@ -30,4 +30,44 @@ fn arbitrary_text_fails() {
 #[test]
 fn whitespace_is_trimmed() {
     assert!(validate_torrent_input("  magnet:?xt=urn:btih:abc  ").is_ok());
+}
+
+#[test]
+fn fuzzy_exact_match() {
+    assert!(fuzzy_match("bunny", "Big Buck Bunny"));
+}
+
+#[test]
+fn fuzzy_case_insensitive() {
+    assert!(fuzzy_match("BUNNY", "Big Buck Bunny"));
+}
+
+#[test]
+fn fuzzy_subsequence() {
+    assert!(fuzzy_match("bb", "Big Buck Bunny"));
+}
+
+#[test]
+fn fuzzy_no_match() {
+    assert!(!fuzzy_match("xyz", "Big Buck Bunny"));
+}
+
+#[test]
+fn fuzzy_empty_query() {
+    assert!(fuzzy_match("", "anything"));
+}
+
+#[test]
+fn fuzzy_empty_target() {
+    assert!(!fuzzy_match("a", ""));
+}
+
+#[test]
+fn fuzzy_btih() {
+    assert!(fuzzy_match("btih", "magnet:?xt=urn:btih:abcdef1234567890"));
+}
+
+#[test]
+fn fuzzy_extension() {
+    assert!(fuzzy_match("mkv", "season1/episode05.mkv"));
 }

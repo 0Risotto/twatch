@@ -92,8 +92,7 @@ pub struct RealStorage {
 
 /// Shaku parameters for [`RealStorage`].
 ///
-/// The `state` field **must** be set via [`AppModule::builder`]
-/// before build, or the component will panic on construction.
+/// `state` must be set via [`AppModule::builder`].
 #[derive(Default)]
 pub struct RealStorageParameters {
     pub state: Option<Mutex<StorageState>>,

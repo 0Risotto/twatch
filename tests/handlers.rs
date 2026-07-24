@@ -3,7 +3,7 @@
 use crossterm::event::KeyCode;
 use twatch::app::App;
 use twatch::config::Config;
-use twatch::model::{Screen, TorrentFile};
+use twatch::model::{DisplayEntry, Screen, TorrentFile};
 use twatch::module::AppModule;
 use twatch::traits::{PlayerService, StorageService, TorrentService};
 
@@ -93,6 +93,7 @@ fn browser_toggle_selection() {
     app.screen = Screen::Browser;
     app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
     app.selected_files = vec![false];
+    app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char(' '));
     assert!(app.selected_files[0]);
@@ -106,11 +107,78 @@ fn browser_esc_returns_to_welcome_and_clears_files() {
     app.screen = Screen::Browser;
     app.files = vec![TorrentFile { index: 0, name: "a".into(), size: 1 }];
     app.selected_files = vec![false];
+    app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc);
     assert_eq!(app.screen, Screen::Welcome);
     assert!(app.files.is_empty());
     assert!(app.selected_files.is_empty());
+    assert!(app.display_entries.is_empty());
+}
+
+#[test]
+fn browser_folder_expand_collapse() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![
+        TorrentFile { index: 0, name: "dir/file1.mkv".into(), size: 100 },
+        TorrentFile { index: 1, name: "dir/file2.mkv".into(), size: 200 },
+        TorrentFile { index: 2, name: "README.txt".into(), size: 50 },
+    ];
+    app.selected_files = vec![false; 3];
+    app.rebuild_entries();
+
+    // Tree should have: folder "dir" (depth 0), file "README.txt" (depth 0)
+    assert_eq!(app.display_entries.len(), 2);
+    assert!(matches!(app.display_entries[0], DisplayEntry::Folder { .. }));
+    assert!(matches!(app.display_entries[1], DisplayEntry::File { .. }));
+
+    // Enter on folder expands it.
+    app.selected_file = 0;
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Enter);
+    assert_eq!(app.display_entries.len(), 4, "should show 2 files inside dir");
+    assert!(!app.expanded_paths.is_empty(), "dir/ should be in expanded_paths");
+
+    // Enter again collapses.
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Enter);
+    assert_eq!(app.display_entries.len(), 2, "should be back to 2 entries");
+    assert!(app.expanded_paths.is_empty());
+}
+
+#[test]
+fn browser_q_in_search_exits_to_welcome() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![false];
+    app.rebuild_entries();
+
+    // Enter search mode
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('/'));
+    assert!(app.is_searching);
+
+    // q exits search + goes to welcome
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('q'));
+    assert_eq!(app.screen, Screen::Welcome);
+    assert!(!app.is_searching);
+    assert!(app.display_entries.is_empty());
+}
+
+#[test]
+fn browser_search_esc_cancels_search_only() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![false];
+    app.rebuild_entries();
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('/'));
+    assert!(app.is_searching);
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Esc);
+    assert!(!app.is_searching);
+    assert_eq!(app.screen, Screen::Browser, "should stay on Browser");
+    assert!(!app.display_entries.is_empty());
 }
 
 #[test]

@@ -41,6 +41,15 @@ pub struct ActiveDownload {
     pub is_streaming: bool,
 }
 
+/// A single entry in the collapsible folder-tree browser list.
+#[derive(Debug, Clone)]
+pub enum DisplayEntry {
+    /// A collapsible subfolder.
+    Folder { name: String, depth: usize, expanded: bool },
+    /// A regular file from the torrent.
+    File { file: TorrentFile, depth: usize },
+}
+
 /// A single entry in the torrent history list, persisted as JSON.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -110,4 +119,19 @@ pub fn validate_torrent_input(input: &str) -> Result<(), &'static str> {
         return Ok(());
     }
     Err("Must be a magnet link or an http(s) URL")
+}
+
+/// Subsequence fuzzy match.  Returns `true` when every character in
+/// `query` appears in `target` in order (case-insensitive).
+#[must_use]
+pub fn fuzzy_match(query: &str, target: &str) -> bool {
+    let query_lower = query.to_lowercase();
+    let mut qchars = query_lower.chars().peekable();
+    let target_lower = target.to_lowercase();
+    for c in target_lower.chars() {
+        if qchars.peek() == Some(&c) {
+            qchars.next();
+        }
+    }
+    qchars.peek().is_none()
 }

@@ -1,12 +1,8 @@
 //! Application state, screens, and main event loop.
-//!
-//! [`App`] holds all UI-relevant state plus the DI [`AppModule`].
-//! Service dependencies are resolved on demand via
-//! [`HasComponent::resolve`].  Async torrent work is dispatched
-//! through an internal mpsc event bus.
 
 use crate::model::{
-    ActiveDownload, InputState, Screen, TorrentFile, TorrentId, TorrentInfo, TorrentStats,
+    ActiveDownload, DisplayEntry, InputState, Screen, TorrentFile, TorrentId, TorrentInfo,
+    TorrentStats,
 };
 use crate::traits::{PlayerService, StorageService, TorrentService};
 use crate::{config::Config, module::AppModule, ui};
@@ -14,6 +10,7 @@ use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{Terminal, backend::CrosstermBackend};
 use shaku::HasComponent;
+use std::collections::HashSet;
 use std::io::Stdout;
 use std::sync::Arc;
 use std::time::Duration;
@@ -45,9 +42,14 @@ pub struct App {
     pub stats: Option<TorrentStats>,
     pub active_downloads: Vec<ActiveDownload>,
     pub torrent_name: Option<String>,
+    pub expanded_paths: HashSet<String>,
+    pub display_entries: Vec<DisplayEntry>,
+    pub search_query: String,
+    pub is_searching: bool,
     pub status_message: String,
     pub running: bool,
     pub history_selected: usize,
+    pub history_orig_index: usize,
     pub menu_selected: usize,
     pub renaming: bool,
     pub rename_input: InputState,
@@ -79,9 +81,14 @@ impl App {
             stats: None,
             active_downloads: Vec::new(),
             torrent_name: None,
+            expanded_paths: HashSet::new(),
+            display_entries: Vec::new(),
+            search_query: String::new(),
+            is_searching: false,
             status_message: String::new(),
             running: true,
             history_selected: 0,
+            history_orig_index: 0,
             menu_selected: 0,
             renaming: false,
             rename_input: InputState::default(),
@@ -193,11 +200,102 @@ impl App {
     pub fn selected_count(&self) -> usize {
         self.selected_files.iter().filter(|&&s| s).count()
     }
+
+    /// Rebuild `display_entries` as a recursive tree from `self.files`.
+    /// Only children of expanded folders are included.  Folders sort
+    /// before files at each depth.
+    pub fn rebuild_entries(&mut self) {
+        let mut entries = Vec::new();
+        rebuild_level(&self.files, "", 0, &self.expanded_paths, &mut entries, &mut HashSet::new());
+        self.display_entries = entries;
+
+        // Clamp cursor.
+        self.clamp_selection();
+    }
+
+    /// Return the list of entries that pass the current search filter.
+    #[must_use]
+    pub fn visible_entries(&self) -> Vec<(usize, &DisplayEntry)> {
+        if self.search_query.is_empty() {
+            return self.display_entries.iter().enumerate().collect();
+        }
+        self.display_entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| entry_matches(&self.search_query, e))
+            .collect()
+    }
+
+    fn clamp_selection(&mut self) {
+        let visible = self.visible_entries();
+        if visible.is_empty() {
+            self.selected_file = 0;
+            return;
+        }
+        if self.selected_file >= visible.len() {
+            self.selected_file = visible.len() - 1;
+        }
+    }
+}
+
+// ── Tree helpers ──
+
+fn rebuild_level(
+    files: &[TorrentFile],
+    prefix: &str,
+    depth: usize,
+    expanded: &HashSet<String>,
+    entries: &mut Vec<DisplayEntry>,
+    _seen_folders: &mut HashSet<String>,
+) {
+    let mut folders = std::collections::BTreeSet::new();
+    let mut file_indices = Vec::new();
+
+    for (i, file) in files.iter().enumerate() {
+        if !file.name.starts_with(prefix) {
+            continue;
+        }
+        let rest = &file.name[prefix.len()..];
+        if let Some(slash_idx) = rest.find('/') {
+            let folder_name = &rest[..slash_idx];
+            folders.insert(folder_name.to_string());
+        } else {
+            file_indices.push(i);
+        }
+    }
+
+    for folder_name in &folders {
+        let full = format!("{prefix}{folder_name}/");
+        let is_expanded = expanded.contains(&full);
+
+        entries.push(DisplayEntry::Folder {
+            name: folder_name.clone(),
+            depth,
+            expanded: is_expanded,
+        });
+
+        if is_expanded {
+            rebuild_level(files, &full, depth + 1, expanded, entries, _seen_folders);
+        }
+    }
+
+    for i in &file_indices {
+        entries.push(DisplayEntry::File { file: files[*i].clone(), depth });
+    }
+}
+
+/// True when `query` fuzzy-matches a display entry's visible text.
+#[must_use]
+pub fn entry_matches(query: &str, entry: &DisplayEntry) -> bool {
+    match entry {
+        DisplayEntry::Folder { name, .. } => crate::model::fuzzy_match(query, name),
+        DisplayEntry::File { file, .. } => crate::model::fuzzy_match(query, &file.name),
+    }
 }
 
 /// Run the main application loop.
 ///
-/// Drives the TUI with ratatui-crossterm, drains the MPSC event
+/// Drives the `TUI` with ratatui-crossterm, drains the `mpsc` event
 /// channel, and dispatches keyboard input to [`handlers::handle_key`].
 pub fn run(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -220,6 +318,8 @@ pub fn run(
                     app.files = info.files.clone();
                     app.selected_files = vec![false; info.files.len()];
                     app.selected_file = 0;
+                    app.expanded_paths.clear();
+                    app.rebuild_entries();
                     app.screen = Screen::Browser;
                     app.status_message =
                         format!("{} file(s) found — w: watch, d: download", app.files.len());

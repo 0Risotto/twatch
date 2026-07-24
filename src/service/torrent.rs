@@ -1,8 +1,6 @@
 //! Default [`TorrentService`](crate::traits::TorrentService) implementation.
 //!
-//! Wraps a librqbit `Session` and an embedded HTTP streaming server.
-//! Owns a dedicated tokio runtime so that torrent I/O never blocks
-//! the terminal event loop.
+//! Wraps a librqbit `Session` with an embedded HTTP streaming server.
 
 use crate::model::{TorrentId, TorrentInfo, TorrentStats};
 use crate::traits::TorrentService;
@@ -17,10 +15,7 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-/// The production torrent engine — backed by librqbit.
-///
-/// Fields are `pub(crate)` so the DI wiring in `main.rs` can
-/// supply them as shaku parameters.
+/// The production torrent engine, backed by librqbit.
 pub struct TorrentEngineImpl {
     pub rt: tokio::runtime::Runtime,
     pub session: Arc<Session>,
@@ -29,8 +24,7 @@ pub struct TorrentEngineImpl {
 
 /// Shaku parameters for [`TorrentEngineImpl`].
 ///
-/// All three fields **must** be set via [`AppModule::builder`] before
-/// build, or the component will panic on construction.
+/// All three fields must be set via [`AppModule::builder`].
 #[derive(Default)]
 pub struct TorrentEngineImplParameters {
     pub rt: Option<tokio::runtime::Runtime>,

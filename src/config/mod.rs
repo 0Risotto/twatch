@@ -1,18 +1,12 @@
 //! Application configuration.
 //!
-//! Centralizes all filesystem paths, log settings, and tunables
-//! that were previously hardcoded throughout the codebase.
-//!
-//! Defaults use per-user XDG directories (safe from symlink attacks on
-//! multi-user systems, unlike world-writable `/tmp`).
+//! Defaults use per-user `XDG` directories.
 
 use std::path::PathBuf;
 
-/// Application-wide configuration.
-///
-/// Constructed via [`Config::default()`], which picks standard XDG
-/// directories and sensible defaults.  Set fields directly before
-/// passing to [`crate::app::run`] to customise behaviour.
+/// Constructed via [`Config::default()`], which picks standard `XDG`
+/// directories.  Set fields before calling [`crate::app::run`] to
+/// customise behaviour.
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Path to the tracing log file (default: `$XDG_STATE_HOME/twatch/twatch.log`).

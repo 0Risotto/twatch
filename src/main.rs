@@ -1,7 +1,7 @@
 //! twatch binary entry point.
 //!
-//! Initialises logging, constructs the DI module with real service
-//! implementations, and starts the TUI event loop.
+//! Initialises logging, constructs the DI module, and starts the
+//! `TUI` event loop.
 
 use anyhow::Context;
 use std::sync::Mutex;

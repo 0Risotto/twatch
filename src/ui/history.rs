@@ -15,13 +15,37 @@ use crate::ui::theme::styled_block;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let storage: Arc<dyn StorageService> = app.module.resolve();
-    let entries = storage.history();
+    let all = storage.history();
+
+    let entries: Vec<_> = if app.search_query.is_empty() {
+        all.iter().collect()
+    } else {
+        all.iter()
+            .filter(|e| {
+                let name = display_name(e);
+                crate::model::fuzzy_match(&app.search_query, name)
+                    || crate::model::fuzzy_match(&app.search_query, &e.url)
+            })
+            .collect()
+    };
+
+    if app.is_searching {
+        draw_with_search(frame, area, app, &entries);
+    } else {
+        draw_normal(frame, area, app, &entries);
+    }
+
+    if app.renaming && app.screen == crate::model::Screen::History {
+        draw_rename_overlay(frame, area, app);
+    }
+}
+
+fn draw_normal(frame: &mut Frame, area: Rect, app: &App, entries: &[&crate::model::HistoryEntry]) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(3)])
         .split(area);
 
-    // Header
     let header = Paragraph::new(Text::from(Span::styled(
         format!(" {} entries in history", entries.len()),
         Style::default().fg(Color::Cyan),
@@ -29,8 +53,73 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     .block(styled_block(" History ", Color::Cyan));
     frame.render_widget(header, chunks[0]);
 
-    // Entries list
-    let items: Vec<ListItem> = entries
+    let items = build_items(app, entries);
+    let list = List::new(items)
+        .block(styled_block(" Entries ", Color::White))
+        .highlight_style(Style::default());
+    frame.render_widget(list, chunks[1]);
+
+    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+        "[/] search    [Enter] re-add    [r] rename    [d] delete    [q/Esc] back",
+        Style::default().fg(Color::DarkGray),
+    ))]))
+    .centered();
+    frame.render_widget(footer, chunks[2]);
+}
+
+fn draw_with_search(
+    frame: &mut Frame,
+    area: Rect,
+    app: &App,
+    entries: &[&crate::model::HistoryEntry],
+) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
+        .split(area);
+
+    let header = Paragraph::new(Text::from(Span::styled(
+        format!(" {} entries in history", entries.len()),
+        Style::default().fg(Color::Cyan),
+    )))
+    .block(styled_block(" History ", Color::Cyan));
+    frame.render_widget(header, chunks[0]);
+
+    let search_text = if app.search_query.is_empty() {
+        "Search: ".to_string()
+    } else {
+        let left = format!("Search: {}", app.search_query);
+        let right = format!("| {}", entries.len());
+        let pad = (chunks[1].width.saturating_sub(2) as usize)
+            .saturating_sub(left.len())
+            .saturating_sub(right.len());
+        format!("{}{}{}", left, " ".repeat(pad), right)
+    };
+    let bar = Paragraph::new(Span::styled(search_text, Style::default().fg(Color::Yellow)))
+        .block(styled_block(" Search ", Color::Yellow));
+    frame.render_widget(bar, chunks[1]);
+
+    let items = build_items(app, entries);
+    let list = List::new(items)
+        .block(styled_block(" Entries ", Color::White))
+        .highlight_style(Style::default());
+    frame.render_widget(list, chunks[2]);
+
+    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+        "[Esc] cancel    [q] exit    [j/k] navigate",
+        Style::default().fg(Color::DarkGray),
+    ))]))
+    .centered();
+    frame.render_widget(footer, chunks[3]);
+}
+
+fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec<ListItem<'a>> {
+    entries
         .iter()
         .enumerate()
         .map(|(i, entry)| {
@@ -61,23 +150,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                 )),
             ])
         })
-        .collect();
-
-    let list = List::new(items).block(styled_block(" Entries ", Color::White));
-    frame.render_widget(list, chunks[1]);
-
-    // Footer
-    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
-        "[Enter] Re-add    [r] Rename    [d] Delete    [q/Esc] Back",
-        Style::default().fg(Color::DarkGray),
-    ))]))
-    .centered();
-    frame.render_widget(footer, chunks[2]);
-
-    // Rename overlay
-    if app.renaming && app.screen == crate::model::Screen::History {
-        draw_rename_overlay(frame, area, app);
-    }
+        .collect()
 }
 
 fn draw_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
@@ -104,7 +177,6 @@ fn draw_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(para, chunks[1]);
 }
 
-// Re-export the draw function for browser rename overlay too
 pub fn draw_browser_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
     use crate::ui::theme::centered_rect;
 
