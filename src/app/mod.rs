@@ -5,6 +5,7 @@ use crate::model::{
     TorrentStats,
 };
 use crate::traits::{PlayerService, StorageService, TorrentService};
+use crate::ui::Theme;
 use crate::{config::Config, module::AppModule, ui};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
@@ -53,6 +54,12 @@ pub struct App {
     pub menu_selected: usize,
     pub renaming: bool,
     pub rename_input: InputState,
+    pub theme: Theme,
+    pub theme_picker: bool,
+    pub theme_picker_filter: String,
+    pub theme_picker_selected: usize,
+    pub theme_picker_scroll: usize,
+    pub theme_picker_original: Theme,
     pending_url: Option<String>,
     error_message: Option<String>,
     task_busy: bool,
@@ -68,6 +75,8 @@ impl App {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         std::fs::create_dir_all(&config.download_dir).ok();
+
+        let theme = Theme::from_name(&config.theme).unwrap_or_default();
 
         Ok(Self {
             module,
@@ -92,6 +101,12 @@ impl App {
             menu_selected: 0,
             renaming: false,
             rename_input: InputState::default(),
+            theme,
+            theme_picker: false,
+            theme_picker_filter: String::new(),
+            theme_picker_selected: 0,
+            theme_picker_scroll: 0,
+            theme_picker_original: Theme::default(),
             pending_url: None,
             error_message: None,
             task_busy: false,
@@ -235,6 +250,13 @@ impl App {
         if self.selected_file >= visible.len() {
             self.selected_file = visible.len() - 1;
         }
+    }
+
+    /// Cycle through available themes and persist the choice.
+    pub fn cycle_theme(&mut self) {
+        self.theme = self.theme.next();
+        self.config.theme = Theme::to_config_name(self.theme.name);
+        let _ = self.config.save();
     }
 }
 

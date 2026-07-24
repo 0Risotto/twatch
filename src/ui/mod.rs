@@ -8,6 +8,7 @@ mod input;
 mod player;
 mod sidebar;
 mod theme;
+mod theme_picker;
 mod welcome;
 
 use crate::app::App;
@@ -20,13 +21,15 @@ use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph},
 };
 use std::io::{Stdout, stdout};
 
-pub use theme::{centered_rect, format_size, format_speed, styled_block};
+pub use theme::{
+    Palette, Theme, centered_rect, color_footer, format_size, format_speed, styled_block,
+};
 
 pub fn init() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
@@ -42,6 +45,8 @@ pub fn restore() -> Result<()> {
 
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
+
+    frame.render_widget(ratatui::widgets::Block::default().style(app.theme.bg_style()), area);
 
     let panes = Layout::default()
         .direction(Direction::Horizontal)
@@ -66,6 +71,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
 
     sidebar::draw(frame, sidebar_area, app);
+
+    if app.theme_picker {
+        theme_picker::draw(frame, area, app);
+    }
 }
 
 fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
@@ -75,12 +84,9 @@ fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     let text = Text::from(vec![
-        Line::from(Span::styled(
-            "Fetching torrent metadata...",
-            Style::default().fg(Color::Yellow),
-        )),
+        Line::from(Span::styled("Fetching torrent metadata...", app.theme.warning_style())),
         Line::from(""),
-        Line::from(Span::styled(&app.status_message, Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled(&app.status_message, app.theme.dimmed_style())),
     ]);
 
     let paragraph = Paragraph::new(text)
@@ -88,7 +94,7 @@ fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Loading")
-                .border_style(Style::default().fg(Color::Yellow)),
+                .border_style(Style::default().fg(app.theme.palette.warning)),
         )
         .centered();
 

@@ -3,12 +3,12 @@ use crate::model::DisplayEntry;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{List, ListItem, Paragraph},
 };
 
-use super::{format_size, styled_block};
+use super::{color_footer, format_size, styled_block};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     if app.is_searching {
@@ -32,24 +32,24 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         format!(" {}", torrent)
     };
-    let title = Paragraph::new(Span::styled(title_text, Style::default().fg(Color::Cyan)))
-        .block(styled_block(" Torrent Contents ", Color::Cyan));
+    let title = Paragraph::new(Span::styled(title_text, app.theme.accent_style()))
+        .block(styled_block(" Torrent Contents ", app.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Entries
     let items = build_items(app, false);
     let list = List::new(items)
-        .block(styled_block(" Files ", Color::White))
+        .block(styled_block(" Files ", app.theme.palette.text_primary))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
     // Footer
-    frame.render_widget(
-        footer(
-            "[/] search  [Enter] expand  [w] watch  [d] dl  [Space] toggle  [r] rename  [q] back",
-        ),
-        chunks[2],
-    );
+    let footer = Paragraph::new(color_footer(
+        "[/] search  [Enter] expand  [w] watch  [d] dl  [Space] toggle  [r] rename  [q] back",
+        &app.theme,
+    ))
+    .centered();
+    frame.render_widget(footer, chunks[2]);
 }
 
 fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
@@ -65,9 +65,8 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
 
     // Header
     let torrent = app.torrent_name.as_deref().unwrap_or("Torrent");
-    let title =
-        Paragraph::new(Span::styled(format!(" {}", torrent), Style::default().fg(Color::Cyan)))
-            .block(styled_block(" Torrent Contents ", Color::Cyan));
+    let title = Paragraph::new(Span::styled(format!(" {}", torrent), app.theme.accent_style()))
+        .block(styled_block(" Torrent Contents ", app.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Search bar
@@ -86,19 +85,21 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
             .saturating_sub(right.len());
         format!("{}{}{}", left, " ".repeat(pad), right)
     };
-    let bar = Paragraph::new(Span::styled(search_text, Style::default().fg(Color::Yellow)))
-        .block(styled_block(" Search ", Color::Yellow));
+    let bar = Paragraph::new(Span::styled(search_text, app.theme.warning_style()))
+        .block(styled_block(" Search ", app.theme.palette.warning));
     frame.render_widget(bar, chunks[1]);
 
     // Entries (filtered)
     let items = build_items(app, true);
     let list = List::new(items)
-        .block(styled_block(" Files ", Color::White))
+        .block(styled_block(" Files ", app.theme.palette.text_primary))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
     // Footer
-    frame.render_widget(footer("[Esc] cancel  [q] exit  [Enter] select"), chunks[3]);
+    let footer = Paragraph::new(color_footer("[Esc] cancel  [q] exit  [Enter] select", &app.theme))
+        .centered();
+    frame.render_widget(footer, chunks[3]);
 }
 
 fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
@@ -118,13 +119,13 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                     let indent = " ".repeat(depth * 2);
                     let icon = if *expanded { "▹" } else { "▸" };
                     let (prefix, style) = if is_hovered {
-                        ("▶ ", Style::default().fg(Color::Cyan))
+                        ("▶ ", app.theme.accent_style())
                     } else {
-                        ("  ", Style::default().fg(Color::Yellow))
+                        ("  ", app.theme.warning_style())
                     };
                     ListItem::new(Line::from(vec![
                         Span::raw(indent),
-                        Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                        Span::styled(prefix, app.theme.accent_style()),
                         Span::styled(format!("{icon} {name}/"), style),
                     ]))
                 }
@@ -137,27 +138,23 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                         (false, false) => "   ",
                     };
                     let name_style = if is_hovered {
-                        Style::default().fg(Color::Cyan)
+                        app.theme.accent_style()
                     } else if checked {
-                        Style::default().fg(Color::Green)
+                        app.theme.success_style()
                     } else {
-                        Style::default().fg(Color::White)
+                        app.theme.text_style()
                     };
                     ListItem::new(Line::from(vec![
                         Span::raw(indent),
-                        Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                        Span::styled(prefix, app.theme.accent_style()),
                         Span::styled(&file.name, name_style),
                         Span::styled(
                             format!("  ({})", format_size(file.size)),
-                            Style::default().fg(Color::DarkGray),
+                            app.theme.dimmed_style(),
                         ),
                     ]))
                 }
             }
         })
         .collect()
-}
-
-fn footer(text: &str) -> Paragraph<'_> {
-    Paragraph::new(Line::from(Span::styled(text, Style::default().fg(Color::DarkGray)))).centered()
 }

@@ -215,3 +215,57 @@ fn history_down_moves_selection() {
     twatch::app::handlers::handle_key(&mut app, KeyCode::Up);
     assert_eq!(app.history_selected, 0);
 }
+
+#[test]
+fn t_key_opens_theme_picker() {
+    let mut app = mock_app();
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t'));
+    assert!(app.theme_picker);
+}
+
+#[test]
+fn theme_picker_enter_selects_theme() {
+    let mut app = mock_app();
+    let original = app.theme;
+    // Open picker, move to next theme, select it
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t'));
+    assert!(app.theme_picker);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Down);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Enter);
+    assert!(!app.theme_picker);
+    assert_ne!(app.theme, original);
+}
+
+#[test]
+fn theme_picker_esc_closes_without_change() {
+    let mut app = mock_app();
+    let original = app.theme;
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t'));
+    assert!(app.theme_picker);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Esc);
+    assert!(!app.theme_picker);
+    assert_eq!(app.theme, original);
+}
+
+#[test]
+fn theme_picker_filter_narrows_list() {
+    let mut app = mock_app();
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t'));
+    // Type 'nord'
+    for c in "nord".chars() {
+        twatch::app::handlers::handle_key(&mut app, KeyCode::Char(c));
+    }
+    assert_eq!(app.theme_picker_filter, "nord");
+    assert!(app.theme_picker); // still open
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Esc);
+}
+
+#[test]
+fn theme_picker_backspace_clears_filter() {
+    let mut app = mock_app();
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t'));
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x'));
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Backspace);
+    assert_eq!(app.theme_picker_filter, "");
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Esc);
+}
