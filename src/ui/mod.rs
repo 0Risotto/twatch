@@ -6,6 +6,7 @@ mod browser;
 mod history;
 mod input;
 mod player;
+mod search_popup;
 mod sidebar;
 mod theme;
 mod theme_picker;
@@ -74,6 +75,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     if app.theme_picker {
         theme_picker::draw(frame, area, app);
+    }
+
+    if app.search_open {
+        search_popup::draw(frame, app);
     }
 }
 

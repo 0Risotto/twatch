@@ -38,6 +38,7 @@ fn welcome_enter_on_quit_stops_running() {
     let mut app = mock_app();
     twatch::app::handlers::handle_key(&mut app, KeyCode::Down);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Down);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Down);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Enter);
     assert!(!app.running);
 }

@@ -3,6 +3,8 @@
 //! Defaults use per-user `XDG` directories.
 //! Persisted to `$XDG_CONFIG_HOME/twatch/config.json`.
 
+pub mod search;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::io::Write;

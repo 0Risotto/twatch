@@ -3594,6 +3594,7 @@ dependencies = [
  "pretty_assertions",
  "proptest",
  "ratatui",
+ "reqwest",
  "rstest",
  "serde",
  "serde_json",

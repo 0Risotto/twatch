@@ -1,10 +1,10 @@
 //! Application state, screens, and main event loop.
 
 use crate::model::{
-    ActiveDownload, DisplayEntry, InputState, Screen, TorrentFile, TorrentId, TorrentInfo,
-    TorrentStats,
+    ActiveDownload, DisplayEntry, InputState, Screen, SearchResult, TorrentFile, TorrentId,
+    TorrentInfo, TorrentStats,
 };
-use crate::traits::{PlayerService, StorageService, TorrentService};
+use crate::traits::{PlayerService, SearchService, StorageService, TorrentService};
 use crate::ui::Theme;
 use crate::{config::Config, module::AppModule, ui};
 use anyhow::Result;
@@ -25,6 +25,7 @@ enum AppEvent {
     PreviewFailed(String),
     DownloadReady { id: TorrentId, stream_url: String, file_name: String, is_watch: bool },
     DownloadFailed(String),
+    SearchResults(Vec<SearchResult>),
 }
 
 /// The top-level application state.
@@ -60,6 +61,16 @@ pub struct App {
     pub theme_picker_selected: usize,
     pub theme_picker_scroll: usize,
     pub theme_picker_original: Theme,
+    pub search_open: bool,
+    pub torrent_search_query: String,
+    pub search_selected: usize,
+    pub search_busy: bool,
+    pub search_page: u32,
+    pub search_all_results: Vec<SearchResult>,
+    pub search_fetched_query: String,
+    pub search_config: crate::config::search::SearchConfig,
+    pub search_config_open: bool,
+    pub search_config_input: String,
     pending_url: Option<String>,
     error_message: Option<String>,
     task_busy: bool,
@@ -77,6 +88,8 @@ impl App {
         std::fs::create_dir_all(&config.download_dir).ok();
 
         let theme = Theme::from_name(&config.theme).unwrap_or_default();
+
+        let search_config = crate::config::search::SearchConfig::load(&config.config_dir);
 
         Ok(Self {
             module,
@@ -107,6 +120,16 @@ impl App {
             theme_picker_selected: 0,
             theme_picker_scroll: 0,
             theme_picker_original: Theme::default(),
+            search_open: false,
+            torrent_search_query: String::new(),
+            search_selected: 0,
+            search_busy: false,
+            search_page: 0,
+            search_all_results: Vec::new(),
+            search_fetched_query: String::new(),
+            search_config,
+            search_config_open: false,
+            search_config_input: String::new(),
             pending_url: None,
             error_message: None,
             task_busy: false,
@@ -118,6 +141,26 @@ impl App {
     /// Queue an error that will be shown on the next frame.
     pub fn set_error(&mut self, msg: impl Into<String>) {
         self.error_message = Some(msg.into());
+    }
+
+    /// Spawn a background task that performs a search query.
+    pub fn enqueue_search(&self, query: String, page: u32) {
+        let searcher: Arc<dyn SearchService> = self.module.resolve();
+        let mut config = self.search_config.clone();
+        config.page = page;
+        let tx = self.event_tx.clone();
+        let torrent: Arc<dyn TorrentService> = self.module.resolve();
+        torrent.spawn_boxed(Box::pin(async move {
+            match searcher.search(&query, &config).await {
+                Ok(results) => {
+                    let _ = tx.send(AppEvent::SearchResults(results));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::SearchResults(Vec::new()));
+                    tracing::warn!("Search failed: {e}");
+                }
+            }
+        }));
     }
 
     /// The currently previewed URL, if any.
@@ -375,6 +418,14 @@ pub fn run(
                 AppEvent::DownloadFailed(msg) => {
                     app.set_error(msg);
                     app.screen = Screen::Browser;
+                }
+                AppEvent::SearchResults(results) => {
+                    app.search_busy = false;
+                    app.search_all_results = results;
+                    app.search_selected = 0;
+                    app.search_page = 0;
+                    app.status_message =
+                        format!("{} result(s) found", app.search_all_results.len());
                 }
             }
         }

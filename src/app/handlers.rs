@@ -1,7 +1,9 @@
 //! Keyboard event handlers for each screen.
 
 use crate::app::App;
-use crate::model::{DisplayEntry, InputState, MenuEntry, Screen, validate_torrent_input};
+use crate::model::{
+    DisplayEntry, InputState, MenuEntry, Screen, SearchResult, validate_torrent_input,
+};
 use crate::traits::{PlayerService, StorageService};
 use crate::ui::Theme;
 use crossterm::event::KeyCode;
@@ -17,12 +19,21 @@ pub fn handle_key(app: &mut App, code: KeyCode) {
         return theme_picker_input(app, code);
     }
 
+    if app.search_open {
+        return search_input(app, code);
+    }
+
     if app.task_busy && !matches!(code, KeyCode::Esc | KeyCode::Char('q')) {
         return;
     }
 
     if code == KeyCode::Char('t') {
         open_theme_picker(app);
+        return;
+    }
+
+    if code == KeyCode::Char('s') {
+        open_search(app);
         return;
     }
 
@@ -52,6 +63,9 @@ fn welcome(app: &mut App, code: KeyCode) {
             }
         }
         KeyCode::Enter => match MenuEntry::ALL[app.menu_selected] {
+            MenuEntry::Search => {
+                open_search(app);
+            }
             MenuEntry::Add => {
                 app.screen = Screen::Input;
                 app.input = InputState::default();
@@ -73,6 +87,24 @@ fn welcome(app: &mut App, code: KeyCode) {
             MenuEntry::Quit => app.running = false,
         },
         KeyCode::Char('q') => app.running = false,
+        KeyCode::Char('a') => {
+            app.screen = Screen::Input;
+            app.input = InputState::default();
+            app.files.clear();
+            app.selected_files.clear();
+            app.display_entries.clear();
+            app.expanded_paths.clear();
+            app.torrent_id = None;
+            app.clear_pending_url();
+            app.status_message = "Enter a magnet link or torrent URL".into();
+        }
+        KeyCode::Char('h') => {
+            app.screen = Screen::History;
+            app.history_selected = 0;
+            app.is_searching = false;
+            app.search_query.clear();
+            app.status_message = "History — Enter: re-add, r: rename, d: delete".into();
+        }
         _ => {}
     }
 }
@@ -585,6 +617,141 @@ fn theme_picker_input(app: &mut App, code: KeyCode) {
         if let Some(&idx) = filtered.get(app.theme_picker_selected) {
             app.theme = all[idx];
         }
+    }
+}
+
+// ── Search ──
+
+fn open_search(app: &mut App) {
+    app.search_open = true;
+    app.torrent_search_query.clear();
+    app.search_fetched_query.clear();
+    app.search_all_results.clear();
+    app.search_selected = 0;
+    app.search_page = 0;
+    app.search_busy = false;
+}
+
+fn search_input(app: &mut App, code: KeyCode) {
+    if app.search_config_open {
+        return search_config_input(app, code);
+    }
+
+    match code {
+        KeyCode::Esc => {
+            app.search_open = false;
+        }
+        KeyCode::Enter => {
+            let select_result = !current_page_results(app).is_empty()
+                && app.torrent_search_query == app.search_fetched_query;
+
+            if select_result {
+                let name = current_page_results(app)
+                    .get(app.search_selected)
+                    .map(|r| (r.info_hash.clone(), r.name.clone()));
+                if let Some((hash, name)) = name {
+                    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn={name}");
+                    app.search_open = false;
+                    app.input = InputState { value: magnet.clone(), cursor: magnet.len() };
+                    app.screen = Screen::Input;
+                    app.status_message = format!("Ready: {name}");
+                }
+            } else {
+                let query = app.torrent_search_query.clone();
+                if !query.is_empty() && !app.search_busy {
+                    app.search_busy = true;
+                    app.search_page = 0;
+                    app.search_fetched_query = query.clone();
+                    app.search_all_results.clear();
+                    app.search_selected = 0;
+                    app.enqueue_search(query, 0);
+                }
+            }
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.search_selected > 0 {
+                app.search_selected -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let max = current_page_results(app).len().saturating_sub(1);
+            if app.search_selected < max {
+                app.search_selected += 1;
+            }
+        }
+        KeyCode::Left => {
+            if app.search_page > 0 {
+                app.search_page -= 1;
+                app.search_selected = 0;
+            }
+        }
+        KeyCode::Right => {
+            let total_pages = app.search_all_results.len().saturating_add(19) / 20;
+            if (app.search_page as usize) < total_pages.saturating_sub(1) {
+                app.search_page += 1;
+                app.search_selected = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            app.torrent_search_query.clear();
+            app.search_fetched_query.clear();
+            app.search_all_results.clear();
+            app.search_selected = 0;
+            app.search_page = 0;
+        }
+        KeyCode::Char('c') => {
+            app.search_config_open = true;
+            app.search_config_input = app.search_config.url.clone();
+        }
+        KeyCode::Backspace => {
+            app.torrent_search_query.pop();
+            clamp_search_selection(app);
+        }
+        KeyCode::Char(ch) if app.torrent_search_query.len() < 256 => {
+            app.torrent_search_query.push(ch);
+            clamp_search_selection(app);
+        }
+        _ => {}
+    }
+}
+
+fn current_page_results(app: &App) -> &[SearchResult] {
+    let start = app.search_page as usize * 20;
+    let end = start + 20;
+    let all = &app.search_all_results;
+    if start >= all.len() {
+        return &[];
+    }
+    let end = end.min(all.len());
+    &all[start..end]
+}
+
+fn clamp_search_selection(app: &mut App) {
+    let max = current_page_results(app).len().saturating_sub(1);
+    if app.search_selected > max {
+        app.search_selected = max;
+    }
+}
+
+fn search_config_input(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Esc => {
+            app.search_config_open = false;
+        }
+        KeyCode::Enter => {
+            let url = app.search_config_input.trim().to_string();
+            app.search_config.url = url;
+            app.search_config_open = false;
+            let _ = app.search_config.save(&app.config.config_dir);
+            app.status_message = "Search API configured".into();
+        }
+        KeyCode::Backspace => {
+            app.search_config_input.pop();
+        }
+        KeyCode::Char(c) if app.search_config_input.len() < 2048 => {
+            app.search_config_input.push(c);
+        }
+        _ => {}
     }
 }
 

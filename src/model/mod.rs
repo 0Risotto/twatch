@@ -85,17 +85,20 @@ pub struct InputState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuEntry {
+    Search,
     Add,
     History,
     Quit,
 }
 
 impl MenuEntry {
-    pub const ALL: [MenuEntry; 3] = [MenuEntry::Add, MenuEntry::History, MenuEntry::Quit];
+    pub const ALL: [MenuEntry; 4] =
+        [MenuEntry::Add, MenuEntry::Search, MenuEntry::History, MenuEntry::Quit];
 
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
+            MenuEntry::Search => "[s] Search torrents",
             MenuEntry::Add => "[a] Add a torrent",
             MenuEntry::History => "[h] History",
             MenuEntry::Quit => "[q] Quit",
@@ -134,4 +137,15 @@ pub fn fuzzy_match(query: &str, target: &str) -> bool {
         }
     }
     qchars.peek().is_none()
+}
+
+/// A search result from the user-configured JSON API.
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub name: String,
+    pub info_hash: String,
+    pub seeders: u64,
+    pub leechers: u64,
+    pub size: u64,
+    pub username: String,
 }

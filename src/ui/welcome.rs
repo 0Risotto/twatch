@@ -36,8 +36,12 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     )));
     text_lines.push(Line::from(""));
 
-    let menu_styles =
-        [app.theme.success_style(), app.theme.warning_style(), app.theme.accent_style()];
+    let menu_styles = [
+        app.theme.success_style(),
+        app.theme.badge_stream_style(),
+        app.theme.warning_style(),
+        app.theme.error_style(),
+    ];
 
     for (i, entry) in MenuEntry::ALL.iter().enumerate() {
         let is_sel = i == app.menu_selected;
