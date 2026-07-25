@@ -4,14 +4,14 @@ use crate::traits::StorageService;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
     widgets::{List, ListItem, Paragraph},
 };
 use shaku::HasComponent;
 use std::sync::Arc;
 
-use crate::ui::theme::styled_block;
+use crate::ui::theme::{color_footer, styled_block};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let storage: Arc<dyn StorageService> = app.module.resolve();
@@ -48,21 +48,21 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App, entries: &[&crate::mode
 
     let header = Paragraph::new(Text::from(Span::styled(
         format!(" {} entries in history", entries.len()),
-        Style::default().fg(Color::Cyan),
+        app.theme.accent_style(),
     )))
-    .block(styled_block(" History ", Color::Cyan));
+    .block(styled_block(" History ", app.theme.palette.accent));
     frame.render_widget(header, chunks[0]);
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", Color::White))
+        .block(styled_block(" Entries ", app.theme.palette.text_primary))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
-    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+    let footer = Paragraph::new(color_footer(
         "[/] search    [Enter] re-add    [r] rename    [d] delete    [q/Esc] back",
-        Style::default().fg(Color::DarkGray),
-    ))]))
+        &app.theme,
+    ))
     .centered();
     frame.render_widget(footer, chunks[2]);
 }
@@ -85,9 +85,9 @@ fn draw_with_search(
 
     let header = Paragraph::new(Text::from(Span::styled(
         format!(" {} entries in history", entries.len()),
-        Style::default().fg(Color::Cyan),
+        app.theme.accent_style(),
     )))
-    .block(styled_block(" History ", Color::Cyan));
+    .block(styled_block(" History ", app.theme.palette.accent));
     frame.render_widget(header, chunks[0]);
 
     let search_text = if app.search_query.is_empty() {
@@ -100,21 +100,19 @@ fn draw_with_search(
             .saturating_sub(right.len());
         format!("{}{}{}", left, " ".repeat(pad), right)
     };
-    let bar = Paragraph::new(Span::styled(search_text, Style::default().fg(Color::Yellow)))
-        .block(styled_block(" Search ", Color::Yellow));
+    let bar = Paragraph::new(Span::styled(search_text, app.theme.warning_style()))
+        .block(styled_block(" Search ", app.theme.palette.warning));
     frame.render_widget(bar, chunks[1]);
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", Color::White))
+        .block(styled_block(" Entries ", app.theme.palette.text_primary))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
-    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
-        "[Esc] cancel    [q] exit    [j/k] navigate",
-        Style::default().fg(Color::DarkGray),
-    ))]))
-    .centered();
+    let footer =
+        Paragraph::new(color_footer("[Esc] cancel    [q] exit    [j/k] navigate", &app.theme))
+            .centered();
     frame.render_widget(footer, chunks[3]);
 }
 
@@ -127,11 +125,8 @@ fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec
             let prefix = if is_selected { "▶ " } else { "  " };
             let name = display_name(entry);
 
-            let name_style = if is_selected {
-                Style::default().fg(Color::Cyan)
-            } else {
-                Style::default().fg(Color::White)
-            };
+            let name_style =
+                if is_selected { app.theme.accent_style() } else { app.theme.text_style() };
 
             let url_display = if entry.url.len() > 60 {
                 format!("{}...", &entry.url[..57])
@@ -141,13 +136,10 @@ fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec
 
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                    Span::styled(prefix, app.theme.accent_style()),
                     Span::styled(name, name_style),
                 ]),
-                Line::from(Span::styled(
-                    format!("    {url_display}"),
-                    Style::default().fg(Color::DarkGray),
-                )),
+                Line::from(Span::styled(format!("    {url_display}"), app.theme.dimmed_style())),
             ])
         })
         .collect()
@@ -164,15 +156,13 @@ fn draw_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup);
 
     let text = Text::from(vec![
-        Line::from(Span::styled("Rename entry", Style::default().fg(Color::Cyan))),
-        Line::from(Span::styled(
-            format!("▸ {}", app.rename_input.value),
-            Style::default().fg(Color::White),
-        )),
+        Line::from(Span::styled("Rename entry", app.theme.accent_style())),
+        Line::from(Span::styled(format!("▸ {}", app.rename_input.value), app.theme.text_style())),
     ]);
 
-    let para =
-        Paragraph::new(text).block(styled_block(" Rename ", Color::Cyan)).style(Style::default());
+    let para = Paragraph::new(text)
+        .block(styled_block(" Rename ", app.theme.palette.accent))
+        .style(Style::default());
 
     frame.render_widget(para, chunks[1]);
 }
@@ -188,15 +178,13 @@ pub fn draw_browser_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup);
 
     let text = Text::from(vec![
-        Line::from(Span::styled("Rename file", Style::default().fg(Color::Cyan))),
-        Line::from(Span::styled(
-            format!("▸ {}", app.rename_input.value),
-            Style::default().fg(Color::White),
-        )),
+        Line::from(Span::styled("Rename file", app.theme.accent_style())),
+        Line::from(Span::styled(format!("▸ {}", app.rename_input.value), app.theme.text_style())),
     ]);
 
-    let para =
-        Paragraph::new(text).block(styled_block(" Rename ", Color::Cyan)).style(Style::default());
+    let para = Paragraph::new(text)
+        .block(styled_block(" Rename ", app.theme.palette.accent))
+        .style(Style::default());
 
     frame.render_widget(para, chunks[1]);
 }

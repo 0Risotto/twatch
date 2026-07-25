@@ -25,7 +25,7 @@ fn main() {
 
 /// Build the DI container, the terminal, and run the application.
 fn try_main() -> anyhow::Result<()> {
-    let config = Config::default();
+    let config = Config::load();
 
     // Ensure the log file's parent directory exists.
     if let Some(parent) = config.log_path.parent() {

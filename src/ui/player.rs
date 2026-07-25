@@ -2,12 +2,12 @@ use crate::app::App;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
     widgets::{Gauge, Paragraph},
 };
 
-use super::{format_size, format_speed, styled_block};
+use super::{color_footer, format_size, format_speed, styled_block};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -22,11 +22,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     // Title
-    let title = Paragraph::new(Text::from(Span::styled(
-        &app.status_message,
-        Style::default().fg(Color::Cyan),
-    )))
-    .block(styled_block(" Now Playing ", Color::Cyan));
+    let title =
+        Paragraph::new(Text::from(Span::styled(&app.status_message, app.theme.accent_style())))
+            .block(styled_block(" Now Playing ", app.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Progress gauge
@@ -35,9 +33,19 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let pct = ((progress * 100.0).clamp(0.0, 100.0)) as u16;
 
+        let gauge_color = if progress >= 1.0 {
+            app.theme.palette.success
+        } else if progress >= 0.75 {
+            app.theme.palette.stream_badge
+        } else if progress >= 0.25 {
+            app.theme.palette.warning
+        } else {
+            app.theme.palette.accent
+        };
+
         let gauge = Gauge::default()
-            .block(styled_block(" Download Progress ", Color::White))
-            .gauge_style(Style::default().fg(Color::Cyan))
+            .block(styled_block(" Download Progress ", app.theme.palette.text_primary))
+            .gauge_style(Style::default().fg(gauge_color))
             .percent(pct)
             .label(format!("{:.1}%", progress * 100.0));
 
@@ -54,27 +62,21 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             .split(chunks[3]);
 
         let dl_text = vec![
-            Line::from(Span::styled(
-                format_speed(stats.download_speed),
-                Style::default().fg(Color::Green),
-            )),
-            Line::from(Span::styled("download", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled(format_speed(stats.download_speed), app.theme.success_style())),
+            Line::from(Span::styled("download", app.theme.dimmed_style())),
         ];
 
         let peers_text = vec![
-            Line::from(Span::styled(
-                format!("{}", stats.peers),
-                Style::default().fg(Color::Yellow),
-            )),
-            Line::from(Span::styled("peers", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled(format!("{}", stats.peers), app.theme.warning_style())),
+            Line::from(Span::styled("peers", app.theme.dimmed_style())),
         ];
 
         let size_text = vec![
             Line::from(Span::styled(
                 format!("{} / {}", format_size(stats.downloaded), format_size(stats.total_size)),
-                Style::default().fg(Color::White),
+                app.theme.accent_style(),
             )),
-            Line::from(Span::styled("downloaded", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled("downloaded", app.theme.dimmed_style())),
         ];
 
         let dl_para = Paragraph::new(Text::from(dl_text)).centered();
@@ -87,10 +89,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     // Footer
-    let footer = Paragraph::new(Text::from(vec![Line::from(Span::styled(
-        "[q/Esc] Stop playback and return to browser",
-        Style::default().fg(Color::DarkGray),
-    ))]))
-    .centered();
+    let footer =
+        Paragraph::new(color_footer("[q/Esc] Stop playback and return to browser", &app.theme))
+            .centered();
     frame.render_widget(footer, chunks[4]);
 }

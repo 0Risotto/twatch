@@ -4,7 +4,7 @@ use crate::model::ActiveDownload;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
     widgets::{Gauge, Paragraph, Wrap},
 };
@@ -13,15 +13,12 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let downloads = &app.active_downloads;
 
     let title = format!(" Downloads ({}) ", downloads.len());
-    let block = styled_block(&title, Color::Cyan);
+    let block = styled_block(&title, app.theme.palette.accent);
 
     if downloads.is_empty() {
-        let empty = Paragraph::new(Span::styled(
-            "No active downloads",
-            Style::default().fg(Color::DarkGray),
-        ))
-        .block(block)
-        .centered();
+        let empty = Paragraph::new(Span::styled("No active downloads", app.theme.dimmed_style()))
+            .block(block)
+            .centered();
         frame.render_widget(empty, area);
         return;
     }
@@ -40,11 +37,11 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(block, area);
 
     for (i, dl) in downloads.iter().take(max_items as usize).enumerate() {
-        draw_download_entry(frame, chunks[i], dl);
+        draw_download_entry(frame, chunks[i], dl, app);
     }
 }
 
-fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload) {
+fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -56,17 +53,14 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload) {
         .split(area);
 
     let kind = if dl.is_streaming {
-        Span::styled("[stream]", Style::default().fg(Color::Magenta))
+        Span::styled("[stream]", app.theme.stream_style())
     } else {
-        Span::styled("[dl]", Style::default().fg(Color::Yellow))
+        Span::styled("[dl]", app.theme.warning_style())
     };
     let name_line = Line::from(vec![
         kind,
         Span::raw(" "),
-        Span::styled(
-            format!("{} / {}", dl.torrent_name, dl.file_name),
-            Style::default().fg(Color::White),
-        ),
+        Span::styled(format!("{} / {}", dl.torrent_name, dl.file_name), app.theme.text_style()),
     ]);
 
     let name_para = Paragraph::new(Text::from(name_line)).wrap(Wrap { trim: true });
@@ -74,15 +68,21 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload) {
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let pct = ((dl.progress * 100.0).clamp(0.0, 100.0)) as u16;
-    let color = if dl.progress >= 1.0 { Color::Green } else { Color::Cyan };
+    let gauge_color = if dl.progress >= 1.0 {
+        app.theme.palette.success
+    } else if dl.is_streaming {
+        app.theme.palette.stream_badge
+    } else {
+        app.theme.palette.warning
+    };
     let gauge = Gauge::default()
-        .gauge_style(Style::default().fg(color))
+        .gauge_style(Style::default().fg(gauge_color))
         .percent(pct)
         .label(format!("{:.0}%", dl.progress * 100.0));
     frame.render_widget(gauge, chunks[1]);
 
     let stat = if dl.progress >= 1.0 {
-        Span::styled("Done", Style::default().fg(Color::Green))
+        Span::styled("Done", app.theme.success_style())
     } else {
         Span::styled(
             format!(
@@ -91,7 +91,7 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload) {
                 format_size(dl.downloaded),
                 format_size(dl.total_size),
             ),
-            Style::default().fg(Color::DarkGray),
+            app.theme.dimmed_style(),
         )
     };
     frame.render_widget(Paragraph::new(Line::from(stat)), chunks[2]);
