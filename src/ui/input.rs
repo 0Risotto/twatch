@@ -17,7 +17,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup_area);
 
     let input_text: Vec<Line> = vec![Line::from(vec![
-        Span::styled("▸ ", app.theme.accent_style()),
+        Span::styled("▸ ", app.theme.input_cursor_style()),
         Span::styled(&app.input.value, app.theme.text_style()),
     ])];
 

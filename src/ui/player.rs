@@ -36,7 +36,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         let gauge_color = if progress >= 1.0 {
             app.theme.palette.success
         } else if progress >= 0.75 {
-            app.theme.palette.stream_badge
+            app.theme.palette.badge_stream
         } else if progress >= 0.25 {
             app.theme.palette.warning
         } else {
@@ -44,7 +44,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         };
 
         let gauge = Gauge::default()
-            .block(styled_block(" Download Progress ", app.theme.palette.text_primary))
+            .block(styled_block(" Download Progress ", app.theme.palette.border))
             .gauge_style(Style::default().fg(gauge_color))
             .percent(pct)
             .label(format!("{:.1}%", progress * 100.0));

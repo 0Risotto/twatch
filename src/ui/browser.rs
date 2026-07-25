@@ -39,7 +39,7 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
     // Entries
     let items = build_items(app, false);
     let list = List::new(items)
-        .block(styled_block(" Files ", app.theme.palette.text_primary))
+        .block(styled_block(" Files ", app.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
@@ -92,7 +92,7 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
     // Entries (filtered)
     let items = build_items(app, true);
     let list = List::new(items)
-        .block(styled_block(" Files ", app.theme.palette.text_primary))
+        .block(styled_block(" Files ", app.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
@@ -121,7 +121,7 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                     let (prefix, style) = if is_hovered {
                         ("▶ ", app.theme.accent_style())
                     } else {
-                        ("  ", app.theme.warning_style())
+                        ("  ", app.theme.folder_style())
                     };
                     ListItem::new(Line::from(vec![
                         Span::raw(indent),

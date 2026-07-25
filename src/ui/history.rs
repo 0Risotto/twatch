@@ -55,7 +55,7 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App, entries: &[&crate::mode
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", app.theme.palette.text_primary))
+        .block(styled_block(" Entries ", app.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
@@ -106,7 +106,7 @@ fn draw_with_search(
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", app.theme.palette.text_primary))
+        .block(styled_block(" Entries ", app.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 

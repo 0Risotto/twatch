@@ -53,7 +53,7 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
         .split(area);
 
     let kind = if dl.is_streaming {
-        Span::styled("[stream]", app.theme.stream_style())
+        Span::styled("[stream]", app.theme.badge_stream_style())
     } else {
         Span::styled("[dl]", app.theme.warning_style())
     };
@@ -71,9 +71,9 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
     let gauge_color = if dl.progress >= 1.0 {
         app.theme.palette.success
     } else if dl.is_streaming {
-        app.theme.palette.stream_badge
+        app.theme.palette.badge_stream
     } else {
-        app.theme.palette.warning
+        app.theme.palette.badge_dl
     };
     let gauge = Gauge::default()
         .gauge_style(Style::default().fg(gauge_color))

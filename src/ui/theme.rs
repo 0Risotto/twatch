@@ -13,12 +13,20 @@ use ratatui::{
 pub struct Palette {
     pub bg: Color,
     pub fg: Color,
+    pub surface: Color,
     pub accent: Color,
     pub text_primary: Color,
     pub text_dimmed: Color,
+    pub input_cursor: Color,
     pub success: Color,
     pub warning: Color,
-    pub stream_badge: Color,
+    pub error: Color,
+    pub folder: Color,
+    pub gauge: Color,
+    pub border: Color,
+    pub hover: Color,
+    pub badge_dl: Color,
+    pub badge_stream: Color,
 }
 
 // ── Theme ────────────────────────────────────────────────────────────
@@ -51,12 +59,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(26, 27, 38),
             fg: Color::Rgb(192, 202, 245),
+            surface: Color::Rgb(31, 34, 56),
             accent: Color::Rgb(122, 162, 247),
             text_primary: Color::Rgb(192, 202, 245),
             text_dimmed: Color::Rgb(86, 95, 137),
+            input_cursor: Color::Rgb(137, 180, 250),
             success: Color::Rgb(158, 206, 106),
             warning: Color::Rgb(224, 175, 104),
-            stream_badge: Color::Rgb(187, 154, 247),
+            error: Color::Rgb(247, 118, 142),
+            folder: Color::Rgb(255, 158, 100),
+            gauge: Color::Rgb(122, 162, 247),
+            border: Color::Rgb(59, 66, 97),
+            hover: Color::Rgb(37, 38, 54),
+            badge_dl: Color::Rgb(224, 175, 104),
+            badge_stream: Color::Rgb(187, 154, 247),
         },
     };
 
@@ -65,12 +81,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(225, 226, 231),
             fg: Color::Rgb(55, 96, 191),
+            surface: Color::Rgb(208, 213, 227),
             accent: Color::Rgb(46, 125, 233),
             text_primary: Color::Rgb(55, 96, 191),
             text_dimmed: Color::Rgb(132, 140, 181),
+            input_cursor: Color::Rgb(53, 138, 255),
             success: Color::Rgb(88, 117, 57),
             warning: Color::Rgb(140, 108, 62),
-            stream_badge: Color::Rgb(152, 84, 241),
+            error: Color::Rgb(245, 42, 101),
+            folder: Color::Rgb(177, 92, 0),
+            gauge: Color::Rgb(46, 125, 233),
+            border: Color::Rgb(168, 174, 203),
+            hover: Color::Rgb(205, 209, 221),
+            badge_dl: Color::Rgb(140, 108, 62),
+            badge_stream: Color::Rgb(152, 84, 241),
         },
     };
 
@@ -79,12 +103,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(31, 31, 40),
             fg: Color::Rgb(220, 215, 186),
+            surface: Color::Rgb(42, 42, 55),
             accent: Color::Rgb(126, 156, 216),
             text_primary: Color::Rgb(220, 215, 186),
             text_dimmed: Color::Rgb(114, 113, 105),
+            input_cursor: Color::Rgb(156, 171, 202),
             success: Color::Rgb(152, 187, 108),
             warning: Color::Rgb(230, 195, 132),
-            stream_badge: Color::Rgb(149, 127, 184),
+            error: Color::Rgb(232, 36, 36),
+            folder: Color::Rgb(255, 160, 102),
+            gauge: Color::Rgb(126, 156, 216),
+            border: Color::Rgb(54, 54, 70),
+            hover: Color::Rgb(39, 39, 54),
+            badge_dl: Color::Rgb(230, 195, 132),
+            badge_stream: Color::Rgb(149, 127, 184),
         },
     };
 
@@ -93,12 +125,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(242, 236, 188),
             fg: Color::Rgb(84, 84, 100),
+            surface: Color::Rgb(229, 221, 176),
             accent: Color::Rgb(77, 105, 155),
             text_primary: Color::Rgb(84, 84, 100),
             text_dimmed: Color::Rgb(138, 137, 128),
+            input_cursor: Color::Rgb(93, 87, 163),
             success: Color::Rgb(111, 137, 78),
             warning: Color::Rgb(222, 152, 0),
-            stream_badge: Color::Rgb(118, 107, 144),
+            error: Color::Rgb(200, 64, 83),
+            folder: Color::Rgb(233, 138, 0),
+            gauge: Color::Rgb(77, 105, 155),
+            border: Color::Rgb(160, 156, 172),
+            hover: Color::Rgb(231, 219, 160),
+            badge_dl: Color::Rgb(222, 152, 0),
+            badge_stream: Color::Rgb(118, 107, 144),
         },
     };
 
@@ -107,12 +147,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(46, 52, 64),
             fg: Color::Rgb(216, 222, 233),
+            surface: Color::Rgb(59, 66, 82),
             accent: Color::Rgb(136, 192, 208),
             text_primary: Color::Rgb(216, 222, 233),
             text_dimmed: Color::Rgb(76, 86, 106),
+            input_cursor: Color::Rgb(143, 188, 187),
             success: Color::Rgb(163, 190, 140),
             warning: Color::Rgb(235, 203, 139),
-            stream_badge: Color::Rgb(180, 142, 173),
+            error: Color::Rgb(191, 97, 106),
+            folder: Color::Rgb(208, 135, 112),
+            gauge: Color::Rgb(136, 192, 208),
+            border: Color::Rgb(76, 86, 106),
+            hover: Color::Rgb(59, 66, 82),
+            badge_dl: Color::Rgb(235, 203, 139),
+            badge_stream: Color::Rgb(180, 142, 173),
         },
     };
 
@@ -121,12 +169,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(236, 239, 244),
             fg: Color::Rgb(46, 52, 64),
+            surface: Color::Rgb(216, 222, 233),
             accent: Color::Rgb(94, 129, 172),
             text_primary: Color::Rgb(46, 52, 64),
             text_dimmed: Color::Rgb(129, 161, 193),
+            input_cursor: Color::Rgb(129, 161, 193),
             success: Color::Rgb(122, 156, 102),
             warning: Color::Rgb(199, 151, 63),
-            stream_badge: Color::Rgb(158, 122, 168),
+            error: Color::Rgb(191, 97, 106),
+            folder: Color::Rgb(208, 135, 112),
+            gauge: Color::Rgb(136, 192, 208),
+            border: Color::Rgb(129, 161, 193),
+            hover: Color::Rgb(229, 233, 240),
+            badge_dl: Color::Rgb(199, 151, 63),
+            badge_stream: Color::Rgb(180, 142, 173),
         },
     };
 
@@ -135,12 +191,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(40, 40, 40),
             fg: Color::Rgb(235, 219, 178),
+            surface: Color::Rgb(50, 48, 47),
             accent: Color::Rgb(131, 165, 152),
             text_primary: Color::Rgb(235, 219, 178),
             text_dimmed: Color::Rgb(146, 131, 116),
+            input_cursor: Color::Rgb(142, 192, 124),
             success: Color::Rgb(184, 187, 38),
             warning: Color::Rgb(250, 189, 47),
-            stream_badge: Color::Rgb(211, 134, 155),
+            error: Color::Rgb(251, 73, 52),
+            folder: Color::Rgb(254, 128, 25),
+            gauge: Color::Rgb(131, 165, 152),
+            border: Color::Rgb(80, 73, 69),
+            hover: Color::Rgb(60, 56, 54),
+            badge_dl: Color::Rgb(250, 189, 47),
+            badge_stream: Color::Rgb(211, 134, 155),
         },
     };
 
@@ -149,12 +213,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(251, 241, 199),
             fg: Color::Rgb(60, 56, 54),
+            surface: Color::Rgb(242, 229, 188),
             accent: Color::Rgb(7, 102, 120),
             text_primary: Color::Rgb(60, 56, 54),
             text_dimmed: Color::Rgb(124, 111, 100),
+            input_cursor: Color::Rgb(66, 123, 88),
             success: Color::Rgb(121, 116, 14),
             warning: Color::Rgb(181, 118, 20),
-            stream_badge: Color::Rgb(143, 63, 113),
+            error: Color::Rgb(157, 0, 6),
+            folder: Color::Rgb(175, 58, 3),
+            gauge: Color::Rgb(7, 102, 120),
+            border: Color::Rgb(213, 196, 161),
+            hover: Color::Rgb(235, 219, 178),
+            badge_dl: Color::Rgb(181, 118, 20),
+            badge_stream: Color::Rgb(143, 63, 113),
         },
     };
 
@@ -163,12 +235,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(30, 30, 46),
             fg: Color::Rgb(205, 214, 244),
+            surface: Color::Rgb(49, 50, 68),
             accent: Color::Rgb(137, 180, 250),
             text_primary: Color::Rgb(205, 214, 244),
             text_dimmed: Color::Rgb(108, 112, 134),
+            input_cursor: Color::Rgb(116, 199, 236),
             success: Color::Rgb(166, 227, 161),
             warning: Color::Rgb(249, 226, 175),
-            stream_badge: Color::Rgb(203, 166, 247),
+            error: Color::Rgb(243, 139, 168),
+            folder: Color::Rgb(250, 179, 135),
+            gauge: Color::Rgb(137, 180, 250),
+            border: Color::Rgb(69, 71, 90),
+            hover: Color::Rgb(49, 50, 68),
+            badge_dl: Color::Rgb(249, 226, 175),
+            badge_stream: Color::Rgb(203, 166, 247),
         },
     };
 
@@ -177,12 +257,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(239, 241, 245),
             fg: Color::Rgb(76, 79, 105),
+            surface: Color::Rgb(204, 208, 218),
             accent: Color::Rgb(30, 102, 245),
             text_primary: Color::Rgb(76, 79, 105),
             text_dimmed: Color::Rgb(156, 160, 176),
+            input_cursor: Color::Rgb(32, 159, 181),
             success: Color::Rgb(64, 160, 43),
             warning: Color::Rgb(223, 142, 29),
-            stream_badge: Color::Rgb(136, 57, 239),
+            error: Color::Rgb(210, 15, 57),
+            folder: Color::Rgb(254, 100, 11),
+            gauge: Color::Rgb(30, 102, 245),
+            border: Color::Rgb(188, 192, 204),
+            hover: Color::Rgb(230, 233, 239),
+            badge_dl: Color::Rgb(223, 142, 29),
+            badge_stream: Color::Rgb(136, 57, 239),
         },
     };
 
@@ -191,12 +279,20 @@ impl Theme {
         palette: Palette {
             bg: Color::Rgb(31, 29, 46),
             fg: Color::Rgb(224, 222, 244),
+            surface: Color::Rgb(42, 40, 54),
             accent: Color::Rgb(196, 167, 231),
             text_primary: Color::Rgb(224, 222, 244),
             text_dimmed: Color::Rgb(110, 106, 134),
+            input_cursor: Color::Rgb(212, 184, 240),
             success: Color::Rgb(49, 182, 176),
             warning: Color::Rgb(246, 193, 119),
-            stream_badge: Color::Rgb(235, 111, 146),
+            error: Color::Rgb(235, 111, 150),
+            folder: Color::Rgb(240, 192, 128),
+            gauge: Color::Rgb(196, 167, 231),
+            border: Color::Rgb(58, 55, 72),
+            hover: Color::Rgb(40, 37, 56),
+            badge_dl: Color::Rgb(246, 193, 119),
+            badge_stream: Color::Rgb(235, 111, 146),
         },
     };
 
@@ -218,6 +314,16 @@ impl Theme {
     }
 
     #[must_use]
+    pub fn surface_style(&self) -> Style {
+        Style::default().fg(self.palette.fg).bg(self.palette.surface)
+    }
+
+    #[must_use]
+    pub fn input_cursor_style(&self) -> Style {
+        Style::default().fg(self.palette.input_cursor).bg(self.palette.bg)
+    }
+
+    #[must_use]
     pub fn success_style(&self) -> Style {
         Style::default().fg(self.palette.success).bg(self.palette.bg)
     }
@@ -228,8 +334,38 @@ impl Theme {
     }
 
     #[must_use]
-    pub fn stream_style(&self) -> Style {
-        Style::default().fg(self.palette.stream_badge).bg(self.palette.bg)
+    pub fn error_style(&self) -> Style {
+        Style::default().fg(self.palette.error).bg(self.palette.bg)
+    }
+
+    #[must_use]
+    pub fn folder_style(&self) -> Style {
+        Style::default().fg(self.palette.folder).bg(self.palette.bg)
+    }
+
+    #[must_use]
+    pub fn gauge_style(&self) -> Style {
+        Style::default().fg(self.palette.gauge)
+    }
+
+    #[must_use]
+    pub fn border_style(&self) -> Style {
+        Style::default().fg(self.palette.border)
+    }
+
+    #[must_use]
+    pub fn hover_style(&self) -> Style {
+        Style::default().bg(self.palette.hover)
+    }
+
+    #[must_use]
+    pub fn badge_dl_style(&self) -> Style {
+        Style::default().fg(self.palette.badge_dl).bg(self.palette.bg)
+    }
+
+    #[must_use]
+    pub fn badge_stream_style(&self) -> Style {
+        Style::default().fg(self.palette.badge_stream).bg(self.palette.bg)
     }
 
     #[must_use]

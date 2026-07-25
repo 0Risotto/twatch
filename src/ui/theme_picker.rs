@@ -19,7 +19,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .borders(Borders::ALL)
         .title(" Themes ")
         .border_style(Style::default().fg(app.theme.palette.accent))
-        .style(Style::default().bg(app.theme.palette.bg).fg(app.theme.palette.fg));
+        .style(app.theme.surface_style());
 
     frame.render_widget(block.clone(), popup);
 
