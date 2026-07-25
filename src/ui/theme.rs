@@ -30,7 +30,7 @@ pub struct Theme {
 }
 
 impl Theme {
-    pub const ALL: [Theme; 10] = [
+    pub const ALL: [Theme; 11] = [
         Theme::TOKYONIGHT_DARK,
         Theme::TOKYONIGHT_LIGHT,
         Theme::KANAGAWA_DARK,
@@ -41,6 +41,7 @@ impl Theme {
         Theme::GRUVBOX_LIGHT,
         Theme::CATPPUCCIN_MOCHA,
         Theme::CATPPUCCIN_LATTE,
+        Theme::PURPLE,
     ];
 
     // ── Individual themes ────────────────────────────────────────
@@ -182,6 +183,20 @@ impl Theme {
             success: Color::Rgb(64, 160, 43),
             warning: Color::Rgb(223, 142, 29),
             stream_badge: Color::Rgb(136, 57, 239),
+        },
+    };
+
+    const PURPLE: Theme = Theme {
+        name: "Purple",
+        palette: Palette {
+            bg: Color::Rgb(31, 29, 46),
+            fg: Color::Rgb(224, 222, 244),
+            accent: Color::Rgb(196, 167, 231),
+            text_primary: Color::Rgb(224, 222, 244),
+            text_dimmed: Color::Rgb(110, 106, 134),
+            success: Color::Rgb(49, 182, 176),
+            warning: Color::Rgb(246, 193, 119),
+            stream_badge: Color::Rgb(235, 111, 146),
         },
     };
 
