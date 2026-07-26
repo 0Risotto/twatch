@@ -22,9 +22,11 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     // Title
-    let title =
-        Paragraph::new(Text::from(Span::styled(&app.status_message, app.theme.accent_style())))
-            .block(styled_block(" Now Playing ", app.theme.palette.accent));
+    let title = Paragraph::new(Text::from(Span::styled(
+        &app.status_message,
+        app.theme_state.theme.accent_style(),
+    )))
+    .block(styled_block(" Now Playing ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Progress gauge
@@ -34,17 +36,17 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         let pct = ((progress * 100.0).clamp(0.0, 100.0)) as u16;
 
         let gauge_color = if progress >= 1.0 {
-            app.theme.palette.success
+            app.theme_state.theme.palette.success
         } else if progress >= 0.75 {
-            app.theme.palette.badge_stream
+            app.theme_state.theme.palette.badge_stream
         } else if progress >= 0.25 {
-            app.theme.palette.warning
+            app.theme_state.theme.palette.warning
         } else {
-            app.theme.palette.accent
+            app.theme_state.theme.palette.accent
         };
 
         let gauge = Gauge::default()
-            .block(styled_block(" Download Progress ", app.theme.palette.border))
+            .block(styled_block(" Download Progress ", app.theme_state.theme.palette.border))
             .gauge_style(Style::default().fg(gauge_color))
             .percent(pct)
             .label(format!("{:.1}%", progress * 100.0));
@@ -62,21 +64,27 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             .split(chunks[3]);
 
         let dl_text = vec![
-            Line::from(Span::styled(format_speed(stats.download_speed), app.theme.success_style())),
-            Line::from(Span::styled("download", app.theme.dimmed_style())),
+            Line::from(Span::styled(
+                format_speed(stats.download_speed),
+                app.theme_state.theme.success_style(),
+            )),
+            Line::from(Span::styled("download", app.theme_state.theme.dimmed_style())),
         ];
 
         let peers_text = vec![
-            Line::from(Span::styled(format!("{}", stats.peers), app.theme.warning_style())),
-            Line::from(Span::styled("peers", app.theme.dimmed_style())),
+            Line::from(Span::styled(
+                format!("{}", stats.peers),
+                app.theme_state.theme.warning_style(),
+            )),
+            Line::from(Span::styled("peers", app.theme_state.theme.dimmed_style())),
         ];
 
         let size_text = vec![
             Line::from(Span::styled(
                 format!("{} / {}", format_size(stats.downloaded), format_size(stats.total_size)),
-                app.theme.accent_style(),
+                app.theme_state.theme.accent_style(),
             )),
-            Line::from(Span::styled("downloaded", app.theme.dimmed_style())),
+            Line::from(Span::styled("downloaded", app.theme_state.theme.dimmed_style())),
         ];
 
         let dl_para = Paragraph::new(Text::from(dl_text)).centered();
@@ -89,8 +97,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     // Footer
-    let footer =
-        Paragraph::new(color_footer("[q/Esc] Stop playback and return to browser", &app.theme))
-            .centered();
+    let footer = Paragraph::new(color_footer(
+        "[q/Esc] Stop playback and return to browser",
+        &app.theme_state.theme,
+    ))
+    .centered();
     frame.render_widget(footer, chunks[4]);
 }

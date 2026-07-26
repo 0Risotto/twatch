@@ -10,32 +10,32 @@ pub(crate) fn browser(app: &mut App, code: KeyCode) {
         return browser_search(app, code);
     }
 
-    if app.confirm_delete {
+    if app.browser.confirm_delete {
         return browser_confirm_delete(app, code);
     }
 
     match code {
         KeyCode::Char('q') | KeyCode::Esc => {
             app.screen = Screen::Welcome;
-            app.files.clear();
-            app.selected_files.clear();
-            app.display_entries.clear();
-            app.expanded_paths.clear();
-            app.selected_file = 0;
+            app.browser.files.clear();
+            app.browser.selected_files.clear();
+            app.browser.display_entries.clear();
+            app.browser.expanded_paths.clear();
+            app.browser.selected_file = 0;
             app.torrent_id = None;
             app.clear_pending_url();
             app.status_message.clear();
         }
         KeyCode::Up | KeyCode::Char('k') => {
             let visible = app.visible_entries();
-            if !visible.is_empty() && app.selected_file > 0 {
-                app.selected_file -= 1;
+            if !visible.is_empty() && app.browser.selected_file > 0 {
+                app.browser.selected_file -= 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
             let visible = app.visible_entries();
-            if app.selected_file < visible.len().saturating_sub(1) {
-                app.selected_file += 1;
+            if app.browser.selected_file < visible.len().saturating_sub(1) {
+                app.browser.selected_file += 1;
             }
         }
         KeyCode::Enter => browser_enter(app),
@@ -46,8 +46,8 @@ pub(crate) fn browser(app: &mut App, code: KeyCode) {
             if indices.is_empty() {
                 app.set_error("No files selected. Press Space to toggle selection.");
             } else {
-                app.confirm_delete = true;
-                app.confirm_delete_yes = false;
+                app.browser.confirm_delete = true;
+                app.browser.confirm_delete_yes = false;
             }
         }
         KeyCode::Char(' ') => toggle_selection(app),
@@ -71,11 +71,11 @@ pub(crate) fn browser_search(app: &mut App, code: KeyCode) {
             app.is_searching = false;
             app.search_query.clear();
             app.screen = Screen::Welcome;
-            app.files.clear();
-            app.selected_files.clear();
-            app.display_entries.clear();
-            app.expanded_paths.clear();
-            app.selected_file = 0;
+            app.browser.files.clear();
+            app.browser.selected_files.clear();
+            app.browser.display_entries.clear();
+            app.browser.expanded_paths.clear();
+            app.browser.selected_file = 0;
             app.torrent_id = None;
             app.clear_pending_url();
             app.status_message.clear();
@@ -84,7 +84,7 @@ pub(crate) fn browser_search(app: &mut App, code: KeyCode) {
             app.is_searching = false;
             let visible = app.visible_entries();
             if !visible.is_empty() {
-                let (_, entry) = &visible[app.selected_file];
+                let (_, entry) = &visible[app.browser.selected_file];
                 let name = match entry {
                     DisplayEntry::Folder { name, .. } => name.clone(),
                     DisplayEntry::File { file, .. } => file.name.clone(),
@@ -94,39 +94,39 @@ pub(crate) fn browser_search(app: &mut App, code: KeyCode) {
         }
         KeyCode::Up | KeyCode::Char('k') => {
             let visible = app.visible_entries();
-            if !visible.is_empty() && app.selected_file > 0 {
-                app.selected_file -= 1;
+            if !visible.is_empty() && app.browser.selected_file > 0 {
+                app.browser.selected_file -= 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
             let visible = app.visible_entries();
-            if app.selected_file < visible.len().saturating_sub(1) {
-                app.selected_file += 1;
+            if app.browser.selected_file < visible.len().saturating_sub(1) {
+                app.browser.selected_file += 1;
             }
         }
         KeyCode::Backspace => {
             app.search_query.pop();
-            app.selected_file = 0;
+            app.browser.selected_file = 0;
         }
         KeyCode::Char(c) if app.search_query.len() < 256 => {
             app.search_query.push(c);
-            app.selected_file = 0;
+            app.browser.selected_file = 0;
         }
         _ => {}
     }
 }
 
 pub(crate) fn browser_enter(app: &mut App) {
-    let Some(entry) = app.display_entries.get(app.selected_file).cloned() else {
+    let Some(entry) = app.browser.display_entries.get(app.browser.selected_file).cloned() else {
         return;
     };
     match entry {
         DisplayEntry::Folder { name, depth, expanded: _ } => {
             let full = folder_path(app, depth, &name);
-            if app.expanded_paths.contains(&full) {
-                app.expanded_paths.remove(&full);
+            if app.browser.expanded_paths.contains(&full) {
+                app.browser.expanded_paths.remove(&full);
             } else {
-                app.expanded_paths.insert(full);
+                app.browser.expanded_paths.insert(full);
             }
             app.rebuild_entries();
         }
@@ -138,8 +138,10 @@ pub(crate) fn browser_enter(app: &mut App) {
 
 pub(crate) fn folder_path(app: &App, depth: usize, name: &str) -> String {
     let mut ancestors: Vec<&str> = Vec::with_capacity(depth);
-    for i in (0..app.selected_file).rev() {
-        if let Some(DisplayEntry::Folder { name: n, depth: d, .. }) = app.display_entries.get(i) {
+    for i in (0..app.browser.selected_file).rev() {
+        if let Some(DisplayEntry::Folder { name: n, depth: d, .. }) =
+            app.browser.display_entries.get(i)
+        {
             if *d < depth && ancestors.len() < depth {
                 ancestors.push(n.as_str());
             }
@@ -158,7 +160,7 @@ pub(crate) fn folder_path(app: &App, depth: usize, name: &str) -> String {
 
 pub(crate) fn watch_file(app: &mut App) {
     let visible = app.visible_entries();
-    let file = match visible.get(app.selected_file).map(|(_, e)| e) {
+    let file = match visible.get(app.browser.selected_file).map(|(_, e)| e) {
         Some(DisplayEntry::File { file, .. }) => file.clone(),
         _ => {
             app.set_error("Select a file to watch, not a folder.");
@@ -178,23 +180,23 @@ pub(crate) fn watch_file(app: &mut App) {
 pub(crate) fn browser_confirm_delete(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Enter | KeyCode::Char('y') => {
-            if !app.confirm_delete_yes {
-                app.confirm_delete_yes = true;
+            if !app.browser.confirm_delete_yes {
+                app.browser.confirm_delete_yes = true;
             }
             delete_selected_files(app);
         }
         KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('n') => {
-            app.confirm_delete = false;
-            app.confirm_delete_yes = false;
+            app.browser.confirm_delete = false;
+            app.browser.confirm_delete_yes = false;
         }
         KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
-            app.confirm_delete_yes = !app.confirm_delete_yes;
+            app.browser.confirm_delete_yes = !app.browser.confirm_delete_yes;
         }
         KeyCode::Char('h') => {
-            app.confirm_delete_yes = false;
+            app.browser.confirm_delete_yes = false;
         }
         KeyCode::Char('l') => {
-            app.confirm_delete_yes = true;
+            app.browser.confirm_delete_yes = true;
         }
         _ => {}
     }
@@ -209,15 +211,15 @@ pub(crate) fn delete_selected_files(app: &mut App) {
     let mut failed: Vec<String> = Vec::new();
 
     for i in &indices {
-        if let Some(f) = app.files.get(*i) {
+        if let Some(f) = app.browser.files.get(*i) {
             let path = download_dir.join(&f.name);
             match fs::remove_file(&path) {
                 Ok(()) => {
                     deleted += 1;
                     storage.mark_deleted(&url, &f.name);
-                    app.watched_files.retain(|wf| wf != &f.name);
-                    app.downloaded_files.retain(|df| df != &f.name);
-                    app.downloading_files.retain(|df| df != &f.name);
+                    app.browser.watched_files.retain(|wf| wf != &f.name);
+                    app.browser.downloaded_files.retain(|df| df != &f.name);
+                    app.browser.downloading_files.retain(|df| df != &f.name);
                 }
                 Err(_) => failed.push(f.name.clone()),
             }
@@ -230,17 +232,17 @@ pub(crate) fn delete_selected_files(app: &mut App) {
         app.status_message =
             format!("Deleted {} file(s), {} failed: {}", deleted, failed.len(), failed.join(", "));
     }
-    app.confirm_delete = false;
-    app.confirm_delete_yes = false;
+    app.browser.confirm_delete = false;
+    app.browser.confirm_delete_yes = false;
 }
 
 pub(crate) fn toggle_selection(app: &mut App) {
     let visible = app.visible_entries();
-    let idx = match visible.get(app.selected_file).map(|(_, e)| e) {
+    let idx = match visible.get(app.browser.selected_file).map(|(_, e)| e) {
         Some(DisplayEntry::File { file, .. }) => file.index,
         _ => return,
     };
-    if let Some(sel) = app.selected_files.get_mut(idx) {
+    if let Some(sel) = app.browser.selected_files.get_mut(idx) {
         *sel = !*sel;
     }
 }
@@ -256,7 +258,7 @@ pub(crate) fn download_batch(app: &mut App) {
         return;
     };
     let label = if indices.len() == 1 {
-        app.files.get(indices[0]).map(|f| f.name.clone()).unwrap_or_default()
+        app.browser.files.get(indices[0]).map(|f| f.name.clone()).unwrap_or_default()
     } else {
         format!("{} files", indices.len())
     };
@@ -269,7 +271,7 @@ pub(crate) fn download_batch(app: &mut App) {
 pub(crate) fn start_rename(app: &mut App) {
     let file = {
         let visible = app.visible_entries();
-        match visible.get(app.selected_file).map(|(_, e)| *e) {
+        match visible.get(app.browser.selected_file).map(|(_, e)| *e) {
             Some(DisplayEntry::File { file, .. }) => file.clone(),
             _ => return,
         }

@@ -47,7 +47,10 @@ pub fn restore() -> Result<()> {
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
-    frame.render_widget(ratatui::widgets::Block::default().style(app.theme.bg_style()), area);
+    frame.render_widget(
+        ratatui::widgets::Block::default().style(app.theme_state.theme.bg_style()),
+        area,
+    );
 
     let panes = Layout::default()
         .direction(Direction::Horizontal)
@@ -73,11 +76,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     sidebar::draw(frame, sidebar_area, app);
 
-    if app.theme_picker {
+    if app.theme_state.picker {
         theme_picker::draw(frame, area, app);
     }
 
-    if app.search_open {
+    if app.search_popup.open {
         search_popup::draw(frame, app);
     }
 }
@@ -89,9 +92,12 @@ fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     let text = Text::from(vec![
-        Line::from(Span::styled("Fetching torrent metadata...", app.theme.warning_style())),
+        Line::from(Span::styled(
+            "Fetching torrent metadata...",
+            app.theme_state.theme.warning_style(),
+        )),
         Line::from(""),
-        Line::from(Span::styled(&app.status_message, app.theme.dimmed_style())),
+        Line::from(Span::styled(&app.status_message, app.theme_state.theme.dimmed_style())),
     ]);
 
     let paragraph = Paragraph::new(text)
@@ -99,7 +105,7 @@ fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Loading")
-                .border_style(Style::default().fg(app.theme.palette.warning)),
+                .border_style(Style::default().fg(app.theme_state.theme.palette.warning)),
         )
         .centered();
 

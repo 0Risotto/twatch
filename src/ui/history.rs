@@ -48,20 +48,20 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App, entries: &[&crate::mode
 
     let header = Paragraph::new(Text::from(Span::styled(
         format!(" {} entries in history", entries.len()),
-        app.theme.accent_style(),
+        app.theme_state.theme.accent_style(),
     )))
-    .block(styled_block(" History ", app.theme.palette.accent));
+    .block(styled_block(" History ", app.theme_state.theme.palette.accent));
     frame.render_widget(header, chunks[0]);
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", app.theme.palette.border))
+        .block(styled_block(" Entries ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
     let footer = Paragraph::new(color_footer(
         "[/] search    [Enter] re-add    [r] rename    [d] delete    [q/Esc] back",
-        &app.theme,
+        &app.theme_state.theme,
     ))
     .centered();
     frame.render_widget(footer, chunks[2]);
@@ -85,9 +85,9 @@ fn draw_with_search(
 
     let header = Paragraph::new(Text::from(Span::styled(
         format!(" {} entries in history", entries.len()),
-        app.theme.accent_style(),
+        app.theme_state.theme.accent_style(),
     )))
-    .block(styled_block(" History ", app.theme.palette.accent));
+    .block(styled_block(" History ", app.theme_state.theme.palette.accent));
     frame.render_widget(header, chunks[0]);
 
     let search_text = if app.search_query.is_empty() {
@@ -100,19 +100,21 @@ fn draw_with_search(
             .saturating_sub(right.len());
         format!("{}{}{}", left, " ".repeat(pad), right)
     };
-    let bar = Paragraph::new(Span::styled(search_text, app.theme.warning_style()))
-        .block(styled_block(" Search ", app.theme.palette.warning));
+    let bar = Paragraph::new(Span::styled(search_text, app.theme_state.theme.warning_style()))
+        .block(styled_block(" Search ", app.theme_state.theme.palette.warning));
     frame.render_widget(bar, chunks[1]);
 
     let items = build_items(app, entries);
     let list = List::new(items)
-        .block(styled_block(" Entries ", app.theme.palette.border))
+        .block(styled_block(" Entries ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
-    let footer =
-        Paragraph::new(color_footer("[Esc] cancel    [q] exit    [j/k] navigate", &app.theme))
-            .centered();
+    let footer = Paragraph::new(color_footer(
+        "[Esc] cancel    [q] exit    [j/k] navigate",
+        &app.theme_state.theme,
+    ))
+    .centered();
     frame.render_widget(footer, chunks[3]);
 }
 
@@ -121,12 +123,15 @@ fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec
         .iter()
         .enumerate()
         .map(|(i, entry)| {
-            let is_selected = i == app.history_selected;
+            let is_selected = i == app.history.selected;
             let prefix = if is_selected { "▶ " } else { "  " };
             let name = display_name(entry);
 
-            let name_style =
-                if is_selected { app.theme.accent_style() } else { app.theme.text_style() };
+            let name_style = if is_selected {
+                app.theme_state.theme.accent_style()
+            } else {
+                app.theme_state.theme.text_style()
+            };
 
             let url_display = if entry.url.len() > 60 {
                 format!("{}...", &entry.url[..57])
@@ -135,13 +140,16 @@ fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec
             };
 
             let spans = vec![
-                Span::styled(prefix, app.theme.accent_style()),
+                Span::styled(prefix, app.theme_state.theme.accent_style()),
                 Span::styled(name, name_style),
             ];
 
             ListItem::new(vec![
                 Line::from(spans),
-                Line::from(Span::styled(format!("    {url_display}"), app.theme.dimmed_style())),
+                Line::from(Span::styled(
+                    format!("    {url_display}"),
+                    app.theme_state.theme.dimmed_style(),
+                )),
             ])
         })
         .collect()
@@ -158,12 +166,15 @@ fn draw_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup);
 
     let text = Text::from(vec![
-        Line::from(Span::styled("Rename entry", app.theme.accent_style())),
-        Line::from(Span::styled(format!("▸ {}", app.rename_input.value), app.theme.text_style())),
+        Line::from(Span::styled("Rename entry", app.theme_state.theme.accent_style())),
+        Line::from(Span::styled(
+            format!("▸ {}", app.rename_input.value),
+            app.theme_state.theme.text_style(),
+        )),
     ]);
 
     let para = Paragraph::new(text)
-        .block(styled_block(" Rename ", app.theme.palette.accent))
+        .block(styled_block(" Rename ", app.theme_state.theme.palette.accent))
         .style(Style::default());
 
     frame.render_widget(para, chunks[1]);
@@ -180,12 +191,15 @@ pub fn draw_browser_rename_overlay(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup);
 
     let text = Text::from(vec![
-        Line::from(Span::styled("Rename file", app.theme.accent_style())),
-        Line::from(Span::styled(format!("▸ {}", app.rename_input.value), app.theme.text_style())),
+        Line::from(Span::styled("Rename file", app.theme_state.theme.accent_style())),
+        Line::from(Span::styled(
+            format!("▸ {}", app.rename_input.value),
+            app.theme_state.theme.text_style(),
+        )),
     ]);
 
     let para = Paragraph::new(text)
-        .block(styled_block(" Rename ", app.theme.palette.accent))
+        .block(styled_block(" Rename ", app.theme_state.theme.palette.accent))
         .style(Style::default());
 
     frame.render_widget(para, chunks[1]);

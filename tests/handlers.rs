@@ -95,66 +95,66 @@ fn input_enter_on_empty_url_is_ignored() {
 fn browser_toggle_selection() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![false];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![false];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char(' ').into());
-    assert!(app.selected_files[0]);
+    assert!(app.browser.selected_files[0]);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char(' ').into());
-    assert!(!app.selected_files[0]);
+    assert!(!app.browser.selected_files[0]);
 }
 
 #[test]
 fn browser_esc_returns_to_welcome_and_clears_files() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a".into(), size: 1 }];
-    app.selected_files = vec![false];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a".into(), size: 1 }];
+    app.browser.selected_files = vec![false];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
     assert_eq!(app.screen, Screen::Welcome);
-    assert!(app.files.is_empty());
-    assert!(app.selected_files.is_empty());
-    assert!(app.display_entries.is_empty());
+    assert!(app.browser.files.is_empty());
+    assert!(app.browser.selected_files.is_empty());
+    assert!(app.browser.display_entries.is_empty());
 }
 
 #[test]
 fn browser_folder_expand_collapse() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![
+    app.browser.files = vec![
         TorrentFile { index: 0, name: "dir/file1.mkv".into(), size: 100 },
         TorrentFile { index: 1, name: "dir/file2.mkv".into(), size: 200 },
         TorrentFile { index: 2, name: "README.txt".into(), size: 50 },
     ];
-    app.selected_files = vec![false; 3];
+    app.browser.selected_files = vec![false; 3];
     app.rebuild_entries();
 
     // Tree should have: folder "dir" (depth 0), file "README.txt" (depth 0)
-    assert_eq!(app.display_entries.len(), 2);
-    assert!(matches!(app.display_entries[0], DisplayEntry::Folder { .. }));
-    assert!(matches!(app.display_entries[1], DisplayEntry::File { .. }));
+    assert_eq!(app.browser.display_entries.len(), 2);
+    assert!(matches!(app.browser.display_entries[0], DisplayEntry::Folder { .. }));
+    assert!(matches!(app.browser.display_entries[1], DisplayEntry::File { .. }));
 
     // Enter on folder expands it.
-    app.selected_file = 0;
+    app.browser.selected_file = 0;
     twatch::app::handlers::handle_key(&mut app, KeyCode::Enter.into());
-    assert_eq!(app.display_entries.len(), 4, "should show 2 files inside dir");
-    assert!(!app.expanded_paths.is_empty(), "dir/ should be in expanded_paths");
+    assert_eq!(app.browser.display_entries.len(), 4, "should show 2 files inside dir");
+    assert!(!app.browser.expanded_paths.is_empty(), "dir/ should be in expanded_paths");
 
     // Enter again collapses.
     twatch::app::handlers::handle_key(&mut app, KeyCode::Enter.into());
-    assert_eq!(app.display_entries.len(), 2, "should be back to 2 entries");
-    assert!(app.expanded_paths.is_empty());
+    assert_eq!(app.browser.display_entries.len(), 2, "should be back to 2 entries");
+    assert!(app.browser.expanded_paths.is_empty());
 }
 
 #[test]
 fn browser_q_in_search_exits_to_welcome() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![false];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![false];
     app.rebuild_entries();
 
     // Enter search mode
@@ -165,15 +165,15 @@ fn browser_q_in_search_exits_to_welcome() {
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('q').into());
     assert_eq!(app.screen, Screen::Welcome);
     assert!(!app.is_searching);
-    assert!(app.display_entries.is_empty());
+    assert!(app.browser.display_entries.is_empty());
 }
 
 #[test]
 fn browser_search_esc_cancels_search_only() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![false];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![false];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('/').into());
@@ -182,7 +182,7 @@ fn browser_search_esc_cancels_search_only() {
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
     assert!(!app.is_searching);
     assert_eq!(app.screen, Screen::Browser, "should stay on Browser");
-    assert!(!app.display_entries.is_empty());
+    assert!(!app.browser.display_entries.is_empty());
 }
 
 #[test]
@@ -215,9 +215,9 @@ fn history_down_moves_selection() {
     storage.add_entry("magnet:b", "B");
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Down.into());
-    assert_eq!(app.history_selected, 1);
+    assert_eq!(app.history.selected, 1);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Up.into());
-    assert_eq!(app.history_selected, 0);
+    assert_eq!(app.history.selected, 0);
 }
 
 #[test]
@@ -243,13 +243,13 @@ fn browser_shows_watched_and_downloaded_tags() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
     app.set_pending_url("magnet:x".into());
-    app.files = vec![
+    app.browser.files = vec![
         TorrentFile { index: 0, name: "watched.mkv".into(), size: 100 },
         TorrentFile { index: 1, name: "downloaded.mkv".into(), size: 200 },
     ];
-    app.selected_files = vec![false, false];
-    app.watched_files = vec!["watched.mkv".into()];
-    app.downloaded_files = vec!["downloaded.mkv".into()];
+    app.browser.selected_files = vec![false, false];
+    app.browser.watched_files = vec!["watched.mkv".into()];
+    app.browser.downloaded_files = vec!["downloaded.mkv".into()];
     app.rebuild_entries();
 
     use shaku::HasComponent;
@@ -271,31 +271,31 @@ fn browser_shows_watched_and_downloaded_tags() {
 fn t_key_opens_theme_picker() {
     let mut app = mock_app();
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t').into());
-    assert!(app.theme_picker);
+    assert!(app.theme_state.picker);
 }
 
 #[test]
 fn theme_picker_enter_selects_theme() {
     let mut app = mock_app();
-    let original = app.theme;
+    let original = app.theme_state.theme;
     // Open picker, move to next theme, select it
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t').into());
-    assert!(app.theme_picker);
+    assert!(app.theme_state.picker);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Down.into());
     twatch::app::handlers::handle_key(&mut app, KeyCode::Enter.into());
-    assert!(!app.theme_picker);
-    assert_ne!(app.theme, original);
+    assert!(!app.theme_state.picker);
+    assert_ne!(app.theme_state.theme, original);
 }
 
 #[test]
 fn theme_picker_esc_closes_without_change() {
     let mut app = mock_app();
-    let original = app.theme;
+    let original = app.theme_state.theme;
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t').into());
-    assert!(app.theme_picker);
+    assert!(app.theme_state.picker);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
-    assert!(!app.theme_picker);
-    assert_eq!(app.theme, original);
+    assert!(!app.theme_state.picker);
+    assert_eq!(app.theme_state.theme, original);
 }
 
 #[test]
@@ -306,8 +306,8 @@ fn theme_picker_filter_narrows_list() {
     for c in "nord".chars() {
         twatch::app::handlers::handle_key(&mut app, KeyCode::Char(c).into());
     }
-    assert_eq!(app.theme_picker_filter, "nord");
-    assert!(app.theme_picker); // still open
+    assert_eq!(app.theme_state.picker_filter, "nord");
+    assert!(app.theme_state.picker); // still open
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
 }
 
@@ -317,7 +317,7 @@ fn theme_picker_backspace_clears_filter() {
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t').into());
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
     twatch::app::handlers::handle_key(&mut app, KeyCode::Backspace.into());
-    assert_eq!(app.theme_picker_filter, "");
+    assert_eq!(app.theme_state.picker_filter, "");
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
 }
 
@@ -325,57 +325,57 @@ fn theme_picker_backspace_clears_filter() {
 fn delete_x_with_no_selection_shows_error() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![false];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![false];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
-    assert!(!app.confirm_delete);
+    assert!(!app.browser.confirm_delete);
 }
 
 #[test]
 fn delete_x_with_selection_shows_confirm() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![true];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![true];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
-    assert!(app.confirm_delete);
-    assert!(!app.confirm_delete_yes);
+    assert!(app.browser.confirm_delete);
+    assert!(!app.browser.confirm_delete_yes);
 }
 
 #[test]
 fn delete_confirm_esc_cancels() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![true];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![true];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
-    assert!(app.confirm_delete);
+    assert!(app.browser.confirm_delete);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
-    assert!(!app.confirm_delete);
+    assert!(!app.browser.confirm_delete);
 }
 
 #[test]
 fn delete_confirm_toggle_yes_no() {
     let mut app = mock_app();
     app.screen = Screen::Browser;
-    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
-    app.selected_files = vec![true];
+    app.browser.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.browser.selected_files = vec![true];
     app.rebuild_entries();
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
-    assert!(!app.confirm_delete_yes);
+    assert!(!app.browser.confirm_delete_yes);
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Right.into());
-    assert!(app.confirm_delete_yes);
+    assert!(app.browser.confirm_delete_yes);
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Left.into());
-    assert!(!app.confirm_delete_yes);
+    assert!(!app.browser.confirm_delete_yes);
 }
 
 #[test]
@@ -389,13 +389,13 @@ fn delete_confirm_enter_on_yes_removes_files() {
     let mut app = mock_app_with_download_dir(tmp.clone());
     app.screen = Screen::Browser;
     app.set_pending_url("magnet:d".into());
-    app.files = vec![
+    app.browser.files = vec![
         TorrentFile { index: 0, name: "a.mkv".into(), size: 100 },
         TorrentFile { index: 1, name: "b.mkv".into(), size: 200 },
     ];
-    app.selected_files = vec![true, true];
-    app.watched_files = vec!["a.mkv".into()];
-    app.downloaded_files = vec!["a.mkv".into(), "b.mkv".into()];
+    app.browser.selected_files = vec![true, true];
+    app.browser.watched_files = vec!["a.mkv".into()];
+    app.browser.downloaded_files = vec!["a.mkv".into(), "b.mkv".into()];
     app.rebuild_entries();
 
     use shaku::HasComponent;
@@ -407,17 +407,17 @@ fn delete_confirm_enter_on_yes_removes_files() {
     storage.mark_downloaded("magnet:d", "b.mkv");
 
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
-    assert!(app.confirm_delete);
+    assert!(app.browser.confirm_delete);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Right.into());
-    assert!(app.confirm_delete_yes);
+    assert!(app.browser.confirm_delete_yes);
     twatch::app::handlers::handle_key(&mut app, KeyCode::Enter.into());
 
-    assert!(!app.confirm_delete);
+    assert!(!app.browser.confirm_delete);
     assert!(!f1.exists());
     assert!(!f2.exists());
     assert!(app.status_message.contains("Deleted"));
-    assert!(app.watched_files.is_empty());
-    assert!(app.downloaded_files.is_empty());
+    assert!(app.browser.watched_files.is_empty());
+    assert!(app.browser.downloaded_files.is_empty());
 
     let entry = storage.history().into_iter().find(|e| e.url == "magnet:d").unwrap();
     assert!(!entry.watched);

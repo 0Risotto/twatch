@@ -23,7 +23,7 @@ pub(crate) fn rename_input(app: &mut App, code: KeyCode) {
             match app.screen {
                 Screen::History => {
                     let storage: Arc<dyn StorageService> = app.module.resolve();
-                    let idx = app.history_orig_index;
+                    let idx = app.history.orig_index;
                     if let Err(e) = storage.rename_entry(idx, &new_name) {
                         app.set_error(format!("Failed to rename: {e}"));
                     }
@@ -31,11 +31,11 @@ pub(crate) fn rename_input(app: &mut App, code: KeyCode) {
                 }
                 Screen::Browser => {
                     let visible = app.visible_entries();
-                    let idx = match visible.get(app.selected_file).map(|(_, e)| e) {
+                    let idx = match visible.get(app.browser.selected_file).map(|(_, e)| e) {
                         Some(DisplayEntry::File { file, .. }) => file.index,
                         _ => usize::MAX,
                     };
-                    if let Some(file) = app.files.get_mut(idx) {
+                    if let Some(file) = app.browser.files.get_mut(idx) {
                         file.name = new_name.clone();
                     }
                     app.status_message = format!("Renamed to: {new_name}");

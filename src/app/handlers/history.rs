@@ -32,17 +32,17 @@ pub(crate) fn history(app: &mut App, code: KeyCode) {
             app.status_message.clear();
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            if app.history_selected > 0 {
-                app.history_selected -= 1;
+            if app.history.selected > 0 {
+                app.history.selected -= 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            if app.history_selected < visible.len().saturating_sub(1) {
-                app.history_selected += 1;
+            if app.history.selected < visible.len().saturating_sub(1) {
+                app.history.selected += 1;
             }
         }
         KeyCode::Enter => {
-            if let Some((_, entry)) = visible.get(app.history_selected) {
+            if let Some((_, entry)) = visible.get(app.history.selected) {
                 let url = entry.url.clone();
                 app.screen = Screen::Loading;
                 app.status_message = "Fetching metadata...".to_string();
@@ -51,8 +51,8 @@ pub(crate) fn history(app: &mut App, code: KeyCode) {
             }
         }
         KeyCode::Char('r') => {
-            if let Some((orig_idx, entry)) = visible.get(app.history_selected) {
-                app.history_orig_index = *orig_idx;
+            if let Some((orig_idx, entry)) = visible.get(app.history.selected) {
+                app.history.orig_index = *orig_idx;
                 let name = entry.custom_name.as_deref().unwrap_or(&entry.torrent_name);
                 app.renaming = true;
                 app.rename_input = InputState { value: name.to_string(), cursor: name.len() };
@@ -60,7 +60,7 @@ pub(crate) fn history(app: &mut App, code: KeyCode) {
             }
         }
         KeyCode::Char('d') => {
-            if let Some((orig_idx, _)) = visible.get(app.history_selected) {
+            if let Some((orig_idx, _)) = visible.get(app.history.selected) {
                 let idx = *orig_idx;
                 let storage: Arc<dyn StorageService> = app.module.resolve();
                 if let Err(e) = storage.remove_entry(idx) {
@@ -68,14 +68,14 @@ pub(crate) fn history(app: &mut App, code: KeyCode) {
                 }
                 // Re-fetch after deletion.
                 let all = storage.history();
-                if app.history_selected >= all.len().saturating_sub(1) {
-                    app.history_selected = app.history_selected.saturating_sub(1);
+                if app.history.selected >= all.len().saturating_sub(1) {
+                    app.history.selected = app.history.selected.saturating_sub(1);
                 }
             }
         }
         KeyCode::Char('/') => {
             app.is_searching = true;
-            app.history_selected = 0;
+            app.history.selected = 0;
             app.search_query.clear();
         }
         _ => {}
@@ -102,7 +102,7 @@ pub(crate) fn history_search(app: &mut App, code: KeyCode) {
         KeyCode::Esc => {
             app.is_searching = false;
             app.search_query.clear();
-            app.history_selected = 0;
+            app.history.selected = 0;
         }
         KeyCode::Char('q') => {
             app.is_searching = false;
@@ -114,22 +114,22 @@ pub(crate) fn history_search(app: &mut App, code: KeyCode) {
             app.is_searching = false;
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            if app.history_selected > 0 {
-                app.history_selected -= 1;
+            if app.history.selected > 0 {
+                app.history.selected -= 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            if app.history_selected < visible.len().saturating_sub(1) {
-                app.history_selected += 1;
+            if app.history.selected < visible.len().saturating_sub(1) {
+                app.history.selected += 1;
             }
         }
         KeyCode::Backspace => {
             app.search_query.pop();
-            app.history_selected = 0;
+            app.history.selected = 0;
         }
         KeyCode::Char(c) if app.search_query.len() < 256 => {
             app.search_query.push(c);
-            app.history_selected = 0;
+            app.history.selected = 0;
         }
         _ => {}
     }

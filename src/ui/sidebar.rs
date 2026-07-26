@@ -13,12 +13,15 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let downloads = &app.active_downloads;
 
     let title = format!(" Downloads ({}) ", downloads.len());
-    let block = styled_block(&title, app.theme.palette.accent);
+    let block = styled_block(&title, app.theme_state.theme.palette.accent);
 
     if downloads.is_empty() {
-        let empty = Paragraph::new(Span::styled("No active downloads", app.theme.dimmed_style()))
-            .block(block)
-            .centered();
+        let empty = Paragraph::new(Span::styled(
+            "No active downloads",
+            app.theme_state.theme.dimmed_style(),
+        ))
+        .block(block)
+        .centered();
         frame.render_widget(empty, area);
         return;
     }
@@ -54,20 +57,23 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
 
     let (tag, tag_style) = if dl.is_streaming {
         if dl.progress >= 1.0 {
-            ("[watched]", app.theme.badge_stream_style())
+            ("[watched]", app.theme_state.theme.badge_stream_style())
         } else {
-            ("[watching]", app.theme.badge_stream_style())
+            ("[watching]", app.theme_state.theme.badge_stream_style())
         }
     } else if dl.progress >= 1.0 {
-        ("[downloaded]", app.theme.badge_dl_style())
+        ("[downloaded]", app.theme_state.theme.badge_dl_style())
     } else {
-        ("[downloading]", app.theme.warning_style())
+        ("[downloading]", app.theme_state.theme.warning_style())
     };
     let kind = Span::styled(tag, tag_style);
     let name_line = Line::from(vec![
         kind,
         Span::raw(" "),
-        Span::styled(format!("{} / {}", dl.torrent_name, dl.file_name), app.theme.text_style()),
+        Span::styled(
+            format!("{} / {}", dl.torrent_name, dl.file_name),
+            app.theme_state.theme.text_style(),
+        ),
     ]);
 
     let name_para = Paragraph::new(Text::from(name_line)).wrap(Wrap { trim: true });
@@ -76,11 +82,11 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let pct = ((dl.progress * 100.0).clamp(0.0, 100.0)) as u16;
     let gauge_color = if dl.progress >= 1.0 {
-        app.theme.palette.success
+        app.theme_state.theme.palette.success
     } else if dl.is_streaming {
-        app.theme.palette.badge_stream
+        app.theme_state.theme.palette.badge_stream
     } else {
-        app.theme.palette.badge_dl
+        app.theme_state.theme.palette.badge_dl
     };
     let gauge = Gauge::default()
         .gauge_style(Style::default().fg(gauge_color))
@@ -89,7 +95,7 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
     frame.render_widget(gauge, chunks[1]);
 
     let stat = if dl.progress >= 1.0 {
-        Span::styled("Done", app.theme.success_style())
+        Span::styled("Done", app.theme_state.theme.success_style())
     } else {
         Span::styled(
             format!(
@@ -98,7 +104,7 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
                 format_size(dl.downloaded),
                 format_size(dl.total_size),
             ),
-            app.theme.dimmed_style(),
+            app.theme_state.theme.dimmed_style(),
         )
     };
     frame.render_widget(Paragraph::new(Line::from(stat)), chunks[2]);

@@ -21,11 +21,11 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         return rename::rename_input(app, code);
     }
 
-    if app.theme_picker {
+    if app.theme_state.picker {
         return theme::theme_picker_input(app, code);
     }
 
-    if app.search_open {
+    if app.search_popup.open {
         return search::search_input(app, key);
     }
 

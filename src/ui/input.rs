@@ -17,21 +17,24 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .split(popup_area);
 
     let input_text: Vec<Line> = vec![Line::from(vec![
-        Span::styled("▸ ", app.theme.input_cursor_style()),
-        Span::styled(&app.input.value, app.theme.text_style()),
+        Span::styled("▸ ", app.theme_state.theme.input_cursor_style()),
+        Span::styled(&app.input.value, app.theme_state.theme.text_style()),
     ])];
 
     let input_paragraph = Paragraph::new(Text::from(input_text))
-        .block(styled_block(" Magnet / Torrent URL ", app.theme.palette.accent))
-        .style(app.theme.text_style());
+        .block(styled_block(" Magnet / Torrent URL ", app.theme_state.theme.palette.accent))
+        .style(app.theme_state.theme.text_style());
 
     frame.render_widget(input_paragraph, chunks[1]);
 
     // Show cursor position hint
     if !app.input.value.is_empty() {
         let cursor_hint = format!("cursor at position {}", app.input.cursor);
-        let hint = Paragraph::new(Text::from(Span::styled(cursor_hint, app.theme.dimmed_style())))
-            .centered();
+        let hint = Paragraph::new(Text::from(Span::styled(
+            cursor_hint,
+            app.theme_state.theme.dimmed_style(),
+        )))
+        .centered();
         frame.render_widget(hint, chunks[2]);
     }
 
@@ -39,9 +42,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let instructions = Paragraph::new(Text::from(vec![
         Line::from(Span::styled(
             "Paste a magnet link or .torrent URL and press Enter",
-            app.theme.dimmed_style(),
+            app.theme_state.theme.dimmed_style(),
         )),
-        color_footer("[Enter] Confirm    [Esc] Back", &app.theme),
+        color_footer("[Enter] Confirm    [Esc] Back", &app.theme_state.theme),
     ]))
     .centered();
 
@@ -56,7 +59,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     if !app.status_message.is_empty() {
         let status = Paragraph::new(Text::from(Span::styled(
             &app.status_message,
-            app.theme.warning_style(),
+            app.theme_state.theme.warning_style(),
         )))
         .centered();
 

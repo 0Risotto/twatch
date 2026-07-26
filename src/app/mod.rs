@@ -1,5 +1,6 @@
 //! Application state, screens, and main event loop.
 
+use crate::app::state::{BrowserState, HistoryState, SearchPopupState, ThemeState, WelcomeState};
 use crate::model::{
     ActiveDownload, DisplayEntry, InputState, Screen, SearchResult, TorrentFile, TorrentId,
     TorrentInfo, TorrentStats,
@@ -18,6 +19,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 pub mod handlers;
+pub mod state;
 
 /// Internal messages sent from background tasks to the main loop.
 enum AppEvent {
@@ -36,46 +38,21 @@ pub struct App {
     pub module: AppModule,
     pub config: Config,
     pub screen: Screen,
+    pub running: bool,
+    pub status_message: String,
     pub input: InputState,
-    pub files: Vec<TorrentFile>,
-    pub selected_files: Vec<bool>,
-    pub selected_file: usize,
+    pub active_downloads: Vec<ActiveDownload>,
     pub torrent_id: Option<TorrentId>,
     pub stats: Option<TorrentStats>,
-    pub active_downloads: Vec<ActiveDownload>,
-    pub torrent_name: Option<String>,
-    pub expanded_paths: HashSet<String>,
-    pub display_entries: Vec<DisplayEntry>,
+    pub browser: BrowserState,
+    pub theme_state: ThemeState,
+    pub search_popup: SearchPopupState,
+    pub history: HistoryState,
+    pub welcome: WelcomeState,
     pub search_query: String,
     pub is_searching: bool,
-    pub status_message: String,
-    pub running: bool,
-    pub history_selected: usize,
-    pub history_orig_index: usize,
-    pub menu_selected: usize,
     pub renaming: bool,
     pub rename_input: InputState,
-    pub theme: Theme,
-    pub theme_picker: bool,
-    pub theme_picker_filter: String,
-    pub theme_picker_selected: usize,
-    pub theme_picker_scroll: usize,
-    pub theme_picker_original: Theme,
-    pub search_open: bool,
-    pub torrent_search_query: String,
-    pub search_selected: usize,
-    pub search_busy: bool,
-    pub search_page: u32,
-    pub search_all_results: Vec<SearchResult>,
-    pub search_fetched_query: String,
-    pub search_config: crate::config::search::SearchConfig,
-    pub search_config_open: bool,
-    pub search_config_input: String,
-    pub watched_files: Vec<String>,
-    pub downloaded_files: Vec<String>,
-    pub downloading_files: Vec<String>,
-    pub confirm_delete: bool,
-    pub confirm_delete_yes: bool,
     pending_url: Option<String>,
     error_message: Option<String>,
     task_busy: bool,
@@ -100,46 +77,21 @@ impl App {
             module,
             config,
             screen: Screen::Welcome,
+            running: true,
+            status_message: String::new(),
             input: InputState::default(),
-            files: Vec::new(),
-            selected_files: Vec::new(),
-            selected_file: 0,
+            active_downloads: Vec::new(),
             torrent_id: None,
             stats: None,
-            active_downloads: Vec::new(),
-            torrent_name: None,
-            expanded_paths: HashSet::new(),
-            display_entries: Vec::new(),
+            browser: BrowserState::default(),
+            theme_state: ThemeState { theme, ..Default::default() },
+            search_popup: SearchPopupState { config: search_config, ..Default::default() },
+            history: HistoryState::default(),
+            welcome: WelcomeState::default(),
             search_query: String::new(),
             is_searching: false,
-            status_message: String::new(),
-            running: true,
-            history_selected: 0,
-            history_orig_index: 0,
-            menu_selected: 0,
             renaming: false,
             rename_input: InputState::default(),
-            theme,
-            theme_picker: false,
-            theme_picker_filter: String::new(),
-            theme_picker_selected: 0,
-            theme_picker_scroll: 0,
-            theme_picker_original: Theme::default(),
-            search_open: false,
-            torrent_search_query: String::new(),
-            search_selected: 0,
-            search_busy: false,
-            search_page: 0,
-            search_all_results: Vec::new(),
-            search_fetched_query: String::new(),
-            search_config,
-            search_config_open: false,
-            search_config_input: String::new(),
-            watched_files: Vec::new(),
-            downloaded_files: Vec::new(),
-            downloading_files: Vec::new(),
-            confirm_delete: false,
-            confirm_delete_yes: false,
             pending_url: None,
             error_message: None,
             task_busy: false,
@@ -156,7 +108,7 @@ impl App {
     /// Spawn a background task that performs a search query.
     pub fn enqueue_search(&self, query: String, page: u32) {
         let searcher: Arc<dyn SearchService> = self.module.resolve();
-        let mut config = self.search_config.clone();
+        let mut config = self.search_popup.config.clone();
         config.page = page;
         let tx = self.event_tx.clone();
         let torrent: Arc<dyn TorrentService> = self.module.resolve();
@@ -266,22 +218,35 @@ impl App {
     /// Number of currently toggled files.
     #[must_use]
     pub fn selected_count(&self) -> usize {
-        self.selected_files.iter().filter(|&&s| s).count()
+        self.browser.selected_files.iter().filter(|&&s| s).count()
     }
 
     /// Indices of currently toggled files.
     #[must_use]
     pub fn selected_indices(&self) -> Vec<usize> {
-        self.selected_files.iter().enumerate().filter(|(_, s)| **s).map(|(i, _)| i).collect()
+        self.browser
+            .selected_files
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| **s)
+            .map(|(i, _)| i)
+            .collect()
     }
 
-    /// Rebuild `display_entries` as a recursive tree from `self.files`.
+    /// Rebuild `display_entries` as a recursive tree from `self.browser.files`.
     /// Only children of expanded folders are included.  Folders sort
     /// before files at each depth.
     pub fn rebuild_entries(&mut self) {
         let mut entries = Vec::new();
-        rebuild_level(&self.files, "", 0, &self.expanded_paths, &mut entries, &mut HashSet::new());
-        self.display_entries = entries;
+        rebuild_level(
+            &self.browser.files,
+            "",
+            0,
+            &self.browser.expanded_paths,
+            &mut entries,
+            &mut HashSet::new(),
+        );
+        self.browser.display_entries = entries;
 
         // Clamp cursor.
         self.clamp_selection();
@@ -291,9 +256,10 @@ impl App {
     #[must_use]
     pub fn visible_entries(&self) -> Vec<(usize, &DisplayEntry)> {
         if self.search_query.is_empty() {
-            return self.display_entries.iter().enumerate().collect();
+            return self.browser.display_entries.iter().enumerate().collect();
         }
-        self.display_entries
+        self.browser
+            .display_entries
             .iter()
             .enumerate()
             .filter(|(_, e)| entry_matches(&self.search_query, e))
@@ -303,18 +269,18 @@ impl App {
     fn clamp_selection(&mut self) {
         let visible = self.visible_entries();
         if visible.is_empty() {
-            self.selected_file = 0;
+            self.browser.selected_file = 0;
             return;
         }
-        if self.selected_file >= visible.len() {
-            self.selected_file = visible.len() - 1;
+        if self.browser.selected_file >= visible.len() {
+            self.browser.selected_file = visible.len() - 1;
         }
     }
 
     /// Cycle through available themes and persist the choice.
     pub fn cycle_theme(&mut self) {
-        self.theme = self.theme.next();
-        self.config.theme = Theme::to_config_name(self.theme.name);
+        self.theme_state.theme = self.theme_state.theme.next();
+        self.config.theme = Theme::to_config_name(self.theme_state.theme.name);
         let _ = self.config.save();
     }
 }
@@ -394,31 +360,33 @@ pub fn run(
                 AppEvent::PreviewReady { url, info } => {
                     let storage: Arc<dyn StorageService> = app.module.resolve();
                     storage.add_entry(&url, &info.name);
-                    app.watched_files = storage
+                    app.browser.watched_files = storage
                         .history()
                         .iter()
                         .find(|e| e.url == url)
                         .map(|e| e.watched_files.clone())
                         .unwrap_or_default();
-                    app.downloaded_files = storage
+                    app.browser.downloaded_files = storage
                         .history()
                         .iter()
                         .find(|e| e.url == url)
                         .map(|e| e.downloaded_files.clone())
                         .unwrap_or_default();
                     let dl = app.config.download_dir.clone();
-                    app.watched_files.retain(|f| dl.join(f).exists());
-                    app.downloaded_files.retain(|f| dl.join(f).exists());
+                    app.browser.watched_files.retain(|f| dl.join(f).exists());
+                    app.browser.downloaded_files.retain(|f| dl.join(f).exists());
                     app.set_pending_url(url);
-                    app.torrent_name = Some(info.name.clone());
-                    app.files = info.files.clone();
-                    app.selected_files = vec![false; info.files.len()];
-                    app.selected_file = 0;
-                    app.expanded_paths.clear();
+                    app.browser.torrent_name = Some(info.name.clone());
+                    app.browser.files = info.files.clone();
+                    app.browser.selected_files = vec![false; info.files.len()];
+                    app.browser.selected_file = 0;
+                    app.browser.expanded_paths.clear();
                     app.rebuild_entries();
                     app.screen = Screen::Browser;
-                    app.status_message =
-                        format!("{} file(s) found — w: watch, d: download", app.files.len());
+                    app.status_message = format!(
+                        "{} file(s) found — w: watch, d: download",
+                        app.browser.files.len()
+                    );
                 }
                 AppEvent::PreviewFailed(msg) => {
                     app.set_error(msg);
@@ -429,7 +397,7 @@ pub fn run(
                     app.torrent_id = Some(id.clone());
                     app.active_downloads.push(ActiveDownload {
                         torrent_id: id.clone(),
-                        torrent_name: app.torrent_name.clone().unwrap_or_default(),
+                        torrent_name: app.browser.torrent_name.clone().unwrap_or_default(),
                         file_name: file_name.clone(),
                         url: download_url,
                         progress: 0.0,
@@ -443,16 +411,16 @@ pub fn run(
                         if let Some(url) = app.pending_url() {
                             storage.mark_watched(url, &file_name);
                         }
-                        if !app.watched_files.iter().any(|f| f == &file_name) {
-                            app.watched_files.push(file_name.clone());
+                        if !app.browser.watched_files.iter().any(|f| f == &file_name) {
+                            app.browser.watched_files.push(file_name.clone());
                         }
                         let player: Arc<dyn PlayerService> = app.module.resolve();
                         player.play(&stream_url, &file_name);
                         app.status_message = format!("Watching: {}", file_name);
                         app.screen = Screen::Player;
                     } else {
-                        if !app.downloading_files.iter().any(|f| f == &file_name) {
-                            app.downloading_files.push(file_name.clone());
+                        if !app.browser.downloading_files.iter().any(|f| f == &file_name) {
+                            app.browser.downloading_files.push(file_name.clone());
                         }
                         app.status_message =
                             format!("Downloading to: {}", app.config.download_dir.display());
@@ -464,12 +432,12 @@ pub fn run(
                     app.screen = Screen::Browser;
                 }
                 AppEvent::SearchResults(results) => {
-                    app.search_busy = false;
-                    app.search_all_results = results;
-                    app.search_selected = 0;
-                    app.search_page = 0;
+                    app.search_popup.busy = false;
+                    app.search_popup.all_results = results;
+                    app.search_popup.selected = 0;
+                    app.search_popup.page = 0;
                     app.status_message =
-                        format!("{} result(s) found", app.search_all_results.len());
+                        format!("{} result(s) found", app.search_popup.all_results.len());
                 }
             }
         }
@@ -500,9 +468,9 @@ pub fn run(
                 if before < 1.0 && dl.progress >= 1.0 && !dl.is_streaming {
                     let storage: Arc<dyn StorageService> = app.module.resolve();
                     storage.mark_downloaded(&dl.url, &dl.file_name);
-                    app.downloading_files.retain(|f| f != &dl.file_name);
-                    if !app.downloaded_files.iter().any(|f| f == &dl.file_name) {
-                        app.downloaded_files.push(dl.file_name.clone());
+                    app.browser.downloading_files.retain(|f| f != &dl.file_name);
+                    if !app.browser.downloaded_files.iter().any(|f| f == &dl.file_name) {
+                        app.browser.downloaded_files.push(dl.file_name.clone());
                     }
                     app.status_message = format!("Download complete: {}", dl.file_name);
                 }

@@ -18,7 +18,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         draw_normal(frame, area, app);
     }
 
-    if app.confirm_delete {
+    if app.browser.confirm_delete {
         draw_delete_confirm(frame, area, app);
     }
 }
@@ -30,28 +30,28 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     // Header
-    let torrent = app.torrent_name.as_deref().unwrap_or("Torrent");
+    let torrent = app.browser.torrent_name.as_deref().unwrap_or("Torrent");
     let selected = app.selected_count();
     let title_text = if selected > 0 {
         format!(" {} — {} selected for download", torrent, selected)
     } else {
         format!(" {}", torrent)
     };
-    let title = Paragraph::new(Span::styled(title_text, app.theme.accent_style()))
-        .block(styled_block(" Torrent Contents ", app.theme.palette.accent));
+    let title = Paragraph::new(Span::styled(title_text, app.theme_state.theme.accent_style()))
+        .block(styled_block(" Torrent Contents ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Entries
     let items = build_items(app, false);
     let list = List::new(items)
-        .block(styled_block(" Files ", app.theme.palette.border))
+        .block(styled_block(" Files ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
     // Footer
     let footer = Paragraph::new(color_footer(
         "[/] search  [Enter] expand  [w] watch  [d] dl  [x] delete  [Space] toggle  [r] rename  [q] back",
-        &app.theme,
+        &app.theme_state.theme,
     ))
     .centered();
     frame.render_widget(footer, chunks[2]);
@@ -69,13 +69,15 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
         .split(area);
 
     // Header
-    let torrent = app.torrent_name.as_deref().unwrap_or("Torrent");
-    let title = Paragraph::new(Span::styled(format!(" {}", torrent), app.theme.accent_style()))
-        .block(styled_block(" Torrent Contents ", app.theme.palette.accent));
+    let torrent = app.browser.torrent_name.as_deref().unwrap_or("Torrent");
+    let title =
+        Paragraph::new(Span::styled(format!(" {}", torrent), app.theme_state.theme.accent_style()))
+            .block(styled_block(" Torrent Contents ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
     // Search bar
     let matches = app
+        .browser
         .display_entries
         .iter()
         .filter(|e| crate::app::entry_matches(&app.search_query, e))
@@ -90,20 +92,23 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
             .saturating_sub(right.len());
         format!("{}{}{}", left, " ".repeat(pad), right)
     };
-    let bar = Paragraph::new(Span::styled(search_text, app.theme.warning_style()))
-        .block(styled_block(" Search ", app.theme.palette.warning));
+    let bar = Paragraph::new(Span::styled(search_text, app.theme_state.theme.warning_style()))
+        .block(styled_block(" Search ", app.theme_state.theme.palette.warning));
     frame.render_widget(bar, chunks[1]);
 
     // Entries (filtered)
     let items = build_items(app, true);
     let list = List::new(items)
-        .block(styled_block(" Files ", app.theme.palette.border))
+        .block(styled_block(" Files ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
     // Footer
-    let footer = Paragraph::new(color_footer("[Esc] cancel  [q] exit  [Enter] select", &app.theme))
-        .centered();
+    let footer = Paragraph::new(color_footer(
+        "[Esc] cancel  [q] exit  [Enter] select",
+        &app.theme_state.theme,
+    ))
+    .centered();
     frame.render_widget(footer, chunks[3]);
 }
 
@@ -111,59 +116,69 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
     let visible = if filtered {
         app.visible_entries()
     } else {
-        app.display_entries.iter().enumerate().collect()
+        app.browser.display_entries.iter().enumerate().collect()
     };
 
     visible
         .iter()
         .map(|(display_idx, entry)| {
-            let is_hovered = *display_idx == app.selected_file;
+            let is_hovered = *display_idx == app.browser.selected_file;
 
             match entry {
                 DisplayEntry::Folder { name, depth, expanded } => {
                     let indent = " ".repeat(depth * 2);
                     let icon = if *expanded { "▹" } else { "▸" };
                     let (prefix, style) = if is_hovered {
-                        ("▶ ", app.theme.accent_style())
+                        ("▶ ", app.theme_state.theme.accent_style())
                     } else {
-                        ("  ", app.theme.folder_style())
+                        ("  ", app.theme_state.theme.folder_style())
                     };
                     ListItem::new(Line::from(vec![
                         Span::raw(indent),
-                        Span::styled(prefix, app.theme.accent_style()),
+                        Span::styled(prefix, app.theme_state.theme.accent_style()),
                         Span::styled(format!("{icon} {name}/"), style),
                     ]))
                 }
                 DisplayEntry::File { file, depth } => {
                     let indent = " ".repeat(depth * 2);
-                    let checked = app.selected_files.get(file.index).copied().unwrap_or(false);
+                    let checked =
+                        app.browser.selected_files.get(file.index).copied().unwrap_or(false);
                     let prefix = match (is_hovered, checked) {
                         (true, _) => "▶ ",
                         (false, true) => " ✓ ",
                         (false, false) => "   ",
                     };
                     let name_style = if is_hovered {
-                        app.theme.accent_style()
+                        app.theme_state.theme.accent_style()
                     } else if checked {
-                        app.theme.success_style()
+                        app.theme_state.theme.success_style()
                     } else {
-                        app.theme.text_style()
+                        app.theme_state.theme.text_style()
                     };
                     let mut spans = vec![
                         Span::raw(indent),
-                        Span::styled(prefix, app.theme.accent_style()),
+                        Span::styled(prefix, app.theme_state.theme.accent_style()),
                         Span::styled(&file.name, name_style),
                     ];
-                    if app.watched_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(" [watched]", app.theme.badge_stream_style()));
-                    } else if app.downloading_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(" [downloading]", app.theme.warning_style()));
-                    } else if app.downloaded_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(" [downloaded]", app.theme.badge_dl_style()));
+                    if app.browser.watched_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(
+                            " [watched]",
+                            app.theme_state.theme.badge_stream_style(),
+                        ));
+                    } else if app.browser.downloading_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(
+                            " [downloading]",
+                            app.theme_state.theme.warning_style(),
+                        ));
+                    } else if app.browser.downloaded_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(
+                            " [downloaded]",
+                            app.theme_state.theme.badge_dl_style(),
+                        ));
                     }
                     spans.push(Span::styled(
                         format!("  ({})", format_size(file.size)),
-                        app.theme.dimmed_style(),
+                        app.theme_state.theme.dimmed_style(),
                     ));
                     ListItem::new(Line::from(spans))
                 }
@@ -174,11 +189,12 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
 
 fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
     let selected: Vec<&str> = app
+        .browser
         .selected_files
         .iter()
         .enumerate()
         .filter(|(_, s)| **s)
-        .filter_map(|(i, _)| app.files.get(i).map(|f| f.name.as_str()))
+        .filter_map(|(i, _)| app.browser.files.get(i).map(|f| f.name.as_str()))
         .collect();
 
     let file_count = selected.len();
@@ -201,13 +217,13 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
         )
         .split(popup);
 
-    let block = styled_block(" Delete files? ", app.theme.palette.warning);
+    let block = styled_block(" Delete files? ", app.theme_state.theme.palette.warning);
     frame.render_widget(block, popup);
 
     let header = Paragraph::new(Text::from(vec![
         Line::from(Span::styled(
             format!(" You are deleting {} file(s):", file_count),
-            app.theme.warning_style(),
+            app.theme_state.theme.warning_style(),
         )),
         Line::from(""),
     ]));
@@ -218,7 +234,7 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
         let display =
             if name.len() > 50 { format!("   {}...", &name[..47]) } else { format!("   {name}") };
         frame.render_widget(
-            Paragraph::new(Span::styled(display, app.theme.dimmed_style())),
+            Paragraph::new(Span::styled(display, app.theme_state.theme.dimmed_style())),
             chunks[line_idx],
         );
         line_idx += 1;
@@ -227,17 +243,23 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(
             Paragraph::new(Span::styled(
                 format!("   ... and {} more", file_count - 8),
-                app.theme.dimmed_style(),
+                app.theme_state.theme.dimmed_style(),
             )),
             chunks[line_idx],
         );
         line_idx += 1;
     }
 
-    let yes_style =
-        if app.confirm_delete_yes { app.theme.accent_style() } else { app.theme.text_style() };
-    let no_style =
-        if !app.confirm_delete_yes { app.theme.accent_style() } else { app.theme.text_style() };
+    let yes_style = if app.browser.confirm_delete_yes {
+        app.theme_state.theme.accent_style()
+    } else {
+        app.theme_state.theme.text_style()
+    };
+    let no_style = if !app.browser.confirm_delete_yes {
+        app.theme_state.theme.accent_style()
+    } else {
+        app.theme_state.theme.text_style()
+    };
 
     let buttons = Line::from(vec![
         Span::styled("[Yes]", yes_style),
@@ -246,7 +268,7 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
     ]);
     let help = Line::from(Span::styled(
         "Enter to confirm, Esc/q to cancel, h/l to toggle",
-        app.theme.dimmed_style(),
+        app.theme_state.theme.dimmed_style(),
     ));
 
     frame.render_widget(Paragraph::new(Text::from(vec![buttons, help])), chunks[line_idx + 1]);
