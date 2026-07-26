@@ -7,6 +7,9 @@ use twatch::model::{DisplayEntry, Screen, TorrentFile};
 use twatch::module::AppModule;
 use twatch::traits::{PlayerService, StorageService, TorrentService};
 
+use std::fs;
+use std::path::PathBuf;
+
 mod common;
 
 fn mock_app() -> App {
@@ -316,4 +319,133 @@ fn theme_picker_backspace_clears_filter() {
     twatch::app::handlers::handle_key(&mut app, KeyCode::Backspace.into());
     assert_eq!(app.theme_picker_filter, "");
     twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
+}
+
+#[test]
+fn delete_x_with_no_selection_shows_error() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![false];
+    app.rebuild_entries();
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
+    assert!(!app.confirm_delete);
+}
+
+#[test]
+fn delete_x_with_selection_shows_confirm() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![true];
+    app.rebuild_entries();
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
+    assert!(app.confirm_delete);
+    assert!(!app.confirm_delete_yes);
+}
+
+#[test]
+fn delete_confirm_esc_cancels() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![true];
+    app.rebuild_entries();
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
+    assert!(app.confirm_delete);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Esc.into());
+    assert!(!app.confirm_delete);
+}
+
+#[test]
+fn delete_confirm_toggle_yes_no() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.files = vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }];
+    app.selected_files = vec![true];
+    app.rebuild_entries();
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
+    assert!(!app.confirm_delete_yes);
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Right.into());
+    assert!(app.confirm_delete_yes);
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Left.into());
+    assert!(!app.confirm_delete_yes);
+}
+
+#[test]
+fn delete_confirm_enter_on_yes_removes_files() {
+    let tmp = temp_dir();
+    let f1 = tmp.join("a.mkv");
+    let f2 = tmp.join("b.mkv");
+    fs::write(&f1, b"a").unwrap();
+    fs::write(&f2, b"b").unwrap();
+
+    let mut app = mock_app_with_download_dir(tmp.clone());
+    app.screen = Screen::Browser;
+    app.set_pending_url("magnet:d".into());
+    app.files = vec![
+        TorrentFile { index: 0, name: "a.mkv".into(), size: 100 },
+        TorrentFile { index: 1, name: "b.mkv".into(), size: 200 },
+    ];
+    app.selected_files = vec![true, true];
+    app.watched_files = vec!["a.mkv".into()];
+    app.downloaded_files = vec!["a.mkv".into(), "b.mkv".into()];
+    app.rebuild_entries();
+
+    use shaku::HasComponent;
+    use std::sync::Arc;
+    let storage: Arc<dyn StorageService> = app.module.resolve();
+    storage.add_entry("magnet:d", "Torrent D");
+    storage.mark_watched("magnet:d", "a.mkv");
+    storage.mark_downloaded("magnet:d", "a.mkv");
+    storage.mark_downloaded("magnet:d", "b.mkv");
+
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Char('x').into());
+    assert!(app.confirm_delete);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Right.into());
+    assert!(app.confirm_delete_yes);
+    twatch::app::handlers::handle_key(&mut app, KeyCode::Enter.into());
+
+    assert!(!app.confirm_delete);
+    assert!(!f1.exists());
+    assert!(!f2.exists());
+    assert!(app.status_message.contains("Deleted"));
+    assert!(app.watched_files.is_empty());
+    assert!(app.downloaded_files.is_empty());
+
+    let entry = storage.history().into_iter().find(|e| e.url == "magnet:d").unwrap();
+    assert!(!entry.watched);
+    assert!(entry.watched_files.is_empty());
+    assert!(!entry.downloaded);
+    assert!(entry.downloaded_files.is_empty());
+}
+
+fn temp_dir() -> PathBuf {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("twatch_test_{ts}"));
+    fs::create_dir_all(&path).unwrap();
+    path
+}
+
+fn mock_app_with_download_dir(dir: PathBuf) -> App {
+    let config = Config { download_dir: dir, ..Config::default() };
+    let module = AppModule::builder()
+        .with_component_override::<dyn TorrentService>(Box::new(
+            common::torrent::MockTorrentService::new(),
+        ))
+        .with_component_override::<dyn PlayerService>(Box::new(
+            common::player::MockPlayerService::new(),
+        ))
+        .with_component_override::<dyn StorageService>(Box::new(
+            common::storage::MockStorageService::new(),
+        ))
+        .build();
+    App::new(module, config).unwrap()
 }

@@ -8,6 +8,7 @@ use crate::traits::{PlayerService, StorageService};
 use crate::ui::Theme;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use shaku::HasComponent;
+use std::fs;
 use std::sync::Arc;
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
@@ -162,6 +163,10 @@ fn browser(app: &mut App, code: KeyCode) {
         return browser_search(app, code);
     }
 
+    if app.confirm_delete {
+        return browser_confirm_delete(app, code);
+    }
+
     match code {
         KeyCode::Char('q') | KeyCode::Esc => {
             app.screen = Screen::Welcome;
@@ -189,6 +194,21 @@ fn browser(app: &mut App, code: KeyCode) {
         KeyCode::Enter => browser_enter(app),
         KeyCode::Char('w') => watch_file(app),
         KeyCode::Char('d') => download_batch(app),
+        KeyCode::Char('x') => {
+            let indices: Vec<usize> = app
+                .selected_files
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| **s)
+                .map(|(i, _)| i)
+                .collect();
+            if indices.is_empty() {
+                app.set_error("No files selected. Press Space to toggle selection.");
+            } else {
+                app.confirm_delete = true;
+                app.confirm_delete_yes = false;
+            }
+        }
         KeyCode::Char(' ') => toggle_selection(app),
         KeyCode::Char('r') => start_rename(app),
         KeyCode::Char('/') => {
@@ -312,6 +332,66 @@ fn watch_file(app: &mut App) {
     app.status_message = format!("Streaming: {}", file.name);
     app.task_busy = true;
     app.enqueue_watch(url, file.index, file.name);
+}
+
+fn browser_confirm_delete(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Enter | KeyCode::Char('y') => {
+            if !app.confirm_delete_yes {
+                app.confirm_delete_yes = true;
+            }
+            delete_selected_files(app);
+        }
+        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('n') => {
+            app.confirm_delete = false;
+            app.confirm_delete_yes = false;
+        }
+        KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
+            app.confirm_delete_yes = !app.confirm_delete_yes;
+        }
+        KeyCode::Char('h') => {
+            app.confirm_delete_yes = false;
+        }
+        KeyCode::Char('l') => {
+            app.confirm_delete_yes = true;
+        }
+        _ => {}
+    }
+}
+
+fn delete_selected_files(app: &mut App) {
+    let indices: Vec<usize> =
+        app.selected_files.iter().enumerate().filter(|(_, s)| **s).map(|(i, _)| i).collect();
+    let download_dir = app.config.download_dir.clone();
+    let url = app.pending_url().map(|s| s.to_string()).unwrap_or_default();
+    let storage: Arc<dyn StorageService> = app.module.resolve();
+    let mut deleted = 0;
+    let mut failed: Vec<String> = Vec::new();
+
+    for i in &indices {
+        if let Some(f) = app.files.get(*i) {
+            let path = download_dir.join(&f.name);
+            match fs::remove_file(&path) {
+                Ok(()) => {
+                    deleted += 1;
+                    storage.mark_deleted(&url, &f.name);
+                    app.watched_files.retain(|wf| wf != &f.name);
+                    app.downloaded_files.retain(|df| df != &f.name);
+                    app.downloading_files.retain(|df| df != &f.name);
+                }
+                Err(_) => failed.push(f.name.clone()),
+            }
+        }
+    }
+
+    if failed.is_empty() {
+        app.status_message = format!("Deleted {} file(s)", deleted);
+    } else {
+        app.status_message =
+            format!("Deleted {} file(s), {} failed: {}", deleted, failed.len(), failed.join(", "));
+    }
+    app.confirm_delete = false;
+    app.confirm_delete_yes = false;
 }
 
 fn toggle_selection(app: &mut App) {

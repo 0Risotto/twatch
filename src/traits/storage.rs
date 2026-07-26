@@ -21,6 +21,9 @@ pub trait StorageService: Interface {
     /// Mark the entry matching `url` as downloaded, recording the file name.
     fn mark_downloaded(&self, url: &str, file_name: &str);
 
+    /// Remove `file_name` from watched/downloaded files on the entry matching `url`.
+    fn mark_deleted(&self, url: &str, file_name: &str);
+
     /// Remove the entry at `index`.
     fn remove_entry(&self, index: usize) -> Result<()>;
 }

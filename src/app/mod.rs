@@ -73,6 +73,9 @@ pub struct App {
     pub search_config_input: String,
     pub watched_files: Vec<String>,
     pub downloaded_files: Vec<String>,
+    pub downloading_files: Vec<String>,
+    pub confirm_delete: bool,
+    pub confirm_delete_yes: bool,
     pending_url: Option<String>,
     error_message: Option<String>,
     task_busy: bool,
@@ -134,6 +137,9 @@ impl App {
             search_config_input: String::new(),
             watched_files: Vec::new(),
             downloaded_files: Vec::new(),
+            downloading_files: Vec::new(),
+            confirm_delete: false,
+            confirm_delete_yes: false,
             pending_url: None,
             error_message: None,
             task_busy: false,
@@ -394,6 +400,9 @@ pub fn run(
                         .find(|e| e.url == url)
                         .map(|e| e.downloaded_files.clone())
                         .unwrap_or_default();
+                    let dl = app.config.download_dir.clone();
+                    app.watched_files.retain(|f| dl.join(f).exists());
+                    app.downloaded_files.retain(|f| dl.join(f).exists());
                     app.set_pending_url(url);
                     app.torrent_name = Some(info.name.clone());
                     app.files = info.files.clone();
@@ -410,11 +419,13 @@ pub fn run(
                     app.screen = Screen::Input;
                 }
                 AppEvent::DownloadReady { id, stream_url, file_name, is_watch } => {
+                    let download_url = app.pending_url().map(|s| s.to_string()).unwrap_or_default();
                     app.torrent_id = Some(id.clone());
                     app.active_downloads.push(ActiveDownload {
                         torrent_id: id.clone(),
                         torrent_name: app.torrent_name.clone().unwrap_or_default(),
                         file_name: file_name.clone(),
+                        url: download_url,
                         progress: 0.0,
                         download_speed: 0,
                         total_size: 0,
@@ -432,18 +443,15 @@ pub fn run(
                         let player: Arc<dyn PlayerService> = app.module.resolve();
                         player.play(&stream_url, &file_name);
                         app.status_message = format!("Watching: {}", file_name);
+                        app.screen = Screen::Player;
                     } else {
-                        let storage: Arc<dyn StorageService> = app.module.resolve();
-                        if let Some(url) = app.pending_url() {
-                            storage.mark_downloaded(url, &file_name);
-                        }
-                        if !app.downloaded_files.iter().any(|f| f == &file_name) {
-                            app.downloaded_files.push(file_name.clone());
+                        if !app.downloading_files.iter().any(|f| f == &file_name) {
+                            app.downloading_files.push(file_name.clone());
                         }
                         app.status_message =
                             format!("Downloading to: {}", app.config.download_dir.display());
+                        app.screen = Screen::Browser;
                     }
-                    app.screen = Screen::Player;
                 }
                 AppEvent::DownloadFailed(msg) => {
                     app.set_error(msg);
@@ -476,11 +484,21 @@ pub fn run(
                 if dl.progress >= 1.0 {
                     continue;
                 }
+                let before = dl.progress;
                 if let Ok(stats) = torrent.get_stats(&dl.torrent_id) {
                     dl.progress = stats.progress;
                     dl.download_speed = stats.download_speed;
                     dl.total_size = stats.total_size;
                     dl.downloaded = stats.downloaded;
+                }
+                if before < 1.0 && dl.progress >= 1.0 && !dl.is_streaming {
+                    let storage: Arc<dyn StorageService> = app.module.resolve();
+                    storage.mark_downloaded(&dl.url, &dl.file_name);
+                    app.downloading_files.retain(|f| f != &dl.file_name);
+                    if !app.downloaded_files.iter().any(|f| f == &dl.file_name) {
+                        app.downloaded_files.push(dl.file_name.clone());
+                    }
+                    app.status_message = format!("Download complete: {}", dl.file_name);
                 }
             }
             // Also keep the single-torrent stats for the Player screen.
@@ -489,6 +507,11 @@ pub fn run(
                     app.stats = Some(stats);
                 }
             }
+        }
+
+        app.active_downloads.retain(|dl| dl.is_streaming || dl.progress < 1.0);
+        if app.active_downloads.is_empty() {
+            app.torrent_id = None;
         }
 
         if let Some(msg) = app.error_message.take() {

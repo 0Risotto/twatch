@@ -52,11 +52,18 @@ fn draw_download_entry(frame: &mut Frame, area: Rect, dl: &ActiveDownload, app: 
         ])
         .split(area);
 
-    let kind = if dl.is_streaming {
-        Span::styled("[stream]", app.theme.badge_stream_style())
+    let (tag, tag_style) = if dl.is_streaming {
+        if dl.progress >= 1.0 {
+            ("[watched]", app.theme.badge_stream_style())
+        } else {
+            ("[watching]", app.theme.badge_stream_style())
+        }
+    } else if dl.progress >= 1.0 {
+        ("[downloaded]", app.theme.badge_dl_style())
     } else {
-        Span::styled("[dl]", app.theme.warning_style())
+        ("[downloading]", app.theme.warning_style())
     };
+    let kind = Span::styled(tag, tag_style);
     let name_line = Line::from(vec![
         kind,
         Span::raw(" "),

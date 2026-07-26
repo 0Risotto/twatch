@@ -123,17 +123,25 @@ impl StorageService for RealStorage {
             .unwrap_or_default()
             .as_secs();
 
+        let old = state.data.history.iter().find(|e| e.url == url);
+
+        let custom_name = old.and_then(|e| e.custom_name.clone());
+        let watched = old.map(|e| e.watched).unwrap_or(false);
+        let watched_files = old.map(|e| e.watched_files.clone()).unwrap_or_default();
+        let downloaded = old.map(|e| e.downloaded).unwrap_or(false);
+        let downloaded_files = old.map(|e| e.downloaded_files.clone()).unwrap_or_default();
+
         state.data.history.retain(|e| e.url != url);
 
         state.data.history.push(HistoryEntry {
             url: url.to_string(),
-            custom_name: None,
+            custom_name,
             torrent_name: torrent_name.to_string(),
             added_at: now,
-            watched: false,
-            watched_files: vec![],
-            downloaded: false,
-            downloaded_files: vec![],
+            watched,
+            watched_files,
+            downloaded,
+            downloaded_files,
         });
 
         let _ = state.save();
@@ -167,6 +175,24 @@ impl StorageService for RealStorage {
                 e.downloaded = true;
                 if !e.downloaded_files.iter().any(|f| f == file_name) {
                     e.downloaded_files.push(file_name.to_string());
+                }
+                break;
+            }
+        }
+        let _ = state.save();
+    }
+
+    fn mark_deleted(&self, url: &str, file_name: &str) {
+        let mut state = state_lock(&self.state);
+        for e in &mut state.data.history {
+            if e.url == url {
+                e.watched_files.retain(|f| f != file_name);
+                e.downloaded_files.retain(|f| f != file_name);
+                if e.watched_files.is_empty() {
+                    e.watched = false;
+                }
+                if e.downloaded_files.is_empty() {
+                    e.downloaded = false;
                 }
                 break;
             }

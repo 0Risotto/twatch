@@ -1,11 +1,12 @@
 use crate::app::App;
 use crate::model::DisplayEntry;
+use crate::ui::theme::centered_rect;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
-    text::{Line, Span},
-    widgets::{List, ListItem, Paragraph},
+    text::{Line, Span, Text},
+    widgets::{Clear, List, ListItem, Paragraph},
 };
 
 use super::{color_footer, format_size, styled_block};
@@ -15,6 +16,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         draw_with_search(frame, area, app);
     } else {
         draw_normal(frame, area, app);
+    }
+
+    if app.confirm_delete {
+        draw_delete_confirm(frame, area, app);
     }
 }
 
@@ -45,7 +50,7 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
 
     // Footer
     let footer = Paragraph::new(color_footer(
-        "[/] search  [Enter] expand  [w] watch  [d] dl  [Space] toggle  [r] rename  [q] back",
+        "[/] search  [Enter] expand  [w] watch  [d] dl  [x] delete  [Space] toggle  [r] rename  [q] back",
         &app.theme,
     ))
     .centered();
@@ -151,6 +156,8 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                     ];
                     if app.watched_files.iter().any(|f| f == &file.name) {
                         spans.push(Span::styled(" [watched]", app.theme.badge_stream_style()));
+                    } else if app.downloading_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(" [downloading]", app.theme.warning_style()));
                     } else if app.downloaded_files.iter().any(|f| f == &file.name) {
                         spans.push(Span::styled(" [downloaded]", app.theme.badge_dl_style()));
                     }
@@ -163,4 +170,84 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
             }
         })
         .collect()
+}
+
+fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
+    let selected: Vec<&str> = app
+        .selected_files
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| **s)
+        .filter_map(|(i, _)| app.files.get(i).map(|f| f.name.as_str()))
+        .collect();
+
+    let file_count = selected.len();
+    #[allow(clippy::cast_possible_truncation)]
+    let popup_height = (file_count.min(8) + 8) as u16;
+    let popup = centered_rect(60, popup_height, area);
+
+    frame.render_widget(Clear, popup);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [Constraint::Length(1)]
+                .iter()
+                .copied()
+                .cycle()
+                .take(file_count.min(8) + 8)
+                .chain(std::iter::once(Constraint::Min(0)))
+                .collect::<Vec<_>>(),
+        )
+        .split(popup);
+
+    let block = styled_block(" Delete files? ", app.theme.palette.warning);
+    frame.render_widget(block, popup);
+
+    let header = Paragraph::new(Text::from(vec![
+        Line::from(Span::styled(
+            format!(" You are deleting {} file(s):", file_count),
+            app.theme.warning_style(),
+        )),
+        Line::from(""),
+    ]));
+    frame.render_widget(header, chunks[1]);
+
+    let mut line_idx = 3;
+    for name in selected.iter().take(8) {
+        let display =
+            if name.len() > 50 { format!("   {}...", &name[..47]) } else { format!("   {name}") };
+        frame.render_widget(
+            Paragraph::new(Span::styled(display, app.theme.dimmed_style())),
+            chunks[line_idx],
+        );
+        line_idx += 1;
+    }
+    if file_count > 8 {
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                format!("   ... and {} more", file_count - 8),
+                app.theme.dimmed_style(),
+            )),
+            chunks[line_idx],
+        );
+        line_idx += 1;
+    }
+
+    let yes_style =
+        if app.confirm_delete_yes { app.theme.accent_style() } else { app.theme.text_style() };
+    let no_style =
+        if !app.confirm_delete_yes { app.theme.accent_style() } else { app.theme.text_style() };
+
+    let buttons = Line::from(vec![
+        Span::styled("[Yes]", yes_style),
+        Span::raw("  "),
+        Span::styled("[No]", no_style),
+    ]);
+    let help = Line::from(Span::styled(
+        "Enter to confirm, Esc/q to cancel, h/l to toggle",
+        app.theme.dimmed_style(),
+    ));
+
+    frame.render_widget(Paragraph::new(Text::from(vec![buttons, help])), chunks[line_idx + 1]);
 }

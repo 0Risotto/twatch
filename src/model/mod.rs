@@ -34,6 +34,7 @@ pub struct ActiveDownload {
     pub torrent_id: TorrentId,
     pub torrent_name: String,
     pub file_name: String,
+    pub url: String,
     pub progress: f64,
     pub download_speed: u64,
     pub total_size: u64,
