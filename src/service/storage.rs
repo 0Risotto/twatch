@@ -113,11 +113,11 @@ impl<M: Module> Component<M> for RealStorage {
 
 impl StorageService for RealStorage {
     fn history(&self) -> Vec<HistoryEntry> {
-        state_lock(&self.state).data.history.clone()
+        super::lock_state(&self.state).data.history.clone()
     }
 
     fn add_entry(&self, url: &str, torrent_name: &str) {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -148,14 +148,14 @@ impl StorageService for RealStorage {
     }
 
     fn rename_entry(&self, index: usize, new_name: &str) -> Result<()> {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         let entry = state.data.history.get_mut(index).context("History entry not found")?;
         entry.custom_name = Some(new_name.to_string());
         state.save()
     }
 
     fn mark_watched(&self, url: &str, file_name: &str) {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         for e in &mut state.data.history {
             if e.url == url {
                 e.watched = true;
@@ -169,7 +169,7 @@ impl StorageService for RealStorage {
     }
 
     fn mark_downloaded(&self, url: &str, file_name: &str) {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         for e in &mut state.data.history {
             if e.url == url {
                 e.downloaded = true;
@@ -183,7 +183,7 @@ impl StorageService for RealStorage {
     }
 
     fn mark_deleted(&self, url: &str, file_name: &str) {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         for e in &mut state.data.history {
             if e.url == url {
                 e.watched_files.retain(|f| f != file_name);
@@ -201,16 +201,11 @@ impl StorageService for RealStorage {
     }
 
     fn remove_entry(&self, index: usize) -> Result<()> {
-        let mut state = state_lock(&self.state);
+        let mut state = super::lock_state(&self.state);
         if index >= state.data.history.len() {
             anyhow::bail!("History entry not found");
         }
         state.data.history.remove(index);
         state.save()
     }
-}
-
-/// Lock the storage state; recover from a poisoned mutex instead of panicking.
-fn state_lock(state: &Mutex<StorageState>) -> std::sync::MutexGuard<'_, StorageState> {
-    state.lock().unwrap_or_else(|e| e.into_inner())
 }

@@ -269,6 +269,12 @@ impl App {
         self.selected_files.iter().filter(|&&s| s).count()
     }
 
+    /// Indices of currently toggled files.
+    #[must_use]
+    pub fn selected_indices(&self) -> Vec<usize> {
+        self.selected_files.iter().enumerate().filter(|(_, s)| **s).map(|(i, _)| i).collect()
+    }
+
     /// Rebuild `display_entries` as a recursive tree from `self.files`.
     /// Only children of expanded folders are included.  Folders sort
     /// before files at each depth.

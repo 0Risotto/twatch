@@ -27,7 +27,7 @@ impl PlayerService for RealPlayer {
     fn play(&self, url: &str, title: &str) {
         // Kill old process outside the lock so wait() doesn't block all callers.
         let old_child = {
-            let mut state = state_lock(&self.state);
+            let mut state = super::lock_state(&self.state);
             state.child.take()
         };
         if let Some(mut child) = old_child {
@@ -40,7 +40,7 @@ impl PlayerService for RealPlayer {
 
         match new_child {
             Ok(child) => {
-                state_lock(&self.state).child = Some(child);
+                super::lock_state(&self.state).child = Some(child);
                 tracing::info!("Launched player for: {sanitized}");
             }
             Err(e) => {
@@ -50,12 +50,12 @@ impl PlayerService for RealPlayer {
     }
 
     fn is_running(&self) -> bool {
-        state_lock(&self.state).child.is_some()
+        super::lock_state(&self.state).child.is_some()
     }
 
     fn kill(&self) {
         let old_child = {
-            let mut state = state_lock(&self.state);
+            let mut state = super::lock_state(&self.state);
             state.child.take()
         };
         if let Some(mut child) = old_child {
@@ -88,9 +88,4 @@ fn spawn_player(url: &str, title: &str) -> std::io::Result<Child> {
 /// escape sequences into log output.
 fn sanitize(raw: &str) -> String {
     raw.chars().filter(|c| !c.is_control()).collect()
-}
-
-/// Lock the player state; recover from a poisoned mutex instead of panicking.
-fn state_lock(state: &Mutex<PlayerState>) -> std::sync::MutexGuard<'_, PlayerState> {
-    state.lock().unwrap_or_else(|e| e.into_inner())
 }
