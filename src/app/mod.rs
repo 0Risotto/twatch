@@ -433,7 +433,7 @@ pub fn run(
         if event::poll(Duration::from_millis(100))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    handlers::handle_key(&mut app, key.code);
+                    handlers::handle_key(&mut app, key);
                 }
                 _ => {}
             }

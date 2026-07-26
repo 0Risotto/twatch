@@ -11,7 +11,7 @@ use ratatui::{
 
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    let popup = centered_rect(78, 58, area);
+    let popup = centered_rect(78, 60, area);
 
     let results: &[SearchResult] = current_page(app);
 
@@ -52,7 +52,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
             vec![Line::from(Span::styled("No API configured.", app.theme.dimmed_style()))];
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "Press [c] to configure your endpoint.",
+            "Press [Ctrl+E] to configure your endpoint.",
             app.theme.accent_style(),
         )));
         let msg = Paragraph::new(Text::from(lines)).centered();
@@ -65,7 +65,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
         let msg = Paragraph::new(Text::from(vec![
             Line::from(Span::styled("Type a query and press Enter.", app.theme.dimmed_style())),
             Line::from(""),
-            Line::from(Span::styled("Press [c] to change endpoint.", app.theme.accent_style())),
+            Line::from(Span::styled(
+                "Press [Ctrl+E] to change endpoint.",
+                app.theme.accent_style(),
+            )),
         ]))
         .centered();
         frame.render_widget(msg, chunks[1]);
@@ -82,9 +85,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
 
     let footer_text = if results.is_empty() && app.search_fetched_query.is_empty() {
-        "[Enter] fetch  [c] config  [Esc] close"
+        "[Enter] fetch  [Ctrl+E] config  [Esc] close"
     } else {
-        "[Enter] add  [← →] page  [c] config  [/] clear  [Esc] close"
+        "[Enter] add  [← →] page  [Ctrl+E] config  [Ctrl+U] clear  [Esc] close"
     };
     let footer = Paragraph::new(Line::from(Span::styled(footer_text, app.theme.dimmed_style())));
     frame.render_widget(footer, chunks[2]);
@@ -232,11 +235,11 @@ fn draw_config_overlay(frame: &mut Frame, area: ratatui::layout::Rect, app: &App
 }
 
 fn current_page(app: &App) -> &[SearchResult] {
-    let start = app.search_page as usize * 20;
+    let start = app.search_page as usize * 21;
     let all = &app.search_all_results;
     if start >= all.len() {
         return &[];
     }
-    let end = (start + 20).min(all.len());
+    let end = (start + 21).min(all.len());
     &all[start..end]
 }

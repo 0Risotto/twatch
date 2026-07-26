@@ -6,11 +6,13 @@ use crate::model::{
 };
 use crate::traits::{PlayerService, StorageService};
 use crate::ui::Theme;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use shaku::HasComponent;
 use std::sync::Arc;
 
-pub fn handle_key(app: &mut App, code: KeyCode) {
+pub fn handle_key(app: &mut App, key: KeyEvent) {
+    let code = key.code;
+
     if app.renaming {
         return rename_input(app, code);
     }
@@ -20,7 +22,7 @@ pub fn handle_key(app: &mut App, code: KeyCode) {
     }
 
     if app.search_open {
-        return search_input(app, code);
+        return search_input(app, key);
     }
 
     if app.task_busy && !matches!(code, KeyCode::Esc | KeyCode::Char('q')) {
@@ -632,10 +634,12 @@ fn open_search(app: &mut App) {
     app.search_busy = false;
 }
 
-fn search_input(app: &mut App, code: KeyCode) {
+fn search_input(app: &mut App, key: KeyEvent) {
     if app.search_config_open {
-        return search_config_input(app, code);
+        return search_config_input(app, key.code);
     }
+
+    let code = key.code;
 
     match code {
         KeyCode::Esc => {
@@ -668,15 +672,48 @@ fn search_input(app: &mut App, code: KeyCode) {
                 }
             }
         }
-        KeyCode::Up | KeyCode::Char('k') => {
+        KeyCode::Up => {
+            let len = current_page_results(app).len();
+            if len == 0 {
+                return;
+            }
             if app.search_selected > 0 {
                 app.search_selected -= 1;
+            } else {
+                app.search_selected = len - 1;
             }
         }
-        KeyCode::Down | KeyCode::Char('j') => {
-            let max = current_page_results(app).len().saturating_sub(1);
-            if app.search_selected < max {
+        KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            let len = current_page_results(app).len();
+            if len == 0 {
+                return;
+            }
+            if app.search_selected > 0 {
+                app.search_selected -= 1;
+            } else {
+                app.search_selected = len - 1;
+            }
+        }
+        KeyCode::Down => {
+            let len = current_page_results(app).len();
+            if len == 0 {
+                return;
+            }
+            if app.search_selected < len - 1 {
                 app.search_selected += 1;
+            } else {
+                app.search_selected = 0;
+            }
+        }
+        KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            let len = current_page_results(app).len();
+            if len == 0 {
+                return;
+            }
+            if app.search_selected < len - 1 {
+                app.search_selected += 1;
+            } else {
+                app.search_selected = 0;
             }
         }
         KeyCode::Left => {
@@ -686,20 +723,20 @@ fn search_input(app: &mut App, code: KeyCode) {
             }
         }
         KeyCode::Right => {
-            let total_pages = app.search_all_results.len().saturating_add(19) / 20;
+            let total_pages = app.search_all_results.len().saturating_add(20) / 21;
             if (app.search_page as usize) < total_pages.saturating_sub(1) {
                 app.search_page += 1;
                 app.search_selected = 0;
             }
         }
-        KeyCode::Char('/') => {
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.torrent_search_query.clear();
             app.search_fetched_query.clear();
             app.search_all_results.clear();
             app.search_selected = 0;
             app.search_page = 0;
         }
-        KeyCode::Char('c') => {
+        KeyCode::Char('e') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.search_config_open = true;
             app.search_config_input = app.search_config.url.clone();
         }
@@ -716,13 +753,12 @@ fn search_input(app: &mut App, code: KeyCode) {
 }
 
 fn current_page_results(app: &App) -> &[SearchResult] {
-    let start = app.search_page as usize * 20;
-    let end = start + 20;
+    let start = app.search_page as usize * 21;
     let all = &app.search_all_results;
     if start >= all.len() {
         return &[];
     }
-    let end = end.min(all.len());
+    let end = (start + 21).min(all.len());
     &all[start..end]
 }
 
