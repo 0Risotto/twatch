@@ -65,24 +65,28 @@ impl TorrentService for TorrentEngineImpl {
             AddTorrentResponse::ListOnly(resp) => {
                 let name = String::from_utf8_lossy(resp.info.name.as_deref().unwrap_or(b"Unknown"))
                     .into_owned();
-                let files: Vec<crate::model::TorrentFile> = resp
-                    .info
-                    .files
-                    .as_deref()
-                    .unwrap_or(&[])
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| crate::model::TorrentFile {
-                        index: i,
-                        name: f
-                            .path
-                            .iter()
-                            .map(|p| String::from_utf8_lossy(p.as_ref()))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                        size: f.length,
-                    })
-                    .collect();
+                let files: Vec<crate::model::TorrentFile> = if let Some(files_list) =
+                    &resp.info.files
+                {
+                    files_list
+                        .iter()
+                        .enumerate()
+                        .map(|(i, f)| crate::model::TorrentFile {
+                            index: i,
+                            name: f
+                                .path
+                                .iter()
+                                .map(|p| String::from_utf8_lossy(p.as_ref()))
+                                .collect::<Vec<_>>()
+                                .join("/"),
+                            size: f.length,
+                        })
+                        .collect()
+                } else if let Some(length) = resp.info.length {
+                    vec![crate::model::TorrentFile { index: 0, name: name.clone(), size: length }]
+                } else {
+                    vec![]
+                };
                 Ok(TorrentInfo { name, files })
             }
             _ => anyhow::bail!("Expected list-only response"),
