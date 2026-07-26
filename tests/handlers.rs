@@ -218,6 +218,53 @@ fn history_down_moves_selection() {
 }
 
 #[test]
+fn history_entries_show_watched_tag() {
+    use shaku::HasComponent;
+    use std::sync::Arc;
+
+    let mut app = mock_app();
+    app.screen = Screen::History;
+
+    let storage: Arc<dyn StorageService> = app.module.resolve();
+    storage.add_entry("magnet:a", "Torrent A");
+    storage.mark_watched("magnet:a", "file1.mkv");
+    storage.add_entry("magnet:b", "Torrent B");
+
+    let entries = storage.history();
+    assert!(entries.iter().any(|e| e.url == "magnet:a" && e.watched));
+    assert!(entries.iter().any(|e| e.url == "magnet:b" && !e.watched));
+}
+
+#[test]
+fn browser_shows_watched_and_downloaded_tags() {
+    let mut app = mock_app();
+    app.screen = Screen::Browser;
+    app.set_pending_url("magnet:x".into());
+    app.files = vec![
+        TorrentFile { index: 0, name: "watched.mkv".into(), size: 100 },
+        TorrentFile { index: 1, name: "downloaded.mkv".into(), size: 200 },
+    ];
+    app.selected_files = vec![false, false];
+    app.watched_files = vec!["watched.mkv".into()];
+    app.downloaded_files = vec!["downloaded.mkv".into()];
+    app.rebuild_entries();
+
+    use shaku::HasComponent;
+    use std::sync::Arc;
+    let storage: Arc<dyn StorageService> = app.module.resolve();
+    storage.add_entry("magnet:x", "Torrent X");
+    storage.mark_watched("magnet:x", "watched.mkv");
+    storage.mark_downloaded("magnet:x", "downloaded.mkv");
+
+    let entries = storage.history();
+    let entry = entries.iter().find(|e| e.url == "magnet:x").unwrap();
+    assert!(entry.watched);
+    assert!(entry.watched_files.contains(&"watched.mkv".to_string()));
+    assert!(entry.downloaded);
+    assert!(entry.downloaded_files.contains(&"downloaded.mkv".to_string()));
+}
+
+#[test]
 fn t_key_opens_theme_picker() {
     let mut app = mock_app();
     twatch::app::handlers::handle_key(&mut app, KeyCode::Char('t').into());

@@ -71,6 +71,8 @@ pub struct App {
     pub search_config: crate::config::search::SearchConfig,
     pub search_config_open: bool,
     pub search_config_input: String,
+    pub watched_files: Vec<String>,
+    pub downloaded_files: Vec<String>,
     pending_url: Option<String>,
     error_message: Option<String>,
     task_busy: bool,
@@ -130,6 +132,8 @@ impl App {
             search_config,
             search_config_open: false,
             search_config_input: String::new(),
+            watched_files: Vec::new(),
+            downloaded_files: Vec::new(),
             pending_url: None,
             error_message: None,
             task_busy: false,
@@ -378,6 +382,18 @@ pub fn run(
                 AppEvent::PreviewReady { url, info } => {
                     let storage: Arc<dyn StorageService> = app.module.resolve();
                     storage.add_entry(&url, &info.name);
+                    app.watched_files = storage
+                        .history()
+                        .iter()
+                        .find(|e| e.url == url)
+                        .map(|e| e.watched_files.clone())
+                        .unwrap_or_default();
+                    app.downloaded_files = storage
+                        .history()
+                        .iter()
+                        .find(|e| e.url == url)
+                        .map(|e| e.downloaded_files.clone())
+                        .unwrap_or_default();
                     app.set_pending_url(url);
                     app.torrent_name = Some(info.name.clone());
                     app.files = info.files.clone();
@@ -406,10 +422,24 @@ pub fn run(
                         is_streaming: is_watch,
                     });
                     if is_watch && !stream_url.is_empty() {
+                        let storage: Arc<dyn StorageService> = app.module.resolve();
+                        if let Some(url) = app.pending_url() {
+                            storage.mark_watched(url, &file_name);
+                        }
+                        if !app.watched_files.iter().any(|f| f == &file_name) {
+                            app.watched_files.push(file_name.clone());
+                        }
                         let player: Arc<dyn PlayerService> = app.module.resolve();
                         player.play(&stream_url, &file_name);
                         app.status_message = format!("Watching: {}", file_name);
                     } else {
+                        let storage: Arc<dyn StorageService> = app.module.resolve();
+                        if let Some(url) = app.pending_url() {
+                            storage.mark_downloaded(url, &file_name);
+                        }
+                        if !app.downloaded_files.iter().any(|f| f == &file_name) {
+                            app.downloaded_files.push(file_name.clone());
+                        }
                         app.status_message =
                             format!("Downloading to: {}", app.config.download_dir.display());
                     }

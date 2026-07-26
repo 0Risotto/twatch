@@ -15,6 +15,12 @@ pub trait StorageService: Interface {
     /// Set a custom display name for an entry at `index`.
     fn rename_entry(&self, index: usize, new_name: &str) -> Result<()>;
 
+    /// Mark the entry matching `url` as watched, recording the file name.
+    fn mark_watched(&self, url: &str, file_name: &str);
+
+    /// Mark the entry matching `url` as downloaded, recording the file name.
+    fn mark_downloaded(&self, url: &str, file_name: &str);
+
     /// Remove the entry at `index`.
     fn remove_entry(&self, index: usize) -> Result<()>;
 }

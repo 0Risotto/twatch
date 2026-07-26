@@ -57,6 +57,14 @@ pub struct HistoryEntry {
     pub custom_name: Option<String>,
     pub torrent_name: String,
     pub added_at: u64,
+    #[serde(default)]
+    pub watched: bool,
+    #[serde(default)]
+    pub watched_files: Vec<String>,
+    #[serde(default)]
+    pub downloaded: bool,
+    #[serde(default)]
+    pub downloaded_files: Vec<String>,
 }
 
 /// Return the user-friendly name for a history entry.

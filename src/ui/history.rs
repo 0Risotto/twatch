@@ -134,11 +134,13 @@ fn build_items<'a>(app: &App, entries: &[&'a crate::model::HistoryEntry]) -> Vec
                 entry.url.clone()
             };
 
+            let spans = vec![
+                Span::styled(prefix, app.theme.accent_style()),
+                Span::styled(name, name_style),
+            ];
+
             ListItem::new(vec![
-                Line::from(vec![
-                    Span::styled(prefix, app.theme.accent_style()),
-                    Span::styled(name, name_style),
-                ]),
+                Line::from(spans),
                 Line::from(Span::styled(format!("    {url_display}"), app.theme.dimmed_style())),
             ])
         })

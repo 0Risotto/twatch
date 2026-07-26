@@ -144,15 +144,21 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                     } else {
                         app.theme.text_style()
                     };
-                    ListItem::new(Line::from(vec![
+                    let mut spans = vec![
                         Span::raw(indent),
                         Span::styled(prefix, app.theme.accent_style()),
                         Span::styled(&file.name, name_style),
-                        Span::styled(
-                            format!("  ({})", format_size(file.size)),
-                            app.theme.dimmed_style(),
-                        ),
-                    ]))
+                    ];
+                    if app.watched_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(" [watched]", app.theme.badge_stream_style()));
+                    } else if app.downloaded_files.iter().any(|f| f == &file.name) {
+                        spans.push(Span::styled(" [downloaded]", app.theme.badge_dl_style()));
+                    }
+                    spans.push(Span::styled(
+                        format!("  ({})", format_size(file.size)),
+                        app.theme.dimmed_style(),
+                    ));
+                    ListItem::new(Line::from(spans))
                 }
             }
         })

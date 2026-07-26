@@ -130,6 +130,10 @@ impl StorageService for RealStorage {
             custom_name: None,
             torrent_name: torrent_name.to_string(),
             added_at: now,
+            watched: false,
+            watched_files: vec![],
+            downloaded: false,
+            downloaded_files: vec![],
         });
 
         let _ = state.save();
@@ -140,6 +144,34 @@ impl StorageService for RealStorage {
         let entry = state.data.history.get_mut(index).context("History entry not found")?;
         entry.custom_name = Some(new_name.to_string());
         state.save()
+    }
+
+    fn mark_watched(&self, url: &str, file_name: &str) {
+        let mut state = state_lock(&self.state);
+        for e in &mut state.data.history {
+            if e.url == url {
+                e.watched = true;
+                if !e.watched_files.iter().any(|f| f == file_name) {
+                    e.watched_files.push(file_name.to_string());
+                }
+                break;
+            }
+        }
+        let _ = state.save();
+    }
+
+    fn mark_downloaded(&self, url: &str, file_name: &str) {
+        let mut state = state_lock(&self.state);
+        for e in &mut state.data.history {
+            if e.url == url {
+                e.downloaded = true;
+                if !e.downloaded_files.iter().any(|f| f == file_name) {
+                    e.downloaded_files.push(file_name.to_string());
+                }
+                break;
+            }
+        }
+        let _ = state.save();
     }
 
     fn remove_entry(&self, index: usize) -> Result<()> {

@@ -31,6 +31,10 @@ impl StorageService for MockStorageService {
             custom_name: None,
             torrent_name: torrent_name.to_string(),
             added_at: now,
+            watched: false,
+            watched_files: vec![],
+            downloaded: false,
+            downloaded_files: vec![],
         });
     }
 
@@ -39,6 +43,32 @@ impl StorageService for MockStorageService {
         let entry = entries.get_mut(index).context("History entry not found")?;
         entry.custom_name = Some(new_name.to_string());
         Ok(())
+    }
+
+    fn mark_watched(&self, url: &str, file_name: &str) {
+        let mut entries = self.entries.lock().unwrap();
+        for e in &mut *entries {
+            if e.url == url {
+                e.watched = true;
+                if !e.watched_files.iter().any(|f| f == file_name) {
+                    e.watched_files.push(file_name.to_string());
+                }
+                break;
+            }
+        }
+    }
+
+    fn mark_downloaded(&self, url: &str, file_name: &str) {
+        let mut entries = self.entries.lock().unwrap();
+        for e in &mut *entries {
+            if e.url == url {
+                e.downloaded = true;
+                if !e.downloaded_files.iter().any(|f| f == file_name) {
+                    e.downloaded_files.push(file_name.to_string());
+                }
+                break;
+            }
+        }
     }
 
     fn remove_entry(&self, index: usize) -> Result<()> {
