@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use twatch::traits::PlayerService;
+use twatch::domain::player::ports::PlayerPort;
 
 pub struct MockPlayerService {
     pub last_url: Mutex<Option<String>>,
@@ -13,7 +13,7 @@ impl MockPlayerService {
     }
 }
 
-impl PlayerService for MockPlayerService {
+impl PlayerPort for MockPlayerService {
     fn play(&self, url: &str, title: &str) {
         *self.last_url.lock().unwrap() = Some(url.to_string());
         *self.last_title.lock().unwrap() = Some(title.to_string());

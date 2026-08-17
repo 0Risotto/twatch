@@ -1,31 +1,34 @@
-//! Default [`SearchService`](crate::traits::SearchService) implementation.
+//! Default [`SearchPort`](crate::domain::search::ports::SearchPort) implementation.
 //!
 //! Queries a user-configured JSON API via reqwest and maps the response
 //! using a configurable field map.
 
 use crate::config::search::SearchConfig;
-use crate::model::SearchResult;
-use crate::traits::SearchService;
+use crate::domain::search::SearchResult;
+use crate::domain::search::ports::SearchPort;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
 use shaku::Component;
 
 #[derive(Component)]
-#[shaku(interface = SearchService)]
+#[shaku(interface = SearchPort)]
 pub struct SearchServiceImpl;
 
 #[async_trait]
-impl SearchService for SearchServiceImpl {
-    async fn search(&self, query: &str, config: &SearchConfig) -> Result<Vec<SearchResult>> {
+impl SearchPort for SearchServiceImpl {
+    async fn search(
+        &self,
+        query: &str,
+        config: &SearchConfig,
+        page: u32,
+    ) -> Result<Vec<SearchResult>> {
         if config.url.is_empty() {
             return Ok(Vec::new());
         }
 
-        let url = config
-            .url
-            .replace("{query}", &urlencoding(query))
-            .replace("{page}", &config.page.to_string());
+        let url =
+            config.url.replace("{query}", &urlencoding(query)).replace("{page}", &page.to_string());
 
         let mut req = reqwest::Client::new().get(&url);
 

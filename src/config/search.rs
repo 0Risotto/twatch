@@ -56,6 +56,10 @@ impl Default for FieldMap {
     }
 }
 
+/// Persisted search API configuration.
+///
+/// Runtime state (such as the current page) never lives here — it is
+/// passed to the search port per request.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SearchConfig {
     #[serde(default)]
@@ -64,8 +68,6 @@ pub struct SearchConfig {
     pub headers: HashMap<String, String>,
     #[serde(default)]
     pub field_map: FieldMap,
-    #[serde(default)]
-    pub page: u32,
 }
 
 impl SearchConfig {

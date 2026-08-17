@@ -1,95 +1,31 @@
-//! Domain data types for the twatch application.
+//! Application session types and re-exports of domain types.
+//!
+//! Domain types are re-exported from [`crate::domain`]; screen and
+//! session state live in [`crate::app`].
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TorrentId(pub usize);
-
-#[derive(Debug, Clone)]
-pub struct TorrentFile {
-    pub index: usize,
-    pub name: String,
-    pub size: u64,
-}
-
-#[derive(Debug, Clone)]
-pub struct TorrentInfo {
-    pub name: String,
-    pub files: Vec<TorrentFile>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TorrentStats {
-    pub progress: f64,
-    pub download_speed: u64,
-    pub upload_speed: u64,
-    pub peers: usize,
-    pub total_size: u64,
-    pub downloaded: u64,
-}
+pub use crate::domain::common::{fuzzy_match, validate_torrent_input};
+pub use crate::domain::history::{HistoryEntry, display_name};
+pub use crate::domain::search::{SEARCH_PAGE_SIZE, SearchResult};
+pub use crate::domain::torrent::file_tree::entry_matches;
+pub use crate::domain::torrent::{
+    DisplayEntry, FileStatus, FileTree, TorrentFile, TorrentId, TorrentInfo, TorrentStats,
+};
 
 /// An actively downloading or streaming torrent shown in the sidebar.
 #[derive(Debug, Clone)]
 pub struct ActiveDownload {
     pub torrent_id: TorrentId,
     pub torrent_name: String,
+    /// Human label for the sidebar (file name, or "N files").
     pub file_name: String,
+    /// Every file covered by this download.
+    pub file_names: Vec<String>,
     pub url: String,
     pub progress: f64,
     pub download_speed: u64,
     pub total_size: u64,
     pub downloaded: u64,
     pub is_streaming: bool,
-}
-
-/// A single entry in the collapsible folder-tree browser list.
-#[derive(Debug, Clone)]
-pub enum DisplayEntry {
-    /// A collapsible subfolder.
-    Folder { name: String, depth: usize, expanded: bool },
-    /// A regular file from the torrent.
-    File { file: TorrentFile, depth: usize },
-}
-
-/// A single entry in the torrent history list, persisted as JSON.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryEntry {
-    pub url: String,
-    pub custom_name: Option<String>,
-    pub torrent_name: String,
-    pub added_at: u64,
-    #[serde(default)]
-    pub watched: bool,
-    #[serde(default)]
-    pub watched_files: Vec<String>,
-    #[serde(default)]
-    pub downloaded: bool,
-    #[serde(default)]
-    pub downloaded_files: Vec<String>,
-}
-
-/// Return the user-friendly name for a history entry.
-///
-/// Prefers `custom_name`; falls back to the original torrent name.
-#[must_use]
-pub fn display_name(entry: &HistoryEntry) -> &str {
-    entry.custom_name.as_deref().unwrap_or(&entry.torrent_name)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Screen {
-    Welcome,
-    Input,
-    Loading,
-    Browser,
-    Player,
-    History,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct InputState {
-    pub value: String,
-    pub cursor: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,48 +49,4 @@ impl MenuEntry {
             MenuEntry::Quit => "[q] Quit",
         }
     }
-}
-
-/// Validate a user-supplied torrent URL / magnet link.
-///
-/// Returns `Err(message)` if the input is empty or does not look like
-/// a recognised torrent identifier.
-pub fn validate_torrent_input(input: &str) -> Result<(), &'static str> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        return Err("URL cannot be empty");
-    }
-    if trimmed.starts_with("magnet:") {
-        return Ok(());
-    }
-    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        return Ok(());
-    }
-    Err("Must be a magnet link or an http(s) URL")
-}
-
-/// Subsequence fuzzy match.  Returns `true` when every character in
-/// `query` appears in `target` in order (case-insensitive).
-#[must_use]
-pub fn fuzzy_match(query: &str, target: &str) -> bool {
-    let query_lower = query.to_lowercase();
-    let mut qchars = query_lower.chars().peekable();
-    let target_lower = target.to_lowercase();
-    for c in target_lower.chars() {
-        if qchars.peek() == Some(&c) {
-            qchars.next();
-        }
-    }
-    qchars.peek().is_none()
-}
-
-/// A search result from the user-configured JSON API.
-#[derive(Debug, Clone)]
-pub struct SearchResult {
-    pub name: String,
-    pub info_hash: String,
-    pub seeders: u64,
-    pub leechers: u64,
-    pub size: u64,
-    pub username: String,
 }

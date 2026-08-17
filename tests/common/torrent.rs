@@ -1,29 +1,43 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
-use twatch::model::{TorrentId, TorrentInfo, TorrentStats};
-use twatch::traits::TorrentService;
+use std::sync::Mutex;
+use twatch::domain::torrent::TorrentId;
+use twatch::domain::torrent::ports::{StreamPort, TorrentPort};
+use twatch::domain::torrent::{TorrentInfo, TorrentStats};
 
 pub struct MockTorrentService {
-    rt: tokio::runtime::Runtime,
+    stats: Mutex<TorrentStats>,
 }
 
 impl MockTorrentService {
-    pub fn new() -> Self {
-        Self { rt: tokio::runtime::Runtime::new().unwrap() }
+    pub const fn new() -> Self {
+        Self {
+            stats: Mutex::new(TorrentStats {
+                progress: 0.0,
+                download_speed: 0,
+                upload_speed: 0,
+                peers: 0,
+                total_size: 0,
+                downloaded: 0,
+            }),
+        }
+    }
+
+    /// Override the stats returned by [`TorrentPort::get_stats`].
+    pub fn set_stats(&self, stats: TorrentStats) {
+        *self.stats.lock().unwrap() = stats;
     }
 }
 
 #[async_trait]
-impl TorrentService for MockTorrentService {
+impl TorrentPort for MockTorrentService {
     async fn preview(&self, _url: &str) -> Result<TorrentInfo> {
         Ok(TorrentInfo { name: "mock".into(), files: vec![] })
     }
 
     async fn download(&self, _url: &str, _file_idx: usize) -> Result<TorrentId> {
-        Ok(TorrentId(0))
+        Ok(TorrentId::new(0))
     }
 
     async fn download_to_folder(
@@ -32,25 +46,24 @@ impl TorrentService for MockTorrentService {
         _indices: &[usize],
         _dir: &Path,
     ) -> Result<TorrentId> {
-        Ok(TorrentId(0))
-    }
-
-    fn get_stream_url(&self, _id: &TorrentId, _file_idx: usize) -> Result<String> {
-        Ok("http://127.0.0.1:1/stream/0/0".into())
+        Ok(TorrentId::new(0))
     }
 
     fn get_stats(&self, _id: &TorrentId) -> Result<TorrentStats> {
-        Ok(TorrentStats {
-            progress: 0.0,
-            download_speed: 0,
-            upload_speed: 0,
-            peers: 0,
-            total_size: 0,
-            downloaded: 0,
-        })
+        Ok(self.stats.lock().unwrap().clone())
     }
+}
 
-    fn spawn_boxed(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
-        self.rt.block_on(future);
+pub struct MockStreamPort;
+
+impl MockStreamPort {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl StreamPort for MockStreamPort {
+    fn stream_url(&self, _id: &TorrentId, file_idx: usize) -> String {
+        format!("http://127.0.0.1:1/stream/0/{file_idx}")
     }
 }

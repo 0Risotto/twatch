@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used)]
 
 use std::sync::Mutex;
+use twatch::domain::player::ports::PlayerPort;
 use twatch::service::player::{PlayerState, RealPlayer};
-use twatch::traits::PlayerService;
 
 mod common;
 

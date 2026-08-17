@@ -1,39 +1,33 @@
-//! Default [`TorrentService`](crate::traits::TorrentService) implementation.
+//! Default [`TorrentPort`](crate::domain::torrent::ports::TorrentPort) and
+//! [`StreamPort`](crate::domain::torrent::ports::StreamPort) implementations.
 //!
 //! Wraps a librqbit `Session` with an embedded HTTP streaming server.
 
-use crate::model::{TorrentId, TorrentInfo, TorrentStats};
-use crate::traits::TorrentService;
+use crate::domain::torrent::TorrentId;
+use crate::domain::torrent::ports::{StreamPort, TorrentPort};
+use crate::domain::torrent::{TorrentInfo, TorrentStats};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use librqbit::{AddTorrent, AddTorrentOptions, AddTorrentResponse, Session};
 use shaku::{Component, Module, ModuleBuildContext};
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
 use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// The production torrent engine, backed by librqbit.
 pub struct TorrentEngineImpl {
-    pub rt: tokio::runtime::Runtime,
     pub session: Arc<Session>,
-    pub http_port: u16,
 }
 
 /// Shaku parameters for [`TorrentEngineImpl`].
-///
-/// All three fields must be set via [`AppModule::builder`].
 #[derive(Default)]
 pub struct TorrentEngineImplParameters {
-    pub rt: Option<tokio::runtime::Runtime>,
     pub session: Option<Arc<Session>>,
-    pub http_port: Option<u16>,
 }
 
 impl<M: Module> Component<M> for TorrentEngineImpl {
-    type Interface = dyn TorrentService;
+    type Interface = dyn TorrentPort;
     type Parameters = TorrentEngineImplParameters;
 
     #[allow(clippy::expect_used)]
@@ -42,15 +36,13 @@ impl<M: Module> Component<M> for TorrentEngineImpl {
         params: Self::Parameters,
     ) -> Box<Self::Interface> {
         Box::new(Self {
-            rt: params.rt.expect("TorrentEngineImpl: rt parameter required"),
             session: params.session.expect("TorrentEngineImpl: session parameter required"),
-            http_port: params.http_port.expect("TorrentEngineImpl: http_port parameter required"),
         })
     }
 }
 
 #[async_trait]
-impl TorrentService for TorrentEngineImpl {
+impl TorrentPort for TorrentEngineImpl {
     async fn preview(&self, url: &str) -> Result<TorrentInfo> {
         let response = self
             .session
@@ -106,16 +98,12 @@ impl TorrentService for TorrentEngineImpl {
         self.add_torrent_with_opts(url, indices.to_vec(), Some(dir)).await
     }
 
-    fn get_stream_url(&self, id: &TorrentId, file_idx: usize) -> Result<String> {
-        Ok(format!("http://127.0.0.1:{}/stream/{}/{}", self.http_port, id.0, file_idx))
-    }
-
     fn get_stats(&self, id: &TorrentId) -> Result<TorrentStats> {
         let stats = self
             .session
             .with_torrents(|torrents| {
                 for (tid, h) in torrents {
-                    if tid == id.0 {
+                    if tid == id.raw() {
                         return Some(h.stats());
                     }
                 }
@@ -147,9 +135,38 @@ impl TorrentService for TorrentEngineImpl {
             downloaded: stats.progress_bytes,
         })
     }
+}
 
-    fn spawn_boxed(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
-        self.rt.spawn(future);
+/// Production [`StreamPort`] that resolves URLs on the embedded
+/// HTTP streaming server.
+pub struct StreamUrlProvider {
+    pub http_port: u16,
+}
+
+/// Shaku parameters for [`StreamUrlProvider`].
+#[derive(Default)]
+pub struct StreamUrlProviderParameters {
+    pub http_port: Option<u16>,
+}
+
+impl<M: Module> Component<M> for StreamUrlProvider {
+    type Interface = dyn StreamPort;
+    type Parameters = StreamUrlProviderParameters;
+
+    #[allow(clippy::expect_used)]
+    fn build(
+        _context: &mut ModuleBuildContext<M>,
+        params: Self::Parameters,
+    ) -> Box<Self::Interface> {
+        Box::new(Self {
+            http_port: params.http_port.expect("StreamUrlProvider: http_port parameter required"),
+        })
+    }
+}
+
+impl StreamPort for StreamUrlProvider {
+    fn stream_url(&self, id: &TorrentId, file_idx: usize) -> String {
+        format!("http://127.0.0.1:{}/stream/{}/{}", self.http_port, id.raw(), file_idx)
     }
 }
 
@@ -182,7 +199,7 @@ impl TorrentEngineImpl {
             AddTorrentResponse::ListOnly(_) => anyhow::bail!("Unexpected list-only response"),
         };
 
-        Ok(TorrentId(id))
+        Ok(TorrentId::new(id))
     }
 }
 

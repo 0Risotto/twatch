@@ -1,9 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
 use std::sync::Mutex;
+use twatch::domain::history::ports::HistoryPort;
 use twatch::model::display_name;
 use twatch::service::storage::{RealStorage, StorageState};
-use twatch::traits::StorageService;
 
 mod common;
 

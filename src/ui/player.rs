@@ -1,4 +1,7 @@
+//! Player screen renderer.
+
 use crate::app::App;
+use crate::app::screens::player::ViewModel;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -9,7 +12,7 @@ use ratatui::{
 
 use super::{color_footer, format_size, format_speed, styled_block};
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+pub fn render(frame: &mut Frame, area: Rect, app: &App, vm: ViewModel<'_>) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -21,16 +24,12 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         ])
         .split(area);
 
-    // Title
-    let title = Paragraph::new(Text::from(Span::styled(
-        &app.status_message,
-        app.theme_state.theme.accent_style(),
-    )))
-    .block(styled_block(" Now Playing ", app.theme_state.theme.palette.accent));
+    let title =
+        Paragraph::new(Text::from(Span::styled(vm.status, app.theme_state.theme.accent_style())))
+            .block(styled_block(" Now Playing ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
-    // Progress gauge
-    if let Some(stats) = &app.stats {
+    if let Some(stats) = vm.stats {
         let progress = stats.progress.min(1.0);
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let pct = ((progress * 100.0).clamp(0.0, 100.0)) as u16;
@@ -53,7 +52,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
         frame.render_widget(gauge, chunks[2]);
 
-        // Stats
         let stats_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -96,7 +94,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(size_para, stats_chunks[2]);
     }
 
-    // Footer
     let footer = Paragraph::new(color_footer(
         "[q/Esc] Stop playback and return to browser",
         &app.theme_state.theme,

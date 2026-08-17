@@ -1,11 +1,11 @@
-//! Persistent history interface.
+//! Persistent history store port.
 
-use crate::model::HistoryEntry;
+use super::HistoryEntry;
 use anyhow::Result;
 use shaku::Interface;
 
 /// `CRUD` operations for a JSON-backed torrent history store.
-pub trait StorageService: Interface {
+pub trait HistoryPort: Interface {
     /// Return a snapshot of every history entry (newest last).
     fn history(&self) -> Vec<HistoryEntry>;
 

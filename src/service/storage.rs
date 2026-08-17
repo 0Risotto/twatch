@@ -1,10 +1,10 @@
-//! Default [`StorageService`](crate::traits::StorageService) implementation.
+//! Default [`HistoryPort`](crate::domain::history::ports::HistoryPort) implementation.
 //!
 //! Persists a torrent history list to a JSON file inside the config
 //! directory.  Every mutation is written to disk immediately.
 
-use crate::model::HistoryEntry;
-use crate::traits::StorageService;
+use crate::domain::history::HistoryEntry;
+use crate::domain::history::ports::HistoryPort;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use shaku::{Component, Module, ModuleBuildContext};
@@ -85,7 +85,7 @@ impl StorageState {
     }
 }
 
-/// Production [`StorageService`] backed by a JSON file.
+/// Production [`HistoryPort`] backed by a JSON file.
 pub struct RealStorage {
     pub state: Mutex<StorageState>,
 }
@@ -99,7 +99,7 @@ pub struct RealStorageParameters {
 }
 
 impl<M: Module> Component<M> for RealStorage {
-    type Interface = dyn StorageService;
+    type Interface = dyn HistoryPort;
     type Parameters = RealStorageParameters;
 
     #[allow(clippy::expect_used)]
@@ -111,7 +111,7 @@ impl<M: Module> Component<M> for RealStorage {
     }
 }
 
-impl StorageService for RealStorage {
+impl HistoryPort for RealStorage {
     fn history(&self) -> Vec<HistoryEntry> {
         super::lock_state(&self.state).data.history.clone()
     }

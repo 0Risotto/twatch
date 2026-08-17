@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::sync::Mutex;
-use twatch::model::HistoryEntry;
-use twatch::traits::StorageService;
+use twatch::domain::history::HistoryEntry;
+use twatch::domain::history::ports::HistoryPort;
 
 pub struct MockStorageService {
     entries: Mutex<Vec<HistoryEntry>>,
@@ -13,7 +13,7 @@ impl MockStorageService {
     }
 }
 
-impl StorageService for MockStorageService {
+impl HistoryPort for MockStorageService {
     fn history(&self) -> Vec<HistoryEntry> {
         self.entries.lock().unwrap().clone()
     }

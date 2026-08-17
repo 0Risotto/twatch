@@ -1,4 +1,7 @@
+//! Input screen renderer.
+
 use crate::app::App;
+use crate::app::screens::input::ViewModel;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,7 +11,7 @@ use ratatui::{
 
 use super::{centered_rect, color_footer, styled_block};
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+pub fn render(frame: &mut Frame, area: Rect, app: &App, vm: ViewModel<'_>) {
     let popup_area = centered_rect(60, 30, area);
 
     let chunks = Layout::default()
@@ -18,7 +21,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
     let input_text: Vec<Line> = vec![Line::from(vec![
         Span::styled("▸ ", app.theme_state.theme.input_cursor_style()),
-        Span::styled(&app.input.value, app.theme_state.theme.text_style()),
+        Span::styled(vm.value, app.theme_state.theme.text_style()),
     ])];
 
     let input_paragraph = Paragraph::new(Text::from(input_text))
@@ -27,9 +30,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
     frame.render_widget(input_paragraph, chunks[1]);
 
-    // Show cursor position hint
-    if !app.input.value.is_empty() {
-        let cursor_hint = format!("cursor at position {}", app.input.cursor);
+    if !vm.value.is_empty() {
+        let cursor_hint = format!("cursor at position {}", vm.cursor);
         let hint = Paragraph::new(Text::from(Span::styled(
             cursor_hint,
             app.theme_state.theme.dimmed_style(),
@@ -38,7 +40,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(hint, chunks[2]);
     }
 
-    // Instructions
     let instructions = Paragraph::new(Text::from(vec![
         Line::from(Span::styled(
             "Paste a magnet link or .torrent URL and press Enter",
@@ -55,7 +56,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
     frame.render_widget(instructions, bottom[1]);
 
-    // Show status message
     if !app.status_message.is_empty() {
         let status = Paragraph::new(Text::from(Span::styled(
             &app.status_message,

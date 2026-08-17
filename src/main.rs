@@ -10,10 +10,13 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use twatch::config::Config;
+use twatch::config::search::SearchConfig;
 use twatch::module::AppModule;
 use twatch::service::storage::{RealStorage, RealStorageParameters, StorageState};
+use twatch::service::task::{TokioTaskSpawner, TokioTaskSpawnerParameters};
 use twatch::service::torrent::{
-    TorrentEngineImpl, TorrentEngineImplParameters, start_stream_server,
+    StreamUrlProvider, StreamUrlProviderParameters, TorrentEngineImpl, TorrentEngineImplParameters,
+    start_stream_server,
 };
 
 fn main() {
@@ -27,10 +30,11 @@ fn main() {
 fn try_main() -> anyhow::Result<()> {
     let config = Config::load();
 
-    // Ensure the log file's parent directory exists.
+    // Composition root: ensure runtime directories exist on disk.
     if let Some(parent) = config.log_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    std::fs::create_dir_all(&config.download_dir).context("Failed to create download directory")?;
 
     let log_file = std::fs::OpenOptions::new().create(true).append(true).open(&config.log_path)?;
 
@@ -65,17 +69,20 @@ fn try_main() -> anyhow::Result<()> {
     // Wire up the shaku DI module.
     let module = AppModule::builder()
         .with_component_parameters::<TorrentEngineImpl>(TorrentEngineImplParameters {
-            rt: Some(rt),
             session: Some(session),
+        })
+        .with_component_parameters::<StreamUrlProvider>(StreamUrlProviderParameters {
             http_port: Some(http_port),
         })
+        .with_component_parameters::<TokioTaskSpawner>(TokioTaskSpawnerParameters { rt: Some(rt) })
         .with_component_parameters::<RealStorage>(RealStorageParameters {
             state: Some(Mutex::new(storage_state)),
         })
         .build();
 
     let mut terminal = twatch::ui::init()?;
-    let result = twatch::app::run(&mut terminal, module, config);
+    let search_config = SearchConfig::load(&config.config_dir);
+    let result = twatch::app::run(&mut terminal, module, config, search_config);
     twatch::ui::restore()?;
     result
 }

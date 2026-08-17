@@ -1,11 +1,15 @@
-//! Terminal UI module.
+//! Presentation layer.
 //!
-//! Initializes the terminal, draws screens, and restores on exit.
+//! Initializes the terminal, renders screens from their view models,
+//! and restores the terminal on exit.  No business logic lives here.
 
+pub mod badges;
 mod browser;
 mod history;
 mod input;
+mod loading;
 mod player;
+mod rename;
 mod search_popup;
 mod sidebar;
 mod theme;
@@ -13,6 +17,7 @@ mod theme_picker;
 mod welcome;
 
 use crate::app::App;
+use crate::app::screens::ScreenViewModel;
 use anyhow::Result;
 use crossterm::{
     execute,
@@ -21,10 +26,7 @@ use crossterm::{
 use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph},
+    layout::{Constraint, Direction, Layout},
 };
 use std::io::{Stdout, stdout};
 
@@ -32,18 +34,22 @@ pub use theme::{
     Palette, Theme, centered_rect, color_footer, format_size, format_speed, styled_block,
 };
 
+/// Enter raw mode + alternate screen and create the terminal.
 pub fn init() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
     execute!(stdout(), EnterAlternateScreen)?;
     Ok(Terminal::new(CrosstermBackend::new(stdout()))?)
 }
 
+/// Leave the alternate screen and disable raw mode.
 pub fn restore() -> Result<()> {
     disable_raw_mode()?;
     execute!(stdout(), LeaveAlternateScreen)?;
     Ok(())
 }
 
+/// Render the current screen: the topmost non-modal screen plus any
+/// modal overlays pushed above it.
 pub fn draw(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
@@ -60,54 +66,46 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let main_area = panes[0];
     let sidebar_area = panes[1];
 
-    match app.screen {
-        crate::model::Screen::Welcome => welcome::draw(frame, main_area, app),
-        crate::model::Screen::Input => input::draw(frame, main_area, app),
-        crate::model::Screen::Loading => draw_loading(frame, main_area, app),
-        crate::model::Screen::Browser => {
-            browser::draw(frame, main_area, app);
-            if app.renaming {
-                history::draw_browser_rename_overlay(frame, main_area, app);
-            }
+    let screens: Vec<&dyn crate::app::screens::Screen> = app.screens().collect();
+
+    // The topmost non-modal screen is the visible base; screens below
+    // it are hidden.
+    if let Some(base_idx) = base_screen_idx(&screens) {
+        let base = screens[base_idx];
+        let base_area = if base.renders_full_frame() { area } else { main_area };
+        render_screen(frame, base_area, app, base.view(app));
+
+        // Modal overlays stacked above the base render on top of it.
+        for screen in &screens[base_idx + 1..] {
+            let target_area = if screen.renders_full_frame() { area } else { main_area };
+            render_screen(frame, target_area, app, screen.view(app));
         }
-        crate::model::Screen::Player => player::draw(frame, main_area, app),
-        crate::model::Screen::History => history::draw(frame, main_area, app),
     }
 
-    sidebar::draw(frame, sidebar_area, app);
-
-    if app.theme_state.picker {
-        theme_picker::draw(frame, area, app);
-    }
-
-    if app.search_popup.open {
-        search_popup::draw(frame, app);
-    }
+    sidebar::render(frame, sidebar_area, app);
 }
 
-fn draw_loading(frame: &mut Frame, area: Rect, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(40), Constraint::Length(3), Constraint::Min(0)])
-        .split(area);
+/// Index of the topmost non-modal screen: the visible base that
+/// everything else hides behind.
+pub fn base_screen_idx(screens: &[&dyn crate::app::screens::Screen]) -> Option<usize> {
+    screens.iter().rposition(|s| !s.is_modal())
+}
 
-    let text = Text::from(vec![
-        Line::from(Span::styled(
-            "Fetching torrent metadata...",
-            app.theme_state.theme.warning_style(),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(&app.status_message, app.theme_state.theme.dimmed_style())),
-    ]);
-
-    let paragraph = Paragraph::new(text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Loading")
-                .border_style(Style::default().fg(app.theme_state.theme.palette.warning)),
-        )
-        .centered();
-
-    frame.render_widget(paragraph, chunks[1]);
+fn render_screen(
+    frame: &mut Frame,
+    area: ratatui::layout::Rect,
+    app: &App,
+    vm: ScreenViewModel<'_>,
+) {
+    match vm {
+        ScreenViewModel::Welcome(vm) => welcome::render(frame, area, app, vm),
+        ScreenViewModel::Input(vm) => input::render(frame, area, app, vm),
+        ScreenViewModel::Loading(vm) => loading::render(frame, area, app, vm),
+        ScreenViewModel::Browser(vm) => browser::render(frame, area, app, vm),
+        ScreenViewModel::Player(vm) => player::render(frame, area, app, vm),
+        ScreenViewModel::History(vm) => history::render(frame, area, app, vm),
+        ScreenViewModel::Search(vm) => search_popup::render(frame, area, app, vm),
+        ScreenViewModel::ThemePicker(vm) => theme_picker::render(frame, area, app, vm),
+        ScreenViewModel::Rename(vm) => rename::render(frame, area, app, vm),
+    }
 }

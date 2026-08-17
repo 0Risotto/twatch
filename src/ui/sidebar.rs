@@ -1,4 +1,5 @@
-use super::theme::{format_size, format_speed, styled_block};
+//! Sidebar renderer: active downloads.
+
 use crate::app::App;
 use crate::model::ActiveDownload;
 use ratatui::{
@@ -9,7 +10,9 @@ use ratatui::{
     widgets::{Gauge, Paragraph, Wrap},
 };
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+use super::theme::{format_size, format_speed, styled_block};
+
+pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let downloads = &app.active_downloads;
 
     let title = format!(" Downloads ({}) ", downloads.len());

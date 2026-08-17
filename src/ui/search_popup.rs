@@ -1,19 +1,18 @@
+//! Search popup renderer.
+
 use crate::app::App;
-use crate::model::SearchResult;
+use crate::app::screens::search::ViewModel;
 use crate::ui::{centered_rect, format_size};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, TableState},
 };
 
-pub fn draw(frame: &mut Frame, app: &App) {
-    let area = frame.area();
+pub fn render(frame: &mut Frame, area: Rect, app: &App, vm: ViewModel<'_>) {
     let popup = centered_rect(78, 60, area);
-
-    let results: &[SearchResult] = current_page(app);
 
     frame.render_widget(Clear, popup);
 
@@ -31,17 +30,12 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .constraints([Constraint::Length(3), Constraint::Min(1), Constraint::Length(1)])
         .split(inner);
 
-    let search_title = if app.search_popup.query.is_empty() {
+    let search_title = if vm.query.is_empty() {
         "Query: ".to_string()
-    } else if app.search_popup.query != app.search_popup.fetched_query && !results.is_empty() {
-        let count = visible_filtered_count(
-            results,
-            &app.search_popup.query,
-            &app.search_popup.fetched_query,
-        );
-        format!("Filter: {}  ({}/{})", app.search_popup.query, count, results.len())
+    } else if vm.filtering && !vm.items.is_empty() {
+        format!("Filter: {}  ({}/{})", vm.query, vm.items.len(), vm.page_total)
     } else {
-        format!("Query: {}  (Page {})", app.search_popup.query, app.search_popup.page + 1)
+        format!("Query: {}  (Page {})", vm.query, vm.page + 1)
     };
     let bar = Paragraph::new(Span::styled(search_title, app.theme_state.theme.warning_style()))
         .block(
@@ -51,7 +45,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         );
     frame.render_widget(bar, chunks[0]);
 
-    if app.search_popup.config.url.is_empty() {
+    if !vm.has_config {
         let mut lines = vec![Line::from(Span::styled(
             "No API configured.",
             app.theme_state.theme.dimmed_style(),
@@ -63,13 +57,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
         )));
         let msg = Paragraph::new(Text::from(lines)).centered();
         frame.render_widget(msg, chunks[1]);
-    } else if app.search_popup.busy {
+    } else if vm.busy {
         let msg = Paragraph::new(Line::from(Span::styled(
             "Searching...",
             app.theme_state.theme.warning_style(),
         )));
         frame.render_widget(msg, chunks[1]);
-    } else if results.is_empty() && app.search_popup.fetched_query.is_empty() {
+    } else if vm.items.is_empty() && vm.fetched_query.is_empty() {
         let msg = Paragraph::new(Text::from(vec![
             Line::from(Span::styled(
                 "Type a query and press Enter.",
@@ -83,7 +77,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         ]))
         .centered();
         frame.render_widget(msg, chunks[1]);
-    } else if results.is_empty() {
+    } else if vm.items.is_empty() {
         let msg = Paragraph::new(Text::from(vec![
             Line::from(Span::styled(
                 "No results on this page.",
@@ -98,10 +92,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .centered();
         frame.render_widget(msg, chunks[1]);
     } else {
-        draw_results_table(frame, chunks[1], app, results);
+        draw_results_table(frame, chunks[1], app, &vm);
     }
 
-    let footer_text = if results.is_empty() && app.search_popup.fetched_query.is_empty() {
+    let footer_text = if vm.items.is_empty() && vm.fetched_query.is_empty() {
         "[Enter] fetch  [Ctrl+E] config  [Esc] close"
     } else {
         "[Enter] add  [← →] page  [Ctrl+E] config  [Ctrl+U] clear  [Esc] close"
@@ -110,30 +104,15 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Paragraph::new(Line::from(Span::styled(footer_text, app.theme_state.theme.dimmed_style())));
     frame.render_widget(footer, chunks[2]);
 
-    if app.search_popup.config_open {
-        draw_config_overlay(frame, area, app);
+    if vm.config_open {
+        draw_config_overlay(frame, area, app, vm.config_input);
     }
 }
 
-fn draw_results_table(
-    frame: &mut Frame,
-    area: ratatui::layout::Rect,
-    app: &App,
-    page_results: &[SearchResult],
-) {
+fn draw_results_table(frame: &mut Frame, area: Rect, app: &App, vm: &ViewModel<'_>) {
     let available_height = area.height as usize;
     let header_height = 2;
-
-    let filtered: Vec<&SearchResult> = page_results
-        .iter()
-        .filter(|r| {
-            app.search_popup.query.is_empty()
-                || app.search_popup.query == app.search_popup.fetched_query
-                || crate::model::fuzzy_match(&app.search_popup.query, &r.name)
-        })
-        .collect();
-
-    let row_count = available_height.saturating_sub(header_height).min(filtered.len());
+    let row_count = available_height.saturating_sub(header_height).min(vm.items.len());
 
     let widths = [
         Constraint::Length(5),
@@ -161,12 +140,13 @@ fn draw_results_table(
     .style(Style::default().bg(app.theme_state.theme.palette.hover))
     .bottom_margin(1);
 
-    let rows: Vec<Row> = filtered
+    let rows: Vec<Row> = vm
+        .items
         .iter()
         .take(row_count)
         .enumerate()
         .map(|(i, r)| {
-            let is_sel = i == app.search_popup.selected;
+            let is_sel = i == vm.selected;
             let name_style =
                 if is_sel { app.theme_state.theme.accent_style() } else { Style::default() };
             let prefix = if is_sel { "▶ " } else { "  " };
@@ -189,7 +169,7 @@ fn draw_results_table(
         })
         .collect();
 
-    let mut state = TableState::default().with_selected(Some(app.search_popup.selected));
+    let mut state = TableState::default().with_selected(Some(vm.selected));
 
     let table = Table::new(rows, widths)
         .header(header)
@@ -197,15 +177,6 @@ fn draw_results_table(
         .style(Style::default().fg(app.theme_state.theme.palette.fg).bg(Color::Reset));
 
     frame.render_stateful_widget(table, area, &mut state);
-}
-
-fn visible_filtered_count(results: &[SearchResult], query: &str, fetched: &str) -> usize {
-    results
-        .iter()
-        .filter(|r| {
-            query.is_empty() || query == fetched || crate::model::fuzzy_match(query, &r.name)
-        })
-        .count()
 }
 
 fn format_seeders(n: u64) -> String {
@@ -216,7 +187,7 @@ fn truncate(s: &str, max: usize) -> String {
     if s.len() > max { format!("{}...", &s[..max - 3]) } else { s.to_string() }
 }
 
-fn draw_config_overlay(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
+fn draw_config_overlay(frame: &mut Frame, area: Rect, app: &App, config_input: &str) {
     let popup = centered_rect(60, 25, area);
 
     frame.render_widget(Clear, popup);
@@ -235,7 +206,7 @@ fn draw_config_overlay(frame: &mut Frame, area: ratatui::layout::Rect, app: &App
         .constraints([Constraint::Length(3), Constraint::Min(1), Constraint::Min(1)])
         .split(inner);
 
-    let url_line = format!("▸ {}", app.search_popup.config_input);
+    let url_line = format!("▸ {config_input}");
     let input =
         Paragraph::new(Line::from(Span::styled(url_line, app.theme_state.theme.text_style())))
             .block(
@@ -262,14 +233,4 @@ fn draw_config_overlay(frame: &mut Frame, area: ratatui::layout::Rect, app: &App
     ]))
     .centered();
     frame.render_widget(help, chunks[1]);
-}
-
-fn current_page(app: &App) -> &[SearchResult] {
-    let start = app.search_popup.page as usize * 21;
-    let all = &app.search_popup.all_results;
-    if start >= all.len() {
-        return &[];
-    }
-    let end = (start + 21).min(all.len());
-    &all[start..end]
 }

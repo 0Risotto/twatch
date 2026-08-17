@@ -1,6 +1,7 @@
+//! Browser screen renderer.
+
 use crate::app::App;
-use crate::model::DisplayEntry;
-use crate::ui::theme::centered_rect;
+use crate::app::screens::browser::{ConfirmViewModel, EntryViewModel, ViewModel};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -9,46 +10,41 @@ use ratatui::{
     widgets::{Clear, List, ListItem, Paragraph},
 };
 
-use super::{color_footer, format_size, styled_block};
+use super::badges::badge_for;
+use super::theme::{centered_rect, color_footer, format_size, styled_block};
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    if app.is_searching {
-        draw_with_search(frame, area, app);
-    } else {
-        draw_normal(frame, area, app);
+pub fn render(frame: &mut Frame, area: Rect, app: &App, vm: ViewModel<'_>) {
+    match vm.searching {
+        Some(query) => render_searching(frame, area, app, &vm, query),
+        None => render_normal(frame, area, app, &vm),
     }
 
-    if app.browser.confirm_delete {
-        draw_delete_confirm(frame, area, app);
+    if let Some(confirm) = vm.confirm {
+        render_delete_confirm(frame, area, app, confirm);
     }
 }
 
-fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
+fn render_normal(frame: &mut Frame, area: Rect, app: &App, vm: &ViewModel<'_>) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(3)])
         .split(area);
 
-    // Header
-    let torrent = app.browser.torrent_name.as_deref().unwrap_or("Torrent");
-    let selected = app.selected_count();
-    let title_text = if selected > 0 {
-        format!(" {} — {} selected for download", torrent, selected)
+    let title_text = if vm.selected_count > 0 {
+        format!(" {} — {} selected for download", vm.title, vm.selected_count)
     } else {
-        format!(" {}", torrent)
+        format!(" {}", vm.title)
     };
     let title = Paragraph::new(Span::styled(title_text, app.theme_state.theme.accent_style()))
         .block(styled_block(" Torrent Contents ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
-    // Entries
-    let items = build_items(app, false);
+    let items = build_items(app, vm);
     let list = List::new(items)
         .block(styled_block(" Files ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[1]);
 
-    // Footer
     let footer = Paragraph::new(color_footer(
         "[/] search  [Enter] expand  [w] watch  [d] dl  [x] delete  [Space] toggle  [r] rename  [q] back",
         &app.theme_state.theme,
@@ -57,7 +53,7 @@ fn draw_normal(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(footer, chunks[2]);
 }
 
-fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
+fn render_searching(frame: &mut Frame, area: Rect, app: &App, vm: &ViewModel<'_>, query: &str) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -68,42 +64,34 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
         ])
         .split(area);
 
-    // Header
-    let torrent = app.browser.torrent_name.as_deref().unwrap_or("Torrent");
-    let title =
-        Paragraph::new(Span::styled(format!(" {}", torrent), app.theme_state.theme.accent_style()))
-            .block(styled_block(" Torrent Contents ", app.theme_state.theme.palette.accent));
+    let title = Paragraph::new(Span::styled(
+        format!(" {}", vm.title),
+        app.theme_state.theme.accent_style(),
+    ))
+    .block(styled_block(" Torrent Contents ", app.theme_state.theme.palette.accent));
     frame.render_widget(title, chunks[0]);
 
-    // Search bar
-    let matches = app
-        .browser
-        .display_entries
-        .iter()
-        .filter(|e| crate::app::entry_matches(&app.search_query, e))
-        .count();
-    let search_text = if app.search_query.is_empty() {
+    let matches = vm.search_matches.unwrap_or(0);
+    let search_text = if query.is_empty() {
         "Search: ".to_string()
     } else {
-        let left = format!("Search: {}", app.search_query);
-        let right = format!("| {}", matches);
+        let left = format!("Search: {query}");
+        let right = format!("| {matches}");
         let pad = (chunks[1].width.saturating_sub(2) as usize)
             .saturating_sub(left.len())
             .saturating_sub(right.len());
-        format!("{}{}{}", left, " ".repeat(pad), right)
+        format!("{left}{}{right}", " ".repeat(pad))
     };
     let bar = Paragraph::new(Span::styled(search_text, app.theme_state.theme.warning_style()))
         .block(styled_block(" Search ", app.theme_state.theme.palette.warning));
     frame.render_widget(bar, chunks[1]);
 
-    // Entries (filtered)
-    let items = build_items(app, true);
+    let items = build_items(app, vm);
     let list = List::new(items)
         .block(styled_block(" Files ", app.theme_state.theme.palette.border))
         .highlight_style(Style::default());
     frame.render_widget(list, chunks[2]);
 
-    // Footer
     let footer = Paragraph::new(color_footer(
         "[Esc] cancel  [q] exit  [Enter] select",
         &app.theme_state.theme,
@@ -112,20 +100,14 @@ fn draw_with_search(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(footer, chunks[3]);
 }
 
-fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
-    let visible = if filtered {
-        app.visible_entries()
-    } else {
-        app.browser.display_entries.iter().enumerate().collect()
-    };
-
-    visible
+fn build_items<'a>(app: &App, vm: &'a ViewModel<'a>) -> Vec<ListItem<'a>> {
+    vm.entries
         .iter()
-        .map(|(display_idx, entry)| {
-            let is_hovered = *display_idx == app.browser.selected_file;
-
+        .enumerate()
+        .map(|(i, entry)| {
+            let is_hovered = i == vm.cursor;
             match entry {
-                DisplayEntry::Folder { name, depth, expanded } => {
+                EntryViewModel::Folder { name, depth, expanded } => {
                     let indent = " ".repeat(depth * 2);
                     let icon = if *expanded { "▹" } else { "▸" };
                     let (prefix, style) = if is_hovered {
@@ -139,18 +121,16 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                         Span::styled(format!("{icon} {name}/"), style),
                     ]))
                 }
-                DisplayEntry::File { file, depth } => {
+                EntryViewModel::File { file, depth, status, selected } => {
                     let indent = " ".repeat(depth * 2);
-                    let checked =
-                        app.browser.selected_files.get(file.index).copied().unwrap_or(false);
-                    let prefix = match (is_hovered, checked) {
+                    let prefix = match (is_hovered, selected) {
                         (true, _) => "▶ ",
                         (false, true) => " ✓ ",
                         (false, false) => "   ",
                     };
                     let name_style = if is_hovered {
                         app.theme_state.theme.accent_style()
-                    } else if checked {
+                    } else if *selected {
                         app.theme_state.theme.success_style()
                     } else {
                         app.theme_state.theme.text_style()
@@ -160,21 +140,8 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
                         Span::styled(prefix, app.theme_state.theme.accent_style()),
                         Span::styled(&file.name, name_style),
                     ];
-                    if app.browser.watched_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(
-                            " [watched]",
-                            app.theme_state.theme.badge_stream_style(),
-                        ));
-                    } else if app.browser.downloading_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(
-                            " [downloading]",
-                            app.theme_state.theme.warning_style(),
-                        ));
-                    } else if app.browser.downloaded_files.iter().any(|f| f == &file.name) {
-                        spans.push(Span::styled(
-                            " [downloaded]",
-                            app.theme_state.theme.badge_dl_style(),
-                        ));
+                    if let Some(badge) = badge_for(file, status, &app.theme_state.theme) {
+                        spans.push(badge);
                     }
                     spans.push(Span::styled(
                         format!("  ({})", format_size(file.size)),
@@ -187,17 +154,8 @@ fn build_items(app: &App, filtered: bool) -> Vec<ListItem<'_>> {
         .collect()
 }
 
-fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
-    let selected: Vec<&str> = app
-        .browser
-        .selected_files
-        .iter()
-        .enumerate()
-        .filter(|(_, s)| **s)
-        .filter_map(|(i, _)| app.browser.files.get(i).map(|f| f.name.as_str()))
-        .collect();
-
-    let file_count = selected.len();
+fn render_delete_confirm(frame: &mut Frame, area: Rect, app: &App, confirm: ConfirmViewModel<'_>) {
+    let file_count = confirm.total;
     #[allow(clippy::cast_possible_truncation)]
     let popup_height = (file_count.min(8) + 8) as u16;
     let popup = centered_rect(60, popup_height, area);
@@ -230,7 +188,7 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(header, chunks[1]);
 
     let mut line_idx = 3;
-    for name in selected.iter().take(8) {
+    for name in confirm.files.iter().take(8) {
         let display =
             if name.len() > 50 { format!("   {}...", &name[..47]) } else { format!("   {name}") };
         frame.render_widget(
@@ -250,12 +208,12 @@ fn draw_delete_confirm(frame: &mut Frame, area: Rect, app: &App) {
         line_idx += 1;
     }
 
-    let yes_style = if app.browser.confirm_delete_yes {
+    let yes_style = if confirm.yes {
         app.theme_state.theme.accent_style()
     } else {
         app.theme_state.theme.text_style()
     };
-    let no_style = if !app.browser.confirm_delete_yes {
+    let no_style = if !confirm.yes {
         app.theme_state.theme.accent_style()
     } else {
         app.theme_state.theme.text_style()

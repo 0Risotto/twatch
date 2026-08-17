@@ -2,4 +2,5 @@
 
 pub mod player;
 pub mod storage;
+pub mod task;
 pub mod torrent;

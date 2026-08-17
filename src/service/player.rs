@@ -1,10 +1,10 @@
-//! Default [`PlayerService`](crate::traits::PlayerService) implementation.
+//! Default [`PlayerPort`](crate::domain::player::ports::PlayerPort) implementation.
 //!
 //! Spawns either **mpv** or **vlc** as an external process to play an
 //! HTTP stream.  State is protected by a [`Mutex`] so the component
 //! can be stored in an `Arc` without requiring `&mut self`.
 
-use crate::traits::PlayerService;
+use crate::domain::player::ports::PlayerPort;
 use shaku::Component;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -15,15 +15,15 @@ pub struct PlayerState {
     child: Option<Child>,
 }
 
-/// Production [`PlayerService`] that launches mpv (preferred) or vlc (fallback).
+/// Production [`PlayerPort`] that launches mpv (preferred) or vlc (fallback).
 #[derive(Component)]
-#[shaku(interface = PlayerService)]
+#[shaku(interface = PlayerPort)]
 pub struct RealPlayer {
     #[shaku(default)]
     pub state: Mutex<PlayerState>,
 }
 
-impl PlayerService for RealPlayer {
+impl PlayerPort for RealPlayer {
     fn play(&self, url: &str, title: &str) {
         // Kill old process outside the lock so wait() doesn't block all callers.
         let old_child = {

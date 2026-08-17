@@ -1,14 +1,16 @@
-//! Concrete service implementations.
+//! Concrete adapter implementations of the domain ports.
 
 pub mod player;
 pub mod search;
 pub mod storage;
+pub mod task;
 pub mod torrent;
 
 pub use player::RealPlayer;
 pub use search::SearchServiceImpl;
 pub use storage::RealStorage;
-pub use torrent::TorrentEngineImpl;
+pub use task::TokioTaskSpawner;
+pub use torrent::{StreamUrlProvider, TorrentEngineImpl};
 
 use std::sync::Mutex;
 

@@ -64,21 +64,50 @@ cargo test --all-features
 
 ```
 src/
-├── traits/       Service interfaces (TorrentService, PlayerService, StorageService)
-├── service/      Real implementations (librqbit, mpv/vlc, JSON storage)
-├── module/       shaku DI container wiring (module! macro)
-├── config/       Application configuration
-├── app/          App state, event loop, keyboard handlers
-├── ui/           Terminal UI: screens, sidebar, theme helpers
-├── model/        Domain types and input validation
+├── domain/          Pure domain layer — entities, value objects, ports (no I/O, no UI deps)
+│   ├── torrent/       TorrentId (opaque), FileTree, FileStatus, TorrentPort, StreamPort
+│   ├── history/       HistoryEntry, HistoryPort
+│   ├── player/        PlayerPort
+│   ├── search/        SearchResult, SearchPort
+│   └── common/        fuzzy_match, validation, paging, TaskSpawner
+├── application/     Business rules — use cases, background flows, observers
+│   ├── background/    Per-feature flows (each owns its channel; no central event enum)
+│   ├── downloads.rs   DownloadTracker + completion observers
+│   ├── files.rs       Delete/rename use cases
+│   └── theme.rs       Theme selection use case
+├── app/             Application shell + screens
+│   ├── state.rs       TorrentSession, InputState, ThemeState
+│   └── screens/       Self-contained screen state machines (Screen trait + stack)
+│       └── registry.rs  Single closed point enumerating every screen constructor
+├── service/         Infrastructure adapters (librqbit, mpv/vlc, JSON storage, HTTP search, tokio)
+├── config/          Application + search API configuration (persisted; no runtime state)
+├── model/           Session types + re-exports of domain types
+├── module/          shaku DI container wiring
+└── ui/              Presentation only — pure renderers over view models
+    └── badges.rs      FileBadge registry (new file attribute = 1 badge + 1 registration row)
 tests/
-├── common/       Mock implementations shared across test files
-├── handlers.rs   Screen navigation tests (12)
-├── player.rs     Player unit + mock tests (4)
-├── storage.rs    Storage CRUD + mock tests (5)
-├── validation.rs Input validation tests (6)
-└── integration.rs Binary smoke tests (2)
+├── common/           Mock implementations of every port
+├── handlers.rs       Screen navigation + stack tests (34)
+├── application.rs    Use-case and observer tests (5)
+├── player.rs         Player unit + mock tests (4)
+├── storage.rs        Storage CRUD + mock tests (5)
+├── theme.rs          Theme tests (15)
+├── validation.rs     Input validation tests (14)
+└── integration.rs    Binary smoke tests (2)
 ```
+
+**Key design points**
+
+- **Navigation stack**: every screen (including popups like search, theme picker, and
+  rename) is a `Screen` pushed on a stack. Esc/q pops back to where you came from.
+- **Open/Closed**: adding a screen = one new module + one row in `screens/registry.rs`;
+  adding a background flow = one new module; adding a file attribute = one badge +
+  one registration row; adding a completion side effect = one observer.
+- **Separation of concerns**: UI files never touch services or business logic — they
+  render pure view models produced by the screens.
+- **Swappable tools**: everything behind ports (`TorrentPort`, `StreamPort`,
+  `HistoryPort`, `PlayerPort`, `SearchPort`, `TaskSpawner`). Swapping an engine or
+  player = one new adapter + one line in `src/main.rs`.
 
 Dependency injection uses [shaku](https://crates.io/crates/shaku). Compile-time DI with component overrides for testing.
 

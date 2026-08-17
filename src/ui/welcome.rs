@@ -1,4 +1,7 @@
+//! Welcome screen renderer.
+
 use crate::app::App;
+use crate::app::screens::welcome::ViewModel;
 use crate::model::MenuEntry;
 use ratatui::{
     Frame,
@@ -20,7 +23,7 @@ const ASCII_ART: &str = r#"▄▄▄█████▓ █     █░ ▄▄▄ 
              ░          ░  ░        ░ ░       ░  ░  ░
                                     ░              "#;
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+pub fn render(frame: &mut Frame, area: Rect, app: &App, vm: ViewModel) {
     let lines: Vec<Line> = ASCII_ART
         .lines()
         .map(|line| {
@@ -46,7 +49,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     ];
 
     for (i, entry) in MenuEntry::ALL.iter().enumerate() {
-        let is_sel = i == app.welcome.menu_selected;
+        let is_sel = i == vm.menu_selected;
         let prefix = if is_sel { "  > " } else { "    " };
         let style = if is_sel { app.theme_state.theme.accent_style() } else { menu_styles[i] };
         text_lines.push(Line::from(Span::styled(format!("{prefix}{}", entry.label()), style)));

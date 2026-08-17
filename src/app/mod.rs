@@ -1,103 +1,85 @@
-//! Application state, screens, and main event loop.
+//! Application shell: session state, screen stack, and the main loop.
+//!
+//! Business logic lives in [`crate::application`]; screens own their
+//! state; the loop here only orchestrates: drain background flows,
+//! poll input, tick the download tracker, render.
 
-use crate::app::state::{BrowserState, HistoryState, SearchPopupState, ThemeState, WelcomeState};
-use crate::model::{
-    ActiveDownload, DisplayEntry, InputState, Screen, SearchResult, TorrentFile, TorrentId,
-    TorrentInfo, TorrentStats,
-};
-use crate::traits::{PlayerService, SearchService, StorageService, TorrentService};
+pub mod screens;
+pub mod state;
+
+use crate::app::screens::{Screen, Transition, registry};
+use crate::app::state::{ThemeState, TorrentSession};
+use crate::application::background::download::DownloadFlow;
+use crate::application::background::preview::PreviewFlow;
+use crate::application::background::search::SearchFlow;
+use crate::application::downloads::DownloadTracker;
+use crate::config::search::SearchConfig;
+use crate::domain::torrent::TorrentId;
+use crate::model::{ActiveDownload, TorrentStats};
 use crate::ui::Theme;
 use crate::{config::Config, module::AppModule, ui};
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{Terminal, backend::CrosstermBackend};
-use shaku::HasComponent;
-use std::collections::HashSet;
 use std::io::Stdout;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
-
-pub mod handlers;
-pub mod state;
-
-/// Internal messages sent from background tasks to the main loop.
-enum AppEvent {
-    PreviewReady { url: String, info: TorrentInfo },
-    PreviewFailed(String),
-    DownloadReady { id: TorrentId, stream_url: String, file_name: String, is_watch: bool },
-    DownloadFailed(String),
-    SearchResults(Vec<SearchResult>),
-}
 
 /// The top-level application state.
 ///
-/// Owns the DI module and all UI-navigation fields.  Services are
-/// retrieved from `module` through [`HasComponent::resolve`].
+/// Owns the DI module, shared session state, the navigation stack, and
+/// the per-feature background flows.  Services are retrieved from
+/// `module` through [`shaku::HasComponent::resolve`].
 pub struct App {
     pub module: AppModule,
     pub config: Config,
-    pub screen: Screen,
+    pub search_config: SearchConfig,
     pub running: bool,
     pub status_message: String,
-    pub input: InputState,
+    pub theme_state: ThemeState,
+    pub torrent: TorrentSession,
     pub active_downloads: Vec<ActiveDownload>,
     pub torrent_id: Option<TorrentId>,
     pub stats: Option<TorrentStats>,
-    pub browser: BrowserState,
-    pub theme_state: ThemeState,
-    pub search_popup: SearchPopupState,
-    pub history: HistoryState,
-    pub welcome: WelcomeState,
-    pub search_query: String,
-    pub is_searching: bool,
-    pub renaming: bool,
-    pub rename_input: InputState,
-    pending_url: Option<String>,
+    pub browser_query: String,
+    pub history_query: String,
+    pub preview_flow: PreviewFlow,
+    pub download_flow: DownloadFlow,
+    pub search_flow: SearchFlow,
+    stack: Vec<Box<dyn Screen>>,
     error_message: Option<String>,
     task_busy: bool,
-    event_rx: mpsc::UnboundedReceiver<AppEvent>,
-    event_tx: mpsc::UnboundedSender<AppEvent>,
 }
 
 impl App {
-    /// Create a new application with the given DI module and configuration.
+    /// Create a new application with the given DI module, configuration,
+    /// and search configuration.
     ///
-    /// Ensures `config.download_dir` exists on disk.
-    pub fn new(module: AppModule, config: Config) -> Result<Self> {
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
-
-        std::fs::create_dir_all(&config.download_dir).ok();
-
+    /// Pure state assembly — all I/O (directory creation, file loading)
+    /// happens in the composition root before this is called.
+    #[must_use]
+    pub fn new(module: AppModule, config: Config, search_config: SearchConfig) -> Self {
         let theme = Theme::from_name(&config.theme).unwrap_or_default();
 
-        let search_config = crate::config::search::SearchConfig::load(&config.config_dir);
-
-        Ok(Self {
+        Self {
             module,
             config,
-            screen: Screen::Welcome,
+            search_config,
             running: true,
             status_message: String::new(),
-            input: InputState::default(),
+            theme_state: ThemeState { theme },
+            torrent: TorrentSession::default(),
             active_downloads: Vec::new(),
             torrent_id: None,
             stats: None,
-            browser: BrowserState::default(),
-            theme_state: ThemeState { theme, ..Default::default() },
-            search_popup: SearchPopupState { config: search_config, ..Default::default() },
-            history: HistoryState::default(),
-            welcome: WelcomeState::default(),
-            search_query: String::new(),
-            is_searching: false,
-            renaming: false,
-            rename_input: InputState::default(),
-            pending_url: None,
+            browser_query: String::new(),
+            history_query: String::new(),
+            preview_flow: PreviewFlow::new(),
+            download_flow: DownloadFlow::new(),
+            search_flow: SearchFlow::new(),
+            stack: vec![registry::welcome()],
             error_message: None,
             task_busy: false,
-            event_rx,
-            event_tx,
-        })
+        }
     }
 
     /// Queue an error that will be shown on the next frame.
@@ -105,388 +87,173 @@ impl App {
         self.error_message = Some(msg.into());
     }
 
-    /// Spawn a background task that performs a search query.
-    pub fn enqueue_search(&self, query: String, page: u32) {
-        let searcher: Arc<dyn SearchService> = self.module.resolve();
-        let mut config = self.search_popup.config.clone();
-        config.page = page;
-        let tx = self.event_tx.clone();
-        let torrent: Arc<dyn TorrentService> = self.module.resolve();
-        torrent.spawn_boxed(Box::pin(async move {
-            match searcher.search(&query, &config).await {
-                Ok(results) => {
-                    let _ = tx.send(AppEvent::SearchResults(results));
-                }
-                Err(e) => {
-                    let _ = tx.send(AppEvent::SearchResults(Vec::new()));
-                    tracing::warn!("Search failed: {e}");
+    /// The top screen, if any.
+    #[must_use]
+    pub fn top(&self) -> Option<&dyn Screen> {
+        self.stack.last().map(|s| s.as_ref())
+    }
+
+    /// The top screen downcast to a concrete type.
+    #[must_use]
+    pub fn top_as<T: Screen>(&self) -> Option<&T> {
+        self.stack.last().and_then(|s| s.as_any().downcast_ref::<T>())
+    }
+
+    /// Mutable downcast of the top screen.
+    #[must_use]
+    pub fn top_as_mut<T: Screen>(&mut self) -> Option<&mut T> {
+        self.stack.last_mut().and_then(|s| s.as_any_mut().downcast_mut::<T>())
+    }
+
+    /// All screens, bottom to top.
+    pub fn screens(&self) -> impl Iterator<Item = &dyn Screen> {
+        self.stack.iter().map(|s| s.as_ref())
+    }
+
+    /// Push a screen onto the navigation stack.
+    pub fn push_screen(&mut self, screen: Box<dyn Screen>) {
+        self.stack.push(screen);
+    }
+
+    /// Apply a navigation transition.
+    pub fn apply_transition(&mut self, transition: Transition) {
+        match transition {
+            Transition::Push(screen) => self.stack.push(screen),
+            Transition::Pop => {
+                if self.stack.len() > 1 {
+                    self.stack.pop();
                 }
             }
-        }));
+            Transition::Replace(screen) => {
+                if let Some(top) = self.stack.last_mut() {
+                    *top = screen;
+                }
+            }
+            Transition::ResetWith(screen) => {
+                self.stack.truncate(1);
+                self.stack.push(screen);
+            }
+            Transition::Quit => self.running = false,
+        }
     }
 
-    /// The currently previewed URL, if any.
-    #[must_use]
-    pub fn pending_url(&self) -> Option<&str> {
-        self.pending_url.as_deref()
+    /// Dispatch one key press through the screen stack: global
+    /// shortcuts first, then the top screen.
+    pub fn handle_key(&mut self, key: KeyEvent) {
+        let top_is_modal = self.top().is_some_and(|s| s.is_modal());
+
+        if !top_is_modal {
+            match key.code {
+                KeyCode::Char('t') => {
+                    let theme = self.theme_state.theme;
+                    self.stack.push(registry::theme_picker(theme));
+                    return;
+                }
+                KeyCode::Char('s') => {
+                    let config = self.search_config.clone();
+                    self.stack.push(registry::search(config));
+                    return;
+                }
+                _ => {}
+            }
+
+            if self.task_busy && !matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
+                return;
+            }
+        }
+
+        let mut top = match self.stack.pop() {
+            Some(top) => top,
+            None => return,
+        };
+        let transition = top.handle_key(self, key);
+        self.stack.push(top);
+        if let Some(transition) = transition {
+            self.apply_transition(transition);
+        }
     }
 
-    pub fn set_pending_url(&mut self, url: String) {
-        self.pending_url = Some(url);
-    }
-
-    pub fn clear_pending_url(&mut self) {
-        self.pending_url = None;
+    /// Spawn a background task that performs a search query.
+    pub fn enqueue_search(&self, query: String, page: u32) {
+        self.search_flow.spawn(self, query, page);
     }
 
     /// Spawn a background task that fetches torrent metadata for `url`.
-    ///
-    /// Results are delivered via the internal mpsc channel and
-    /// processed in the main event loop.
     pub fn enqueue_preview(&self, url: String) {
-        let torrent: Arc<dyn TorrentService> = self.module.resolve();
-        let t = torrent.clone();
-        let tx = self.event_tx.clone();
-
-        torrent.spawn_boxed(Box::pin(async move {
-            match t.preview(&url).await {
-                Ok(info) => {
-                    let _ = tx.send(AppEvent::PreviewReady { url, info });
-                }
-                Err(e) => {
-                    let _ = tx.send(AppEvent::PreviewFailed(format!("Failed: {e}")));
-                }
-            }
-        }));
+        self.preview_flow.spawn(self, url);
     }
 
     /// Spawn a background task that downloads a single file for
-    /// streaming, then resolves the stream URL.
-    pub fn enqueue_watch(&self, url: String, file_index: usize, file_name: String) {
-        let torrent: Arc<dyn TorrentService> = self.module.resolve();
-        let t = torrent.clone();
-        let tx = self.event_tx.clone();
-
-        torrent.spawn_boxed(Box::pin(async move {
-            match t.download(&url, file_index).await {
-                Ok(id) => {
-                    let stream_url = t.get_stream_url(&id, file_index).unwrap_or_default();
-                    let _ = tx.send(AppEvent::DownloadReady {
-                        id,
-                        stream_url,
-                        file_name,
-                        is_watch: true,
-                    });
-                }
-                Err(e) => {
-                    let _ = tx.send(AppEvent::DownloadFailed(format!("Failed: {e}")));
-                }
-            }
-        }));
+    /// streaming, then resolves the stream URL.  Returns the silo id
+    /// of the download.
+    pub fn enqueue_watch(&mut self, url: String, file_index: usize, file_name: String) -> u64 {
+        let mut flow = std::mem::take(&mut self.download_flow);
+        let id = flow.spawn_watch(self, url, file_index, file_name);
+        self.download_flow = flow;
+        id
     }
 
     /// Spawn a background task that downloads the selected files to
-    /// `output_dir`.
+    /// `output_dir`.  Returns the silo id of the download.
     pub fn enqueue_download_batch(
-        &self,
+        &mut self,
         url: String,
-        indices: Vec<usize>,
-        file_name: String,
+        files: Vec<crate::domain::torrent::TorrentFile>,
         output_dir: std::path::PathBuf,
-    ) {
-        let torrent: Arc<dyn TorrentService> = self.module.resolve();
-        let t = torrent.clone();
-        let tx = self.event_tx.clone();
-
-        torrent.spawn_boxed(Box::pin(async move {
-            match t.download_to_folder(&url, &indices, &output_dir).await {
-                Ok(id) => {
-                    let _ = tx.send(AppEvent::DownloadReady {
-                        id,
-                        stream_url: String::new(),
-                        file_name,
-                        is_watch: false,
-                    });
-                }
-                Err(e) => {
-                    let _ = tx.send(AppEvent::DownloadFailed(format!("Failed: {e}")));
-                }
-            }
-        }));
-    }
-
-    /// Number of currently toggled files.
-    #[must_use]
-    pub fn selected_count(&self) -> usize {
-        self.browser.selected_files.iter().filter(|&&s| s).count()
-    }
-
-    /// Indices of currently toggled files.
-    #[must_use]
-    pub fn selected_indices(&self) -> Vec<usize> {
-        self.browser
-            .selected_files
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| **s)
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    /// Rebuild `display_entries` as a recursive tree from `self.browser.files`.
-    /// Only children of expanded folders are included.  Folders sort
-    /// before files at each depth.
-    pub fn rebuild_entries(&mut self) {
-        let mut entries = Vec::new();
-        rebuild_level(
-            &self.browser.files,
-            "",
-            0,
-            &self.browser.expanded_paths,
-            &mut entries,
-            &mut HashSet::new(),
-        );
-        self.browser.display_entries = entries;
-
-        // Clamp cursor.
-        self.clamp_selection();
-    }
-
-    /// Return the list of entries that pass the current search filter.
-    #[must_use]
-    pub fn visible_entries(&self) -> Vec<(usize, &DisplayEntry)> {
-        if self.search_query.is_empty() {
-            return self.browser.display_entries.iter().enumerate().collect();
-        }
-        self.browser
-            .display_entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| entry_matches(&self.search_query, e))
-            .collect()
-    }
-
-    fn clamp_selection(&mut self) {
-        let visible = self.visible_entries();
-        if visible.is_empty() {
-            self.browser.selected_file = 0;
-            return;
-        }
-        if self.browser.selected_file >= visible.len() {
-            self.browser.selected_file = visible.len() - 1;
-        }
-    }
-
-    /// Cycle through available themes and persist the choice.
-    pub fn cycle_theme(&mut self) {
-        self.theme_state.theme = self.theme_state.theme.next();
-        self.config.theme = Theme::to_config_name(self.theme_state.theme.name);
-        let _ = self.config.save();
+    ) -> u64 {
+        let mut flow = std::mem::take(&mut self.download_flow);
+        let id = flow.spawn_batch(self, url, files, output_dir);
+        self.download_flow = flow;
+        id
     }
 }
 
-// ── Tree helpers ──
-
-fn rebuild_level(
-    files: &[TorrentFile],
-    prefix: &str,
-    depth: usize,
-    expanded: &HashSet<String>,
-    entries: &mut Vec<DisplayEntry>,
-    _seen_folders: &mut HashSet<String>,
-) {
-    let mut folders = std::collections::BTreeSet::new();
-    let mut file_indices = Vec::new();
-
-    for (i, file) in files.iter().enumerate() {
-        if !file.name.starts_with(prefix) {
-            continue;
-        }
-        let rest = &file.name[prefix.len()..];
-        if let Some(slash_idx) = rest.find('/') {
-            let folder_name = &rest[..slash_idx];
-            folders.insert(folder_name.to_string());
-        } else {
-            file_indices.push(i);
-        }
-    }
-
-    for folder_name in &folders {
-        let full = format!("{prefix}{folder_name}/");
-        let is_expanded = expanded.contains(&full);
-
-        entries.push(DisplayEntry::Folder {
-            name: folder_name.clone(),
-            depth,
-            expanded: is_expanded,
-        });
-
-        if is_expanded {
-            rebuild_level(files, &full, depth + 1, expanded, entries, _seen_folders);
-        }
-    }
-
-    for i in &file_indices {
-        entries.push(DisplayEntry::File { file: files[*i].clone(), depth });
-    }
-}
-
-/// True when `query` fuzzy-matches a display entry's visible text.
-#[must_use]
-pub fn entry_matches(query: &str, entry: &DisplayEntry) -> bool {
-    match entry {
-        DisplayEntry::Folder { name, .. } => crate::model::fuzzy_match(query, name),
-        DisplayEntry::File { file, .. } => crate::model::fuzzy_match(query, &file.name),
-    }
-}
+// ── Run loop ──
 
 /// Run the main application loop.
 ///
-/// Drives the `TUI` with ratatui-crossterm, drains the `mpsc` event
-/// channel, and dispatches keyboard input to [`handlers::handle_key`].
+/// Drives the `TUI` with ratatui-crossterm, drains the background
+/// flows, and dispatches keyboard input to the top screen.
 pub fn run(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     module: AppModule,
     config: Config,
+    search_config: SearchConfig,
 ) -> Result<()> {
-    let mut app = App::new(module, config)?;
+    let mut app = App::new(module, config, search_config);
+    let tracker = DownloadTracker::new();
 
     while app.running {
         terminal.draw(|frame| ui::draw(frame, &app))?;
 
-        while let Ok(event) = app.event_rx.try_recv() {
+        // Drain background flows, applying events in arrival batches.
+        let mut handled = 0;
+        for event in app.preview_flow.drain() {
+            crate::application::background::preview::apply(&mut app, event);
+            handled += 1;
+        }
+        for event in app.download_flow.drain() {
+            crate::application::background::download::apply(&mut app, event);
+            handled += 1;
+        }
+        for event in app.search_flow.drain() {
+            crate::application::background::search::apply(&mut app, event);
+            handled += 1;
+        }
+        if handled > 0 {
             app.task_busy = false;
-            match event {
-                AppEvent::PreviewReady { url, info } => {
-                    let storage: Arc<dyn StorageService> = app.module.resolve();
-                    storage.add_entry(&url, &info.name);
-                    app.browser.watched_files = storage
-                        .history()
-                        .iter()
-                        .find(|e| e.url == url)
-                        .map(|e| e.watched_files.clone())
-                        .unwrap_or_default();
-                    app.browser.downloaded_files = storage
-                        .history()
-                        .iter()
-                        .find(|e| e.url == url)
-                        .map(|e| e.downloaded_files.clone())
-                        .unwrap_or_default();
-                    let dl = app.config.download_dir.clone();
-                    app.browser.watched_files.retain(|f| dl.join(f).exists());
-                    app.browser.downloaded_files.retain(|f| dl.join(f).exists());
-                    app.set_pending_url(url);
-                    app.browser.torrent_name = Some(info.name.clone());
-                    app.browser.files = info.files.clone();
-                    app.browser.selected_files = vec![false; info.files.len()];
-                    app.browser.selected_file = 0;
-                    app.browser.expanded_paths.clear();
-                    app.rebuild_entries();
-                    app.screen = Screen::Browser;
-                    app.status_message = format!(
-                        "{} file(s) found — w: watch, d: download",
-                        app.browser.files.len()
-                    );
-                }
-                AppEvent::PreviewFailed(msg) => {
-                    app.set_error(msg);
-                    app.screen = Screen::Input;
-                }
-                AppEvent::DownloadReady { id, stream_url, file_name, is_watch } => {
-                    let download_url = app.pending_url().map(|s| s.to_string()).unwrap_or_default();
-                    app.torrent_id = Some(id.clone());
-                    app.active_downloads.push(ActiveDownload {
-                        torrent_id: id.clone(),
-                        torrent_name: app.browser.torrent_name.clone().unwrap_or_default(),
-                        file_name: file_name.clone(),
-                        url: download_url,
-                        progress: 0.0,
-                        download_speed: 0,
-                        total_size: 0,
-                        downloaded: 0,
-                        is_streaming: is_watch,
-                    });
-                    if is_watch && !stream_url.is_empty() {
-                        let storage: Arc<dyn StorageService> = app.module.resolve();
-                        if let Some(url) = app.pending_url() {
-                            storage.mark_watched(url, &file_name);
-                        }
-                        if !app.browser.watched_files.iter().any(|f| f == &file_name) {
-                            app.browser.watched_files.push(file_name.clone());
-                        }
-                        let player: Arc<dyn PlayerService> = app.module.resolve();
-                        player.play(&stream_url, &file_name);
-                        app.status_message = format!("Watching: {}", file_name);
-                        app.screen = Screen::Player;
-                    } else {
-                        if !app.browser.downloading_files.iter().any(|f| f == &file_name) {
-                            app.browser.downloading_files.push(file_name.clone());
-                        }
-                        app.status_message =
-                            format!("Downloading to: {}", app.config.download_dir.display());
-                        app.screen = Screen::Browser;
-                    }
-                }
-                AppEvent::DownloadFailed(msg) => {
-                    app.set_error(msg);
-                    app.screen = Screen::Browser;
-                }
-                AppEvent::SearchResults(results) => {
-                    app.search_popup.busy = false;
-                    app.search_popup.all_results = results;
-                    app.search_popup.selected = 0;
-                    app.search_popup.page = 0;
-                    app.status_message =
-                        format!("{} result(s) found", app.search_popup.all_results.len());
-                }
-            }
         }
 
         if event::poll(Duration::from_millis(100))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    handlers::handle_key(&mut app, key);
+                    app.handle_key(key);
                 }
                 _ => {}
             }
         }
 
-        // Poll stats for every active download.
-        {
-            let torrent: Arc<dyn TorrentService> = app.module.resolve();
-            for dl in &mut app.active_downloads {
-                if dl.progress >= 1.0 {
-                    continue;
-                }
-                let before = dl.progress;
-                if let Ok(stats) = torrent.get_stats(&dl.torrent_id) {
-                    dl.progress = stats.progress;
-                    dl.download_speed = stats.download_speed;
-                    dl.total_size = stats.total_size;
-                    dl.downloaded = stats.downloaded;
-                }
-                if before < 1.0 && dl.progress >= 1.0 && !dl.is_streaming {
-                    let storage: Arc<dyn StorageService> = app.module.resolve();
-                    storage.mark_downloaded(&dl.url, &dl.file_name);
-                    app.browser.downloading_files.retain(|f| f != &dl.file_name);
-                    if !app.browser.downloaded_files.iter().any(|f| f == &dl.file_name) {
-                        app.browser.downloaded_files.push(dl.file_name.clone());
-                    }
-                    app.status_message = format!("Download complete: {}", dl.file_name);
-                }
-            }
-            // Also keep the single-torrent stats for the Player screen.
-            if let Some(id) = &app.torrent_id {
-                if let Ok(stats) = torrent.get_stats(id) {
-                    app.stats = Some(stats);
-                }
-            }
-        }
-
-        app.active_downloads.retain(|dl| dl.is_streaming || dl.progress < 1.0);
-        if app.active_downloads.is_empty() {
-            app.torrent_id = None;
-        }
+        tracker.tick(&mut app);
 
         if let Some(msg) = app.error_message.take() {
             app.status_message = msg;
