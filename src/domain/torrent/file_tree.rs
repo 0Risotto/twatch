@@ -91,21 +91,37 @@ impl FileTree {
     /// Full path (trailing-slash form) of the folder displayed at
     /// `entry_idx`, reconstructed from its ancestor folders.
     ///
-    /// `None` when the entry is not a folder.
+    /// The parent at depth `d - 1` is the nearest preceding entry with
+    /// exactly that depth: in DFS order, everything between a node and
+    /// that entry lies inside its subtree.  `None` when the entry is
+    /// not a folder.
     #[must_use]
     pub fn folder_path_at(&self, entry_idx: usize) -> Option<String> {
         let DisplayEntry::Folder { name, depth, .. } = self.entries.get(entry_idx)? else {
             return None;
         };
-        let depth = *depth;
 
-        let mut ancestors: Vec<&str> = Vec::with_capacity(depth);
-        for i in (0..entry_idx).rev() {
-            if let Some(DisplayEntry::Folder { name: n, depth: d, .. }) = self.entries.get(i) {
-                if *d < depth && ancestors.len() < depth {
-                    ancestors.push(n.as_str());
+        let mut ancestors: Vec<&str> = Vec::with_capacity(*depth);
+        let mut current_depth = *depth;
+        let mut bound = entry_idx;
+        while current_depth > 0 {
+            let target = current_depth - 1;
+            let mut found = None;
+            for i in (0..bound).rev() {
+                match self.entries.get(i) {
+                    Some(DisplayEntry::Folder { name: n, depth: d, .. }) if *d == target => {
+                        found = Some((i, n.as_str()));
+                        break;
+                    }
+                    Some(entry) if entry.depth() < target => break,
+                    _ => {}
                 }
             }
+            let Some((parent_idx, segment)) = found else { break };
+            ancestors.push(segment);
+            current_depth = target;
+            // Continue searching strictly before the parent's position.
+            bound = parent_idx;
         }
         ancestors.reverse();
         ancestors.push(name.as_str());

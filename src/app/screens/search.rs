@@ -1,11 +1,12 @@
 //! The search popup screen.
 
 use super::registry;
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
-use crate::config::search::SearchConfig;
+use crate::domain::common::fuzzy_match;
 use crate::domain::common::paging::Page;
-use crate::domain::search::{SEARCH_PAGE_SIZE, SearchResult};
+use crate::domain::common::percent_encode;
+use crate::domain::search::{SEARCH_PAGE_SIZE, SearchConfig, SearchResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::any::Any;
 
@@ -61,19 +62,38 @@ impl SearchScreen {
         self.page = 0;
     }
 
-    fn current_page(&self) -> Page<'_, SearchResult> {
-        Page::new(&self.all_results, self.page, SEARCH_PAGE_SIZE)
+    /// True while the live query narrows the fetched results.
+    fn filtering(&self) -> bool {
+        !self.query.is_empty() && self.query != self.fetched_query
+    }
+
+    /// All results passing the current live filter, in list order.
+    fn filtered(&self) -> Vec<&SearchResult> {
+        if self.filtering() {
+            self.all_results.iter().filter(|r| fuzzy_match(&self.query, &r.name)).collect()
+        } else {
+            self.all_results.iter().collect()
+        }
+    }
+
+    /// The current page of the filtered list plus the total page count.
+    /// Selection, navigation, and Enter all operate on this single
+    /// view so the highlighted row is always the acted-on row.
+    fn visible_page(&self) -> (Vec<&SearchResult>, usize) {
+        let filtered = self.filtered();
+        let page = Page::new(&filtered, self.page, SEARCH_PAGE_SIZE);
+        (page.items().to_vec(), page.total_pages())
     }
 
     fn clamp_selection(&mut self) {
-        let max = self.current_page().items().len().saturating_sub(1);
+        let max = self.visible_page().0.len().saturating_sub(1);
         if self.selected > max {
             self.selected = max;
         }
     }
 
     fn move_up(&mut self) {
-        let len = self.current_page().items().len();
+        let len = self.visible_page().0.len();
         if len == 0 {
             return;
         }
@@ -85,7 +105,7 @@ impl SearchScreen {
     }
 
     fn move_down(&mut self) {
-        let len = self.current_page().items().len();
+        let len = self.visible_page().0.len();
         if len == 0 {
             return;
         }
@@ -98,16 +118,13 @@ impl SearchScreen {
 
     /// Fetch a query (or select a result when it was already fetched).
     fn enter(&mut self, app: &mut App) -> Option<Transition> {
-        let select_result =
-            !self.current_page().items().is_empty() && self.query == self.fetched_query;
+        let items = self.visible_page().0;
+        let select_result = !items.is_empty() && self.query == self.fetched_query;
 
         if select_result {
-            let (hash, name) = self
-                .current_page()
-                .items()
-                .get(self.selected)
-                .map(|r| (r.info_hash.clone(), r.name.clone()))?;
-            let magnet = format!("magnet:?xt=urn:btih:{hash}&dn={name}");
+            let (hash, name) =
+                items.get(self.selected).map(|r| (r.info_hash.clone(), r.name.clone()))?;
+            let magnet = format!("magnet:?xt=urn:btih:{hash}&dn={}", percent_encode(&name));
             app.status_message = format!("Ready: {name}");
             return Some(Transition::Push(registry::input(magnet)));
         }
@@ -149,14 +166,16 @@ impl SearchScreen {
                 None
             }
             KeyCode::Left => {
-                if self.current_page().can_go_back() {
+                let (_, total_pages) = self.visible_page();
+                if self.page > 0 && total_pages > 0 {
                     self.page -= 1;
                     self.selected = 0;
                 }
                 None
             }
             KeyCode::Right => {
-                if self.current_page().can_go_forward() {
+                let (_, total_pages) = self.visible_page();
+                if self.page + 1 < total_pages {
                     self.page += 1;
                     self.selected = 0;
                 }
@@ -199,7 +218,9 @@ impl SearchScreen {
                 let url = self.config_input.trim().to_string();
                 self.config.url = url;
                 self.config_open = false;
-                let _ = self.config.save(&app.config.config_dir);
+                if let Err(e) = self.config.save(&app.config.config_dir) {
+                    app.set_error(format!("Search API set, but failed to persist: {e}"));
+                }
                 app.search_config = self.config.clone();
                 app.status_message = "Search API configured".into();
                 None
@@ -222,29 +243,8 @@ impl Screen for SearchScreen {
         self.handle_input(app, key)
     }
 
-    fn view<'a>(&'a self, _app: &'a App) -> ScreenViewModel<'a> {
-        let page = self.current_page();
-        let filtering = !self.query.is_empty() && self.query != self.fetched_query;
-        let page_total = page.items().len();
-        let items: Vec<&SearchResult> = page
-            .items()
-            .iter()
-            .filter(|r| !filtering || crate::domain::common::fuzzy_match(&self.query, &r.name))
-            .collect();
-
-        ScreenViewModel::Search(ViewModel {
-            query: &self.query,
-            fetched_query: &self.fetched_query,
-            busy: self.busy,
-            page: self.page,
-            selected: self.selected.min(items.len().saturating_sub(1)),
-            items,
-            page_total,
-            filtering,
-            config_open: self.config_open,
-            config_input: &self.config_input,
-            has_config: !self.config.url.is_empty(),
-        })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::search_popup::render(frame, area, app, self.view(app));
     }
 
     fn is_modal(&self) -> bool {
@@ -261,5 +261,28 @@ impl Screen for SearchScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl SearchScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, _app: &'a App) -> ViewModel<'a> {
+        let (items, _) = self.visible_page();
+        let page_total = items.len();
+
+        ViewModel {
+            query: &self.query,
+            fetched_query: &self.fetched_query,
+            busy: self.busy,
+            page: self.page,
+            selected: self.selected.min(page_total.saturating_sub(1)),
+            items,
+            page_total,
+            filtering: self.filtering(),
+            config_open: self.config_open,
+            config_input: &self.config_input,
+            has_config: !self.config.url.is_empty(),
+        }
     }
 }

@@ -1,6 +1,6 @@
 //! The theme picker popup screen.
 
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::ui::Theme;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -90,17 +90,8 @@ impl Screen for ThemePickerScreen {
         None
     }
 
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a> {
-        let filtered = self.filtered_indices();
-        let items = filtered
-            .iter()
-            .map(|&idx| ThemeItem {
-                name: Theme::ALL[idx].name,
-                is_current: Theme::ALL[idx] == app.theme_state.theme,
-                is_selected: idx == self.selected,
-            })
-            .collect();
-        ScreenViewModel::ThemePicker(ViewModel { filter: &self.filter, items })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::theme_picker::render(frame, area, app, self.view(app));
     }
 
     fn is_modal(&self) -> bool {
@@ -117,5 +108,23 @@ impl Screen for ThemePickerScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl ThemePickerScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, app: &'a App) -> ViewModel<'a> {
+        let filtered = self.filtered_indices();
+        let items = filtered
+            .iter()
+            .enumerate()
+            .map(|(pos, &idx)| ThemeItem {
+                name: Theme::ALL[idx].name,
+                is_current: Theme::ALL[idx] == app.theme_state.theme,
+                is_selected: pos == self.selected,
+            })
+            .collect();
+        ViewModel { filter: &self.filter, items }
     }
 }

@@ -58,6 +58,16 @@ pub enum DisplayEntry {
     File { file: TorrentFile, depth: usize },
 }
 
+impl DisplayEntry {
+    /// Nesting depth of this entry in the tree projection.
+    #[must_use]
+    pub const fn depth(&self) -> usize {
+        match self {
+            Self::Folder { depth, .. } | Self::File { depth, .. } => *depth,
+        }
+    }
+}
+
 /// Lifecycle status of a single file within the current session.
 ///
 /// Aggregated from history (`watched` / `downloaded`) and the live

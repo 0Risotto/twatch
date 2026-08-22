@@ -1,6 +1,6 @@
 //! The rename popup screen.
 
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::app::state::InputState;
 use crate::domain::history::ports::HistoryPort;
@@ -53,13 +53,22 @@ impl Screen for RenameScreen {
                         let storage: Arc<dyn HistoryPort> = app.module.resolve();
                         if let Err(e) = storage.rename_entry(index, &new_name) {
                             app.set_error(format!("Failed to rename: {e}"));
+                            return None;
                         }
+                        app.status_message = format!("Renamed to: {new_name}");
                     }
                     RenameTarget::BrowserFile { file_index } => {
-                        app.torrent.rename_file(file_index, &new_name);
+                        match crate::application::files::rename_browser_file(
+                            app, file_index, &new_name,
+                        ) {
+                            Ok(message) => app.status_message = message,
+                            Err(message) => {
+                                app.set_error(message);
+                                return None;
+                            }
+                        }
                     }
                 }
-                app.status_message = format!("Renamed to: {new_name}");
                 Some(Transition::Pop)
             }
             KeyCode::Char(c) => {
@@ -82,16 +91,8 @@ impl Screen for RenameScreen {
         }
     }
 
-    fn view<'a>(&'a self, _app: &'a App) -> ScreenViewModel<'a> {
-        let title = match self.target {
-            RenameTarget::History { .. } => "Rename entry",
-            RenameTarget::BrowserFile { .. } => "Rename file",
-        };
-        ScreenViewModel::Rename(ViewModel {
-            title,
-            value: &self.input.value,
-            cursor: self.input.cursor,
-        })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::rename::render(frame, area, app, self.view(app));
     }
 
     fn is_modal(&self) -> bool {
@@ -104,5 +105,17 @@ impl Screen for RenameScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl RenameScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, _app: &'a App) -> ViewModel<'a> {
+        let title = match self.target {
+            RenameTarget::History { .. } => "Rename entry",
+            RenameTarget::BrowserFile { .. } => "Rename file",
+        };
+        ViewModel { title, value: &self.input.value, cursor: self.input.cursor }
     }
 }

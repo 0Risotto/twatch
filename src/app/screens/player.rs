@@ -1,6 +1,6 @@
 //! The now-playing screen.
 
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::domain::player::ports::PlayerPort;
 use crate::domain::torrent::TorrentStats;
@@ -33,11 +33,8 @@ impl Screen for PlayerScreen {
         }
     }
 
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a> {
-        ScreenViewModel::Player(ViewModel {
-            stats: app.stats.as_ref(),
-            status: &app.status_message,
-        })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::player::render(frame, area, app, self.view(app));
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -46,5 +43,13 @@ impl Screen for PlayerScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl PlayerScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, app: &'a App) -> ViewModel<'a> {
+        ViewModel { stats: app.stats.as_ref(), status: &app.status_message }
     }
 }

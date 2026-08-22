@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 /// Events produced by search background tasks.
 pub enum SearchEvent {
     Results(Vec<SearchResult>),
+    Failed(String),
 }
 
 /// Owns the search channel and background-task lifecycle.
@@ -41,8 +42,7 @@ impl SearchFlow {
                     let _ = tx.send(SearchEvent::Results(results));
                 }
                 Err(e) => {
-                    let _ = tx.send(SearchEvent::Results(Vec::new()));
-                    tracing::warn!("Search failed: {e}");
+                    let _ = tx.send(SearchEvent::Failed(format!("Search failed: {e}")));
                 }
             }
         }));
@@ -73,6 +73,12 @@ pub fn apply(app: &mut App, event: SearchEvent) {
                 screen.apply_results(results);
                 app.status_message = format!("{count} result(s) found");
             }
+        }
+        SearchEvent::Failed(message) => {
+            if let Some(screen) = app.top_as_mut::<SearchScreen>() {
+                screen.apply_results(Vec::new());
+            }
+            app.set_error(message);
         }
     }
 }

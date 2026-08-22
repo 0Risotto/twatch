@@ -4,20 +4,19 @@
 //! and restores the terminal on exit.  No business logic lives here.
 
 pub mod badges;
-mod browser;
-mod history;
-mod input;
-mod loading;
-mod player;
-mod rename;
-mod search_popup;
-mod sidebar;
+pub(crate) mod browser;
+pub(crate) mod history;
+pub(crate) mod input;
+pub(crate) mod loading;
+pub(crate) mod player;
+pub(crate) mod rename;
+pub(crate) mod search_popup;
+pub(crate) mod sidebar;
 mod theme;
-mod theme_picker;
-mod welcome;
+pub(crate) mod theme_picker;
+pub(crate) mod welcome;
 
 use crate::app::App;
-use crate::app::screens::ScreenViewModel;
 use anyhow::Result;
 use crossterm::{
     execute,
@@ -35,10 +34,22 @@ pub use theme::{
 };
 
 /// Enter raw mode + alternate screen and create the terminal.
+///
+/// On failure after raw mode is enabled, restores the terminal before
+/// returning so the caller never leaves the TTY mangled.
 pub fn init() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
-    execute!(stdout(), EnterAlternateScreen)?;
-    Ok(Terminal::new(CrosstermBackend::new(stdout()))?)
+    if let Err(e) = execute!(stdout(), EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(e.into());
+    }
+    match Terminal::new(CrosstermBackend::new(stdout())) {
+        Ok(terminal) => Ok(terminal),
+        Err(e) => {
+            let _ = restore();
+            Err(e.into())
+        }
+    }
 }
 
 /// Leave the alternate screen and disable raw mode.
@@ -46,6 +57,16 @@ pub fn restore() -> Result<()> {
     disable_raw_mode()?;
     execute!(stdout(), LeaveAlternateScreen)?;
     Ok(())
+}
+
+/// Install a panic hook that restores the terminal before unwinding,
+/// so a crash never leaves raw mode / the alternate screen active.
+pub fn install_panic_hook() {
+    let original = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = restore();
+        original(info);
+    }));
 }
 
 /// Render the current screen: the topmost non-modal screen plus any
@@ -73,39 +94,26 @@ pub fn draw(frame: &mut Frame, app: &App) {
     if let Some(base_idx) = base_screen_idx(&screens) {
         let base = screens[base_idx];
         let base_area = if base.renders_full_frame() { area } else { main_area };
-        render_screen(frame, base_area, app, base.view(app));
+        base.render(frame, base_area, app);
+
+        // The sidebar sits above the base but BELOW modal overlays, so
+        // full-frame popups (search, theme picker) paint over it.
+        if !base.renders_full_frame() {
+            sidebar::render(frame, sidebar_area, app);
+        }
 
         // Modal overlays stacked above the base render on top of it.
         for screen in &screens[base_idx + 1..] {
             let target_area = if screen.renders_full_frame() { area } else { main_area };
-            render_screen(frame, target_area, app, screen.view(app));
+            screen.render(frame, target_area, app);
         }
+    } else {
+        sidebar::render(frame, sidebar_area, app);
     }
-
-    sidebar::render(frame, sidebar_area, app);
 }
 
 /// Index of the topmost non-modal screen: the visible base that
 /// everything else hides behind.
 pub fn base_screen_idx(screens: &[&dyn crate::app::screens::Screen]) -> Option<usize> {
     screens.iter().rposition(|s| !s.is_modal())
-}
-
-fn render_screen(
-    frame: &mut Frame,
-    area: ratatui::layout::Rect,
-    app: &App,
-    vm: ScreenViewModel<'_>,
-) {
-    match vm {
-        ScreenViewModel::Welcome(vm) => welcome::render(frame, area, app, vm),
-        ScreenViewModel::Input(vm) => input::render(frame, area, app, vm),
-        ScreenViewModel::Loading(vm) => loading::render(frame, area, app, vm),
-        ScreenViewModel::Browser(vm) => browser::render(frame, area, app, vm),
-        ScreenViewModel::Player(vm) => player::render(frame, area, app, vm),
-        ScreenViewModel::History(vm) => history::render(frame, area, app, vm),
-        ScreenViewModel::Search(vm) => search_popup::render(frame, area, app, vm),
-        ScreenViewModel::ThemePicker(vm) => theme_picker::render(frame, area, app, vm),
-        ScreenViewModel::Rename(vm) => rename::render(frame, area, app, vm),
-    }
 }

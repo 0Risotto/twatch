@@ -1,7 +1,7 @@
 //! The magnet/URL input screen.
 
 use super::registry;
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::app::state::InputState;
 use crate::domain::common::validate_torrent_input;
@@ -68,8 +68,8 @@ impl Screen for InputScreen {
         }
     }
 
-    fn view<'a>(&'a self, _app: &'a App) -> ScreenViewModel<'a> {
-        ScreenViewModel::Input(ViewModel { value: &self.input.value, cursor: self.input.cursor })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::input::render(frame, area, app, self.view(app));
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -78,5 +78,13 @@ impl Screen for InputScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl InputScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, _app: &'a App) -> ViewModel<'a> {
+        ViewModel { value: &self.input.value, cursor: self.input.cursor }
     }
 }

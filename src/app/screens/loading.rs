@@ -1,6 +1,6 @@
 //! The loading screen shown while a background task runs.
 
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::any::Any;
@@ -45,8 +45,8 @@ impl Screen for LoadingScreen {
         }
     }
 
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a> {
-        ScreenViewModel::Loading(ViewModel { status: &app.status_message })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::loading::render(frame, area, app, self.view(app));
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -55,5 +55,13 @@ impl Screen for LoadingScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl LoadingScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, app: &'a App) -> ViewModel<'a> {
+        ViewModel { status: &app.status_message }
     }
 }

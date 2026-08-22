@@ -3,17 +3,46 @@
 //! Queries a user-configured JSON API via reqwest and maps the response
 //! using a configurable field map.
 
-use crate::config::search::SearchConfig;
-use crate::domain::search::SearchResult;
 use crate::domain::search::ports::SearchPort;
+use crate::domain::search::{SearchConfig, SearchResult};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
-use shaku::Component;
+use shaku::{Component, Module, ModuleBuildContext};
+use std::time::Duration;
 
-#[derive(Component)]
-#[shaku(interface = SearchPort)]
-pub struct SearchServiceImpl;
+/// Give up on a hung search API after this long.
+const SEARCH_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Truncate oversized error payloads before they reach the status bar.
+const MAX_ERROR_PREVIEW: usize = 200;
+
+pub struct SearchServiceImpl {
+    client: reqwest::Client,
+}
+
+impl Default for SearchServiceImpl {
+    fn default() -> Self {
+        let client =
+            reqwest::Client::builder().timeout(SEARCH_TIMEOUT).build().unwrap_or_else(|e| {
+                tracing::error!("Failed to build HTTP client, using defaults: {e}");
+                reqwest::Client::new()
+            });
+        Self { client }
+    }
+}
+
+impl<M: Module> Component<M> for SearchServiceImpl {
+    type Interface = dyn SearchPort;
+    type Parameters = ();
+
+    fn build(
+        _context: &mut ModuleBuildContext<M>,
+        _params: Self::Parameters,
+    ) -> Box<Self::Interface> {
+        Box::new(Self::default())
+    }
+}
 
 #[async_trait]
 impl SearchPort for SearchServiceImpl {
@@ -30,13 +59,16 @@ impl SearchPort for SearchServiceImpl {
         let url =
             config.url.replace("{query}", &urlencoding(query)).replace("{page}", &page.to_string());
 
-        let mut req = reqwest::Client::new().get(&url);
+        let mut req = self.client.get(&url);
 
         for (key, value) in &config.headers {
             req = req.header(key.as_str(), value.as_str());
         }
 
         let resp = req.send().await.context("Search request failed")?;
+        if !resp.status().is_success() {
+            return Err(anyhow::anyhow!("Search API returned HTTP {}", resp.status()));
+        }
         let body = resp.text().await.context("Failed to read response")?;
 
         let json: Value =
@@ -45,7 +77,12 @@ impl SearchPort for SearchServiceImpl {
         let array = match &json {
             Value::Array(arr) => arr.clone(),
             _ => {
-                return Err(anyhow::anyhow!("Expected a JSON array, got {}", json));
+                let mut preview = json.to_string();
+                if preview.len() > MAX_ERROR_PREVIEW {
+                    preview.truncate(MAX_ERROR_PREVIEW);
+                    preview.push('…');
+                }
+                return Err(anyhow::anyhow!("Expected a JSON array, got {preview}"));
             }
         };
 

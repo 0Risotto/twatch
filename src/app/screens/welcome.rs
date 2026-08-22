@@ -1,7 +1,7 @@
 //! The welcome menu screen.
 
 use super::registry;
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::model::MenuEntry;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -63,8 +63,8 @@ impl Screen for WelcomeScreen {
         }
     }
 
-    fn view<'a>(&'a self, _app: &'a App) -> ScreenViewModel<'a> {
-        ScreenViewModel::Welcome(ViewModel { menu_selected: self.menu_selected })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::welcome::render(frame, area, app, self.view(app));
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -73,5 +73,13 @@ impl Screen for WelcomeScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl WelcomeScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub const fn view<'a>(&'a self, _app: &'a App) -> ViewModel {
+        ViewModel { menu_selected: self.menu_selected }
     }
 }

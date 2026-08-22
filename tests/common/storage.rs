@@ -96,6 +96,22 @@ impl HistoryPort for MockStorageService {
         }
     }
 
+    fn rename_file(&self, url: &str, old_name: &str, new_name: &str) {
+        let mut entries = self.entries.lock().unwrap();
+        for e in &mut *entries {
+            if e.url == url {
+                for list in [&mut e.watched_files, &mut e.downloaded_files] {
+                    for name in list.iter_mut() {
+                        if name == old_name {
+                            *name = new_name.to_string();
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     fn remove_entry(&self, index: usize) -> Result<()> {
         let mut entries = self.entries.lock().unwrap();
         if index >= entries.len() {

@@ -14,7 +14,7 @@ use super::rename::{RenameScreen, RenameTarget};
 use super::search::SearchScreen;
 use super::theme_picker::ThemePickerScreen;
 use super::welcome::WelcomeScreen;
-use crate::config::search::SearchConfig;
+use crate::domain::search::SearchConfig;
 use crate::ui::Theme;
 
 /// The root welcome screen.

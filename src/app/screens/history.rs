@@ -2,7 +2,7 @@
 
 use super::registry;
 use super::rename::RenameTarget;
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::domain::common::fuzzy_match;
 use crate::domain::history::HistoryEntry;
@@ -168,14 +168,8 @@ impl Screen for HistoryScreen {
         }
     }
 
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a> {
-        let entries: Vec<HistoryEntry> =
-            self.visible_entries(app).into_iter().map(|(_, e)| e).collect();
-        ScreenViewModel::History(ViewModel {
-            entries,
-            selected: self.selected,
-            searching: self.searching,
-        })
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::history::render(frame, area, app, self.view(app));
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -184,5 +178,15 @@ impl Screen for HistoryScreen {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl HistoryScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, app: &'a App) -> ViewModel {
+        let entries: Vec<HistoryEntry> =
+            self.visible_entries(app).into_iter().map(|(_, e)| e).collect();
+        ViewModel { entries, selected: self.selected, searching: self.searching }
     }
 }

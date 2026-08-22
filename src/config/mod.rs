@@ -72,13 +72,21 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Load configuration from `config_dir/config.json`, merging with defaults.
-    ///
-    /// If the file doesn't exist or is malformed, returns the defaults.
+    /// Load configuration from the default config dir, merging with
+    /// built-in defaults.  If the file doesn't exist or is malformed,
+    /// returns the defaults.
     #[must_use]
     pub fn load() -> Self {
+        Self::load_from(&Self::default().config_dir)
+    }
+
+    /// Load configuration from `config_dir/config.json`, merging with
+    /// built-in defaults.  Explicitly user-set fields win; fields left
+    /// empty (or unset) fall back to the built-in defaults.
+    #[must_use]
+    pub fn load_from(config_dir: &std::path::Path) -> Self {
         let default = Self::default();
-        let config_path = default.config_dir.join("config.json");
+        let config_path = config_dir.join("config.json");
 
         let loaded = std::fs::read_to_string(&config_path).ok().and_then(|contents| {
             serde_json::from_str::<Config>(&contents)
@@ -90,18 +98,7 @@ impl Config {
         });
 
         match loaded {
-            Some(user) => {
-                // Merge user config over defaults for path fields.
-                Self {
-                    log_path: default.log_path,
-                    log_level: user.log_level,
-                    session_path: default.session_path,
-                    config_dir: default.config_dir,
-                    download_dir: default.download_dir,
-                    history_filename: default.history_filename,
-                    theme: user.theme,
-                }
-            }
+            Some(user) => merge_config(default, user),
             None => default,
         }
     }
@@ -134,4 +131,26 @@ impl Config {
         std::fs::rename(&tmp, &path).context("Failed to rename config file")?;
         Ok(())
     }
+}
+
+/// Merge a user-supplied config over the built-in defaults: an empty
+/// path or string means "not set" and keeps the default.
+fn merge_config(default: Config, user: Config) -> Config {
+    Config {
+        log_path: or_default_path(&user.log_path, &default.log_path),
+        log_level: or_default_str(&user.log_level, &default.log_level),
+        session_path: or_default_path(&user.session_path, &default.session_path),
+        config_dir: or_default_path(&user.config_dir, &default.config_dir),
+        download_dir: or_default_path(&user.download_dir, &default.download_dir),
+        history_filename: or_default_str(&user.history_filename, &default.history_filename),
+        theme: or_default_str(&user.theme, &default.theme),
+    }
+}
+
+fn or_default_path(user: &std::path::Path, default: &std::path::Path) -> PathBuf {
+    if user.as_os_str().is_empty() { default.to_path_buf() } else { user.to_path_buf() }
+}
+
+fn or_default_str(user: &str, default: &str) -> String {
+    if user.is_empty() { default.to_string() } else { user.to_string() }
 }

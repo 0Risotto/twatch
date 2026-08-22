@@ -7,5 +7,7 @@ use crate::ui::Theme;
 pub fn apply_theme(app: &mut App, theme: Theme) {
     app.theme_state.theme = theme;
     app.config.theme = Theme::to_config_name(theme.name);
-    let _ = app.config.save();
+    if let Err(e) = app.config.save() {
+        app.set_error(format!("Theme applied, but failed to persist: {e}"));
+    }
 }

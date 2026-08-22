@@ -10,13 +10,13 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use twatch::config::Config;
-use twatch::config::search::SearchConfig;
+use twatch::domain::search::SearchConfig;
 use twatch::module::AppModule;
 use twatch::service::storage::{RealStorage, RealStorageParameters, StorageState};
+use twatch::service::stream_server::start_stream_server;
 use twatch::service::task::{TokioTaskSpawner, TokioTaskSpawnerParameters};
 use twatch::service::torrent::{
     StreamUrlProvider, StreamUrlProviderParameters, TorrentEngineImpl, TorrentEngineImplParameters,
-    start_stream_server,
 };
 
 fn main() {
@@ -34,7 +34,9 @@ fn try_main() -> anyhow::Result<()> {
     if let Some(parent) = config.log_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::create_dir_all(&config.download_dir).context("Failed to create download directory")?;
+    std::fs::create_dir_all(&config.download_dir).with_context(|| {
+        format!("Failed to create download directory {}", config.download_dir.display())
+    })?;
 
     let log_file = std::fs::OpenOptions::new().create(true).append(true).open(&config.log_path)?;
 
@@ -80,6 +82,7 @@ fn try_main() -> anyhow::Result<()> {
         })
         .build();
 
+    twatch::ui::install_panic_hook();
     let mut terminal = twatch::ui::init()?;
     let search_config = SearchConfig::load(&config.config_dir);
     let result = twatch::app::run(&mut terminal, module, config, search_config);

@@ -19,6 +19,7 @@ pub mod registry;
 
 use crate::app::App;
 use crossterm::event::KeyEvent;
+use ratatui::{Frame, layout::Rect};
 use std::any::Any;
 
 /// A navigation transition produced by a screen.
@@ -35,13 +36,30 @@ pub enum Transition {
     Quit,
 }
 
-/// A UI screen: private state + key handling + pure view model.
+/// Where a matching screen sits in the navigation stack.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScreenPosition {
+    /// The screen is the current top.
+    Top,
+    /// The screen sits below the top.
+    Below,
+    /// No matching screen exists.
+    Absent,
+}
+
+/// A UI screen: private state + key handling + rendering delegation.
+///
+/// Rendering is delegated to a pure renderer in [`crate::ui`]; the
+/// screen itself only builds the view model.  Adding a screen means
+/// adding its module and one constructor row in [`registry`] —
+/// nothing else in the codebase needs to change.
 pub trait Screen: Any {
     /// Handle a key press.  Return a navigation transition if any.
     fn handle_key(&mut self, app: &mut App, key: KeyEvent) -> Option<Transition>;
 
-    /// Build the view model rendered by the presentation layer.
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a>;
+    /// Render this screen into `area`, delegating to its pure
+    /// presentation function in [`crate::ui`].
+    fn render(&self, frame: &mut Frame, area: Rect, app: &App);
 
     /// True for modal overlays: they consume global shortcuts and
     /// render over the full frame.
@@ -59,17 +77,4 @@ pub trait Screen: Any {
     fn as_any(&self) -> &dyn Any;
     /// Type-erased mutable access for downcasting.
     fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-/// Per-screen view models — plain data, no presentation logic.
-pub enum ScreenViewModel<'a> {
-    Welcome(welcome::ViewModel),
-    Input(input::ViewModel<'a>),
-    Loading(loading::ViewModel<'a>),
-    Browser(browser::ViewModel<'a>),
-    Player(player::ViewModel<'a>),
-    History(history::ViewModel),
-    Search(search::ViewModel<'a>),
-    ThemePicker(theme_picker::ViewModel<'a>),
-    Rename(rename::ViewModel<'a>),
 }

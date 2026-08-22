@@ -49,18 +49,15 @@ impl StorageState {
         Ok(Self { path, data })
     }
 
-    fn save(&self) -> Result<()> {
-        // Evict oldest entries if we exceed the cap.
-        let mut data = &self.data;
-        let mut owned;
-        if data.history.len() > MAX_HISTORY {
-            owned = Store { history: data.history.clone() };
-            let excess = owned.history.len() - MAX_HISTORY;
-            owned.history.drain(0..excess);
-            data = &owned;
+    fn save(&mut self) -> Result<()> {
+        // Evict oldest entries once we exceed the cap, keeping memory
+        // and disk consistent.
+        if self.data.history.len() > MAX_HISTORY {
+            let excess = self.data.history.len() - MAX_HISTORY;
+            self.data.history.drain(0..excess);
         }
 
-        let json = serde_json::to_string_pretty(&data).context("Failed to serialize")?;
+        let json = serde_json::to_string_pretty(&self.data).context("Failed to serialize")?;
 
         // Write atomically: first to a temp file, then rename.
         // Use 0o600 to prevent other users from reading history.
@@ -144,7 +141,7 @@ impl HistoryPort for RealStorage {
             downloaded_files,
         });
 
-        let _ = state.save();
+        log_save_error(state.save());
     }
 
     fn rename_entry(&self, index: usize, new_name: &str) -> Result<()> {
@@ -165,7 +162,7 @@ impl HistoryPort for RealStorage {
                 break;
             }
         }
-        let _ = state.save();
+        log_save_error(state.save());
     }
 
     fn mark_downloaded(&self, url: &str, file_name: &str) {
@@ -179,7 +176,7 @@ impl HistoryPort for RealStorage {
                 break;
             }
         }
-        let _ = state.save();
+        log_save_error(state.save());
     }
 
     fn mark_deleted(&self, url: &str, file_name: &str) {
@@ -197,7 +194,26 @@ impl HistoryPort for RealStorage {
                 break;
             }
         }
-        let _ = state.save();
+        log_save_error(state.save());
+    }
+
+    fn rename_file(&self, url: &str, old_name: &str, new_name: &str) {
+        let mut state = super::lock_state(&self.state);
+        for e in &mut state.data.history {
+            if e.url == url {
+                for list in [&mut e.watched_files, &mut e.downloaded_files] {
+                    for name in list.iter_mut() {
+                        if name == old_name {
+                            *name = new_name.to_string();
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        if let Err(e) = state.save() {
+            tracing::error!("Failed to persist rename: {e}");
+        }
     }
 
     fn remove_entry(&self, index: usize) -> Result<()> {
@@ -207,5 +223,13 @@ impl HistoryPort for RealStorage {
         }
         state.data.history.remove(index);
         state.save()
+    }
+}
+
+/// Persistence failures must not be silent: log them so at least the
+/// log file carries a record of the lost write.
+fn log_save_error(result: Result<()>) {
+    if let Err(e) = result {
+        tracing::error!("Failed to persist history: {e}");
     }
 }

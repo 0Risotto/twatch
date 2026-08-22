@@ -7,6 +7,7 @@
 //! state.
 
 use crate::app::App;
+use crate::app::screens::ScreenPosition;
 use crate::app::screens::Transition;
 use crate::app::screens::loading::LoadingScreen;
 use crate::app::screens::registry;
@@ -43,6 +44,7 @@ pub struct DownloadTask {
 }
 
 /// Events produced by download background tasks.
+#[derive(Debug)]
 pub enum DownloadEvent {
     Ready { task: DownloadTask, torrent: TorrentId, stream_url: String },
     Failed { task: DownloadTask, message: String },
@@ -52,7 +54,15 @@ pub enum DownloadEvent {
 #[derive(Default)]
 pub struct DownloadFlow {
     next_id: u64,
-    pending: Vec<(u64, oneshot::Receiver<DownloadEvent>)>,
+    /// Queued downloads: metadata + event receiver per task.
+    pub pending: Vec<PendingDownload>,
+}
+
+/// A queued download: its metadata (kept so a crashed task can still
+/// be reported) and its event receiver.
+pub struct PendingDownload {
+    pub task: DownloadTask,
+    pub rx: oneshot::Receiver<DownloadEvent>,
 }
 
 impl DownloadFlow {
@@ -87,7 +97,7 @@ impl DownloadFlow {
         let stream: Arc<dyn StreamPort> = app.module.resolve();
         let spawner: Arc<dyn TaskSpawner> = app.module.resolve();
         let (tx, rx) = oneshot::channel();
-        self.pending.push((id, rx));
+        self.pending.push(PendingDownload { task: task.clone(), rx });
 
         spawner.spawn(Box::pin(async move {
             let event = match torrent.download(&url, file_index).await {
@@ -135,7 +145,7 @@ impl DownloadFlow {
         let torrent: Arc<dyn TorrentPort> = app.module.resolve();
         let spawner: Arc<dyn TaskSpawner> = app.module.resolve();
         let (tx, rx) = oneshot::channel();
-        self.pending.push((id, rx));
+        self.pending.push(PendingDownload { task: task.clone(), rx });
 
         // Multi-file torrents download into `<output_dir>/<torrent name>/`,
         // mirroring librqbit's default sub-folder behaviour.
@@ -155,16 +165,24 @@ impl DownloadFlow {
     }
 
     /// Collect events from every download that has finished since the
-    /// last drain.  In-flight downloads stay queued.
+    /// last drain.  In-flight downloads stay queued; a task that died
+    /// without sending (panic, runtime shutdown) surfaces as `Failed`
+    /// instead of leaving its loading screen stuck forever.
     pub fn drain(&mut self) -> Vec<DownloadEvent> {
         let mut events = Vec::new();
-        self.pending.retain_mut(|(_, rx)| match rx.try_recv() {
+        self.pending.retain_mut(|pending| match pending.rx.try_recv() {
             Ok(event) => {
                 events.push(event);
                 false
             }
             Err(oneshot::error::TryRecvError::Empty) => true,
-            Err(oneshot::error::TryRecvError::Closed) => false,
+            Err(oneshot::error::TryRecvError::Closed) => {
+                events.push(DownloadEvent::Failed {
+                    task: pending.task.clone(),
+                    message: "Download task ended unexpectedly".into(),
+                });
+                false
+            }
         });
         events
     }
@@ -197,7 +215,21 @@ pub fn apply(app: &mut App, event: DownloadEvent) {
                 let player: Arc<dyn PlayerPort> = app.module.resolve();
                 player.play(&stream_url, file_name);
                 app.status_message = format!("Watching: {}", task.label);
-                app.apply_transition(Transition::Replace(registry::player()));
+                // Dismiss this task's loading screen wherever it sits;
+                // only navigate to the player when the user hasn't
+                // already moved past it entirely.
+                let matches_loading =
+                    |s: &dyn crate::app::screens::Screen| matches_task_loading(s, task.id);
+                match app.screen_position(matches_loading) {
+                    ScreenPosition::Top => {
+                        app.apply_transition(Transition::Replace(registry::player()));
+                    }
+                    ScreenPosition::Below => {
+                        app.remove_screen_if(matches_loading);
+                        app.apply_transition(Transition::Push(registry::player()));
+                    }
+                    ScreenPosition::Absent => {}
+                }
             } else {
                 for file_name in &task.file_names {
                     if !app.torrent.downloading_files.iter().any(|f| f == file_name) {
@@ -206,22 +238,23 @@ pub fn apply(app: &mut App, event: DownloadEvent) {
                 }
                 app.status_message =
                     format!("Downloading to: {}", app.config.download_dir.display());
-                pop_loading_if_matching(app, task.id);
+                dismiss_loading(app, task.id);
             }
         }
         DownloadEvent::Failed { task, message } => {
             app.set_error(message);
-            pop_loading_if_matching(app, task.id);
+            dismiss_loading(app, task.id);
         }
     }
 }
 
-/// Pop the top loading screen only when it belongs to `task_id`, so a
-/// finished download never dismisses another download's loading screen.
-fn pop_loading_if_matching(app: &mut App, task_id: u64) {
-    if let Some(loading) = app.top_as::<LoadingScreen>() {
-        if loading.task() == Some(task_id) {
-            app.apply_transition(Transition::Pop);
-        }
-    }
+/// True when `screen` is the loading screen bound to `task_id`.
+fn matches_task_loading(screen: &dyn crate::app::screens::Screen, task_id: u64) -> bool {
+    screen.as_any().downcast_ref::<LoadingScreen>().is_some_and(|l| l.task() == Some(task_id))
+}
+
+/// Remove the loading screen bound to `task_id` from wherever it sits
+/// in the navigation stack.
+fn dismiss_loading(app: &mut App, task_id: u64) {
+    app.remove_screen_if(|screen| matches_task_loading(screen, task_id));
 }

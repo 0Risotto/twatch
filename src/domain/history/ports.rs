@@ -24,6 +24,10 @@ pub trait HistoryPort: Interface {
     /// Remove `file_name` from watched/downloaded files on the entry matching `url`.
     fn mark_deleted(&self, url: &str, file_name: &str);
 
+    /// Rename `old_name` to `new_name` in the watched/downloaded file
+    /// lists of the entry matching `url`.
+    fn rename_file(&self, url: &str, old_name: &str, new_name: &str);
+
     /// Remove the entry at `index`.
     fn remove_entry(&self, index: usize) -> Result<()>;
 }

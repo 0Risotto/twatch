@@ -4,6 +4,7 @@
 
 use crossterm::event::KeyCode;
 use twatch::app::App;
+use twatch::app::screens::Transition;
 use twatch::app::screens::browser::BrowserScreen;
 use twatch::app::screens::history::HistoryScreen;
 use twatch::app::screens::input::InputScreen;
@@ -13,13 +14,12 @@ use twatch::app::screens::rename::RenameScreen;
 use twatch::app::screens::search::SearchScreen;
 use twatch::app::screens::theme_picker::ThemePickerScreen;
 use twatch::app::screens::welcome::WelcomeScreen;
-use twatch::app::screens::{ScreenViewModel, Transition};
 use twatch::application::background::preview::{PreviewEvent, apply};
 use twatch::config::Config;
-use twatch::config::search::SearchConfig;
 use twatch::domain::common::spawner::TaskSpawner;
 use twatch::domain::history::ports::HistoryPort;
 use twatch::domain::player::ports::PlayerPort;
+use twatch::domain::search::SearchConfig;
 use twatch::domain::torrent::ports::{StreamPort, TorrentPort};
 use twatch::domain::torrent::{DisplayEntry, TorrentFile};
 use twatch::module::AppModule;
@@ -48,13 +48,15 @@ fn mock_app() -> App {
                 common::storage::MockStorageService::new(),
             ))
             .build(),
-        Config::default(),
+        // Never point tests at real XDG dirs: config.save() must not
+        // write to the developer's home directory.
+        Config { config_dir: temp_dir(), ..Config::default() },
         SearchConfig::default(),
     )
 }
 
 fn mock_app_with_download_dir(dir: PathBuf) -> App {
-    let config = Config { download_dir: dir, ..Config::default() };
+    let config = Config { download_dir: dir, config_dir: temp_dir(), ..Config::default() };
     App::new(
         AppModule::builder()
             .with_component_override::<dyn TorrentPort>(Box::new(
@@ -151,11 +153,8 @@ fn input_typing_builds_value() {
     app.handle_key(key(KeyCode::Char('h')));
     app.handle_key(key(KeyCode::Char('i')));
 
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Input(vm) => assert_eq!(vm.value, "hi"),
-        _ => panic!("expected input screen"),
-    }
+    let vm = app.top_as::<InputScreen>().unwrap().view(&app);
+    assert_eq!(vm.value, "hi");
 }
 
 #[test]
@@ -239,11 +238,8 @@ fn browser_q_in_search_exits_to_welcome() {
 
     // Enter search mode
     app.handle_key(key(KeyCode::Char('/')));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(vm.searching.is_some()),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(vm.searching.is_some());
 
     // q exits search + goes to welcome
     app.handle_key(key(KeyCode::Char('q')));
@@ -298,18 +294,12 @@ fn history_down_moves_selection() {
     app.push_screen(registry::history());
 
     app.handle_key(key(KeyCode::Down));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::History(vm) => assert_eq!(vm.selected, 1),
-        _ => panic!("expected history screen"),
-    }
+    let vm = app.top_as::<HistoryScreen>().unwrap().view(&app);
+    assert_eq!(vm.selected, 1);
 
     app.handle_key(key(KeyCode::Up));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::History(vm) => assert_eq!(vm.selected, 0),
-        _ => panic!("expected history screen"),
-    }
+    let vm = app.top_as::<HistoryScreen>().unwrap().view(&app);
+    assert_eq!(vm.selected, 0);
 }
 
 #[test]
@@ -400,14 +390,9 @@ fn theme_picker_filter_narrows_list() {
         app.handle_key(key(KeyCode::Char(c)));
     }
 
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::ThemePicker(vm) => {
-            assert_eq!(vm.filter, "nord");
-            assert!(!vm.items.is_empty());
-        }
-        _ => panic!("expected theme picker screen"),
-    }
+    let vm = app.top_as::<ThemePickerScreen>().unwrap().view(&app);
+    assert_eq!(vm.filter, "nord");
+    assert!(!vm.items.is_empty());
     app.handle_key(key(KeyCode::Esc));
 }
 
@@ -418,11 +403,8 @@ fn theme_picker_backspace_clears_filter() {
     app.handle_key(key(KeyCode::Char('x')));
     app.handle_key(key(KeyCode::Backspace));
 
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::ThemePicker(vm) => assert_eq!(vm.filter, ""),
-        _ => panic!("expected theme picker screen"),
-    }
+    let vm = app.top_as::<ThemePickerScreen>().unwrap().view(&app);
+    assert_eq!(vm.filter, "");
     app.handle_key(key(KeyCode::Esc));
 }
 
@@ -434,11 +416,8 @@ fn delete_x_with_no_selection_shows_error() {
     open_browser(&mut app, browser_files());
 
     app.handle_key(key(KeyCode::Char('x')));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(vm.confirm.is_none()),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(vm.confirm.is_none());
 }
 
 #[test]
@@ -448,11 +427,8 @@ fn delete_x_with_selection_shows_confirm() {
     app.torrent.selected_files = vec![true];
 
     app.handle_key(key(KeyCode::Char('x')));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(vm.confirm.is_some()),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(vm.confirm.is_some());
 }
 
 #[test]
@@ -463,11 +439,8 @@ fn delete_confirm_esc_cancels() {
 
     app.handle_key(key(KeyCode::Char('x')));
     app.handle_key(key(KeyCode::Esc));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(vm.confirm.is_none()),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(vm.confirm.is_none());
 }
 
 #[test]
@@ -479,18 +452,12 @@ fn delete_confirm_toggle_yes_no() {
     app.handle_key(key(KeyCode::Char('x')));
     app.handle_key(key(KeyCode::Right));
 
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(vm.confirm.unwrap().yes),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(vm.confirm.unwrap().yes);
 
     app.handle_key(key(KeyCode::Left));
-    let vm = app.top().unwrap().view(&app);
-    match vm {
-        ScreenViewModel::Browser(vm) => assert!(!vm.confirm.unwrap().yes),
-        _ => panic!("expected browser screen"),
-    }
+    let vm = app.top_as::<BrowserScreen>().unwrap().view(&app);
+    assert!(!vm.confirm.unwrap().yes);
 }
 
 #[test]
@@ -542,6 +509,37 @@ fn delete_confirm_enter_on_yes_removes_files() {
     assert!(entry.downloaded_files.is_empty());
 }
 
+#[test]
+fn delete_confirm_enter_on_no_cancels() {
+    use shaku::HasComponent;
+    use std::sync::Arc;
+
+    let tmp = temp_dir();
+    let torrent_dir = tmp.join("Torrent T");
+    fs::create_dir_all(&torrent_dir).unwrap();
+    let f1 = torrent_dir.join("a.mkv");
+    fs::write(&f1, b"a").unwrap();
+
+    let mut app = mock_app_with_download_dir(tmp);
+    open_browser(&mut app, vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 100 }]);
+    app.torrent.selected_files = vec![true];
+    app.torrent.downloaded_files = vec!["a.mkv".into()];
+
+    let storage: Arc<dyn HistoryPort> = app.module.resolve();
+    storage.add_entry("magnet:x", "Torrent D");
+    storage.mark_downloaded("magnet:x", "a.mkv");
+
+    // Confirm opens with "No" highlighted; Enter must NOT delete.
+    app.handle_key(key(KeyCode::Char('x')));
+    app.handle_key(key(KeyCode::Enter));
+
+    assert!(f1.exists(), "file must survive Enter on No");
+    assert!(app.status_message.contains("cancelled"));
+    assert_eq!(app.torrent.downloaded_files, vec!["a.mkv"]);
+    let entry = storage.history().into_iter().find(|e| e.url == "magnet:x").unwrap();
+    assert!(entry.downloaded);
+}
+
 // ── Popups as stacked screens ──
 
 #[test]
@@ -556,6 +554,77 @@ fn s_key_opens_search_popup_over_browser() {
     app.handle_key(key(KeyCode::Esc));
     assert!(top_is::<BrowserScreen>(&app));
     assert_eq!(stack_len(&app), 2);
+}
+
+fn open_search(app: &mut App) {
+    app.handle_key(key(KeyCode::Char('s')));
+}
+
+fn inject_results(app: &mut App, names: &[&str]) {
+    let results: Vec<twatch::domain::search::SearchResult> = names
+        .iter()
+        .enumerate()
+        .map(|(i, n)| twatch::domain::search::SearchResult {
+            name: (*n).into(),
+            info_hash: format!("hash{i}"),
+            seeders: 1,
+            leechers: 0,
+            size: 10,
+            username: "u".into(),
+        })
+        .collect();
+    app.top_as_mut::<SearchScreen>().unwrap().apply_results(results);
+}
+
+fn search_vm(app: &App) -> twatch::app::screens::search::ViewModel<'_> {
+    app.top_as::<SearchScreen>().unwrap().view(app)
+}
+
+#[test]
+fn search_filter_narrows_items_and_clamps_selection() {
+    let mut app = mock_app();
+    open_search(&mut app);
+    inject_results(&mut app, &["alpha one", "alpha two", "beta three"]);
+
+    for c in "alp".chars() {
+        app.handle_key(key(KeyCode::Char(c)));
+    }
+    // Move down far past the end of the filtered list.
+    for _ in 0..6 {
+        app.handle_key(key(KeyCode::Down));
+    }
+
+    let vm = search_vm(&app);
+    assert!(vm.filtering);
+    assert_eq!(vm.items.len(), 2, "only the two alpha results match");
+    assert!(vm.selected < vm.items.len(), "selection must stay inside filtered items");
+
+    app.handle_key(key(KeyCode::Esc));
+}
+
+#[test]
+fn search_enter_after_fetch_selects_highlighted_row_and_encodes_magnet() {
+    let mut app = mock_app();
+    open_search(&mut app);
+
+    // First Enter fetches ("abc" becomes the fetched query).
+    for c in "abc".chars() {
+        app.handle_key(key(KeyCode::Char(c)));
+    }
+    app.handle_key(key(KeyCode::Enter));
+    inject_results(&mut app, &["plain", "we&rd name"]);
+
+    // Highlight the second row and select it.
+    app.handle_key(key(KeyCode::Down));
+    app.handle_key(key(KeyCode::Enter));
+
+    assert!(top_is::<InputScreen>(&app));
+    let vm = app.top_as::<InputScreen>().unwrap().view(&app);
+    let magnet = vm.value.to_string();
+    assert!(magnet.starts_with("magnet:?xt=urn:btih:hash1&dn="));
+    assert_eq!(magnet.rsplit("&dn=").next(), Some("we%26rd%20name"), "dn must be percent-encoded");
+
+    app.handle_key(key(KeyCode::Esc));
 }
 
 #[test]
@@ -587,6 +656,63 @@ fn rename_confirms_and_updates_session_file() {
     assert!(top_is::<BrowserScreen>(&app));
     assert_eq!(app.torrent.tree.files()[0].name, "n");
     assert!(app.status_message.contains("Renamed"));
+}
+
+#[test]
+fn rename_browser_file_renames_on_disk_and_syncs_lists() {
+    use shaku::HasComponent;
+    use std::sync::Arc;
+
+    let tmp = temp_dir();
+    fs::write(tmp.join("a.mkv"), b"data").unwrap();
+
+    let mut app = mock_app_with_download_dir(tmp.clone());
+    open_browser(&mut app, vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 4 }]);
+    app.torrent.watched_files = vec!["a.mkv".into()];
+
+    let storage: Arc<dyn HistoryPort> = app.module.resolve();
+    storage.add_entry("magnet:x", "Torrent D");
+    storage.mark_watched("magnet:x", "a.mkv");
+
+    app.handle_key(key(KeyCode::Char('r')));
+    for _ in 0..5 {
+        app.handle_key(key(KeyCode::Backspace));
+    }
+    for c in "b.mkv".chars() {
+        app.handle_key(key(KeyCode::Char(c)));
+    }
+    app.handle_key(key(KeyCode::Enter));
+
+    assert!(top_is::<BrowserScreen>(&app));
+    assert!(tmp.join("b.mkv").exists(), "file must be renamed on disk");
+    assert!(!tmp.join("a.mkv").exists());
+    assert_eq!(app.torrent.tree.files()[0].name, "b.mkv");
+    assert_eq!(app.torrent.watched_files, vec!["b.mkv"]);
+
+    let entry = storage.history().into_iter().find(|e| e.url == "magnet:x").unwrap();
+    assert_eq!(entry.watched_files, vec!["b.mkv"]);
+}
+
+#[test]
+fn rename_to_parent_path_is_rejected() {
+    let tmp = temp_dir();
+    fs::write(tmp.join("a.mkv"), b"data").unwrap();
+
+    let mut app = mock_app_with_download_dir(tmp.clone());
+    open_browser(&mut app, vec![TorrentFile { index: 0, name: "a.mkv".into(), size: 4 }]);
+
+    app.handle_key(key(KeyCode::Char('r')));
+    for _ in 0..5 {
+        app.handle_key(key(KeyCode::Backspace));
+    }
+    for c in "../evil".chars() {
+        app.handle_key(key(KeyCode::Char(c)));
+    }
+    app.handle_key(key(KeyCode::Enter));
+
+    assert!(top_is::<RenameScreen>(&app), "invalid rename must keep the popup open");
+    assert!(tmp.join("a.mkv").exists(), "file must be untouched");
+    assert_eq!(app.torrent.tree.files()[0].name, "a.mkv");
 }
 
 // ── Navigation stack ──

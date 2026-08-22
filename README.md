@@ -68,8 +68,8 @@ src/
 │   ├── torrent/       TorrentId (opaque), FileTree, FileStatus, TorrentPort, StreamPort
 │   ├── history/       HistoryEntry, HistoryPort
 │   ├── player/        PlayerPort
-│   ├── search/        SearchResult, SearchPort
-│   └── common/        fuzzy_match, validation, paging, TaskSpawner
+│   ├── search/        SearchResult, SearchConfig, SearchPort
+│   └── common/        fuzzy_match, validation, paging, percent-encoding, TaskSpawner
 ├── application/     Business rules — use cases, background flows, observers
 │   ├── background/    Per-feature flows (each owns its channel; no central event enum)
 │   ├── downloads.rs   DownloadTracker + completion observers
@@ -80,7 +80,8 @@ src/
 │   └── screens/       Self-contained screen state machines (Screen trait + stack)
 │       └── registry.rs  Single closed point enumerating every screen constructor
 ├── service/         Infrastructure adapters (librqbit, mpv/vlc, JSON storage, HTTP search, tokio)
-├── config/          Application + search API configuration (persisted; no runtime state)
+│   └── stream_server.rs  Embedded chunked-HTTP streaming server
+├── config/          Application config + search config persistence (no runtime state)
 ├── model/           Session types + re-exports of domain types
 ├── module/          shaku DI container wiring
 └── ui/              Presentation only — pure renderers over view models
@@ -100,9 +101,11 @@ tests/
 
 - **Navigation stack**: every screen (including popups like search, theme picker, and
   rename) is a `Screen` pushed on a stack. Esc/q pops back to where you came from.
-- **Open/Closed**: adding a screen = one new module + one row in `screens/registry.rs`;
-  adding a background flow = one new module; adding a file attribute = one badge +
-  one registration row; adding a completion side effect = one observer.
+- **Open/Closed**: adding a screen = one new module (state machine + view model) +
+  one row in `screens/registry.rs`.  Each screen implements `Screen::render`, which
+  delegates to a pure renderer in `ui/` — there is no central enum or match to
+  extend.  Adding a background flow = one new module; adding a file attribute =
+  one badge + one registration row; adding a completion side effect = one observer.
 - **Separation of concerns**: UI files never touch services or business logic — they
   render pure view models produced by the screens.
 - **Swappable tools**: everything behind ports (`TorrentPort`, `StreamPort`,
@@ -110,6 +113,17 @@ tests/
   player = one new adapter + one line in `src/main.rs`.
 
 Dependency injection uses [shaku](https://crates.io/crates/shaku). Compile-time DI with component overrides for testing.
+
+**Known trade-offs**
+
+- `application/` flows (use cases and background observers) take `&mut App` and push
+  navigation transitions directly, coupling the use-case layer to the app shell.
+  This is a deliberate pragmatic choice for the TUI event loop; a follow-up can
+  invert it behind an `AppContext`/event-bus abstraction if the layer boundaries
+  ever need to be strict.
+- Search pagination is client-side over the API's first page: the `{page}`
+  placeholder is passed to the port (0 today), but the UI slices the fetched
+  results locally so selection and filtering stay consistent.
 
 ## Data
 

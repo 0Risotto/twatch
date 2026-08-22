@@ -1,7 +1,6 @@
 //! Torrent search port.
 
-use super::SearchResult;
-use crate::config::search::SearchConfig;
+use super::{SearchConfig, SearchResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use shaku::Interface;

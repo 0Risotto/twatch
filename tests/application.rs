@@ -11,10 +11,10 @@ use twatch::application::downloads::{
     StatusMessageObserver,
 };
 use twatch::config::Config;
-use twatch::config::search::SearchConfig;
 use twatch::domain::common::spawner::TaskSpawner;
 use twatch::domain::history::ports::HistoryPort;
 use twatch::domain::player::ports::PlayerPort;
+use twatch::domain::search::SearchConfig;
 use twatch::domain::torrent::TorrentId;
 use twatch::domain::torrent::TorrentStats;
 use twatch::domain::torrent::ports::{StreamPort, TorrentPort};

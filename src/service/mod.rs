@@ -3,6 +3,7 @@
 pub mod player;
 pub mod search;
 pub mod storage;
+pub mod stream_server;
 pub mod task;
 pub mod torrent;
 

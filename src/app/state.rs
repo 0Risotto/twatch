@@ -112,39 +112,80 @@ impl InputState {
     #[must_use]
     pub fn new(value: impl Into<String>) -> Self {
         let value = value.into();
-        let cursor = value.len();
-        Self { value, cursor }
+        let mut input = Self { value, cursor: 0 };
+        input.cursor = input.value.len();
+        input
     }
 
-    /// Append a character at the cursor position.
+    /// Insert a character at the cursor position.
     pub fn push_char(&mut self, c: char) {
-        if self.value.len() >= MAX_INPUT_LEN {
+        if self.value.len() + c.len_utf8() > MAX_INPUT_LEN {
             return;
         }
-        self.value.push(c);
-        self.cursor += 1;
+        let at = self.clamped_cursor();
+        self.value.insert(at, c);
+        self.cursor = at + c.len_utf8();
     }
 
     /// Delete the character before the cursor.
     pub fn backspace(&mut self) {
-        if self.cursor > 0 {
-            self.value.remove(self.cursor - 1);
-            self.cursor -= 1;
+        let at = self.clamped_cursor();
+        if at == 0 {
+            return;
         }
+        let prev = self.prev_char_boundary(at);
+        self.value.remove(prev);
+        self.cursor = prev;
     }
 
-    /// Move the cursor one position left.
-    pub const fn cursor_left(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-        }
+    /// Move the cursor one character left.
+    pub fn cursor_left(&mut self) {
+        let at = self.clamped_cursor();
+        self.cursor = self.prev_char_boundary(at);
     }
 
-    /// Move the cursor one position right.
+    /// Move the cursor one character right.
     pub fn cursor_right(&mut self) {
-        if self.cursor < self.value.len() {
-            self.cursor += 1;
+        let at = self.clamped_cursor();
+        self.cursor = self.next_char_boundary(at);
+    }
+
+    /// The cursor clamped to a valid char boundary in `value`.
+    fn clamped_cursor(&self) -> usize {
+        self.snap_forward(self.cursor.min(self.value.len()))
+    }
+
+    /// Start byte of the character immediately before boundary `at`.
+    fn prev_char_boundary(&self, at: usize) -> usize {
+        match at.checked_sub(1) {
+            None => 0,
+            Some(step) => self.snap_backward(step),
         }
+    }
+
+    /// End byte of the character starting at boundary `at`.
+    fn next_char_boundary(&self, at: usize) -> usize {
+        if at >= self.value.len() {
+            return self.value.len();
+        }
+        self.snap_forward(at + 1)
+    }
+
+    /// Nearest char boundary at or after `at`.  Uses `is_char_boundary`
+    /// rather than slicing, which would itself panic off-boundary.
+    fn snap_forward(&self, mut at: usize) -> usize {
+        while at < self.value.len() && !self.value.is_char_boundary(at) {
+            at += 1;
+        }
+        at
+    }
+
+    /// Nearest char boundary at or before `at`.
+    fn snap_backward(&self, mut at: usize) -> usize {
+        while at > 0 && !self.value.is_char_boundary(at) {
+            at -= 1;
+        }
+        at
     }
 }
 

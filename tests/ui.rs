@@ -1,10 +1,10 @@
 //! Presentation-layer tests: which screens are visible when rendering.
 
 use crossterm::event::KeyEvent;
+use ratatui::Frame;
 use std::any::Any;
 use twatch::app::App;
-use twatch::app::screens::loading::ViewModel;
-use twatch::app::screens::{Screen, ScreenViewModel, Transition};
+use twatch::app::screens::{Screen, Transition};
 use twatch::ui::base_screen_idx;
 
 struct FakeScreen {
@@ -16,9 +16,7 @@ impl Screen for FakeScreen {
         None
     }
 
-    fn view<'a>(&'a self, _app: &'a App) -> ScreenViewModel<'a> {
-        ScreenViewModel::Loading(ViewModel { status: "" })
-    }
+    fn render(&self, _frame: &mut Frame, _area: ratatui::layout::Rect, _app: &App) {}
 
     fn is_modal(&self) -> bool {
         self.modal

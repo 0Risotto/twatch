@@ -9,10 +9,10 @@ use std::sync::Arc;
 use twatch::app::App;
 use twatch::app::screens::registry;
 use twatch::config::Config;
-use twatch::config::search::SearchConfig;
 use twatch::domain::common::spawner::TaskSpawner;
 use twatch::domain::history::ports::HistoryPort;
 use twatch::domain::player::ports::PlayerPort;
+use twatch::domain::search::SearchConfig;
 use twatch::domain::torrent::TorrentFile;
 use twatch::domain::torrent::ports::{StreamPort, TorrentPort};
 use twatch::module::AppModule;
@@ -20,6 +20,12 @@ use twatch::module::AppModule;
 mod common;
 
 fn mock_app() -> App {
+    let config_dir = std::env::temp_dir().join(format!(
+        "twatch_rendering_{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&config_dir).unwrap();
+
     App::new(
         AppModule::builder()
             .with_component_override::<dyn TorrentPort>(Box::new(
@@ -38,7 +44,8 @@ fn mock_app() -> App {
                 common::storage::MockStorageService::new(),
             ))
             .build(),
-        Config::default(),
+        // Never point tests at real XDG dirs (see handlers.rs mock_app).
+        Config { config_dir, ..Config::default() },
         SearchConfig::default(),
     )
 }

@@ -2,7 +2,7 @@
 
 use super::registry;
 use super::rename::RenameTarget;
-use super::{Screen, ScreenViewModel, Transition};
+use super::{Screen, Transition};
 use crate::app::App;
 use crate::domain::torrent::file_tree::entry_matches;
 use crate::domain::torrent::{DisplayEntry, FileStatus, TorrentFile};
@@ -263,12 +263,21 @@ impl BrowserScreen {
             unreachable!("confirm mode expected");
         };
         match code {
-            KeyCode::Enter | KeyCode::Char('y') => {
-                if !*yes {
-                    *yes = true;
-                }
+            KeyCode::Char('y') => {
                 let message = crate::application::files::delete_selected_files(app);
                 app.status_message = message;
+                self.mode = Mode::Normal;
+                None
+            }
+            // Enter confirms the highlighted option: only delete when
+            // "Yes" is selected, otherwise treat as cancel.
+            KeyCode::Enter => {
+                if *yes {
+                    let message = crate::application::files::delete_selected_files(app);
+                    app.status_message = message;
+                } else {
+                    app.status_message = "Delete cancelled".into();
+                }
                 self.mode = Mode::Normal;
                 None
             }
@@ -302,7 +311,23 @@ impl Screen for BrowserScreen {
         }
     }
 
-    fn view<'a>(&'a self, app: &'a App) -> ScreenViewModel<'a> {
+    fn render(&self, frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+        crate::ui::browser::render(frame, area, app, self.view(app));
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl BrowserScreen {
+    /// Build the view model rendered by the presentation layer.
+    #[must_use]
+    pub fn view<'a>(&'a self, app: &'a App) -> ViewModel<'a> {
         let selected_count = app.torrent.selected_count();
         let title = app.torrent.torrent_name.as_deref().unwrap_or("Torrent");
 
@@ -340,7 +365,7 @@ impl Screen for BrowserScreen {
             _ => None,
         };
 
-        ScreenViewModel::Browser(ViewModel {
+        ViewModel {
             title,
             selected_count,
             cursor: self.cursor,
@@ -348,14 +373,6 @@ impl Screen for BrowserScreen {
             searching,
             search_matches,
             confirm,
-        })
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+        }
     }
 }

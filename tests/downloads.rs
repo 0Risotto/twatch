@@ -7,15 +7,16 @@ use shaku::HasComponent;
 use std::path::PathBuf;
 use std::sync::Arc;
 use twatch::app::App;
+use twatch::app::screens::browser::BrowserScreen;
 use twatch::app::screens::loading::LoadingScreen;
 use twatch::app::screens::registry;
 use twatch::application::background::download::{DownloadEvent, DownloadTask, apply};
 use twatch::application::downloads::DownloadTracker;
 use twatch::config::Config;
-use twatch::config::search::SearchConfig;
 use twatch::domain::common::spawner::TaskSpawner;
 use twatch::domain::history::ports::HistoryPort;
 use twatch::domain::player::ports::PlayerPort;
+use twatch::domain::search::SearchConfig;
 use twatch::domain::torrent::TorrentFile;
 use twatch::domain::torrent::TorrentId;
 use twatch::domain::torrent::TorrentStats;
@@ -133,7 +134,8 @@ fn finished_download_only_pops_its_own_loading_screen() {
     app.push_screen(registry::loading_task(id2));
     assert_eq!(app.top_as::<LoadingScreen>().map(|l| l.task()), Some(Some(id2)));
 
-    // The first batch finishes: it must NOT pop the second loading screen.
+    // The first batch finishes: its loading screen is extracted from
+    // below the top without touching batch 2's screen.
     apply(
         &mut app,
         DownloadEvent::Ready {
@@ -148,8 +150,8 @@ fn finished_download_only_pops_its_own_loading_screen() {
         "batch 1 finishing must not dismiss batch 2's loading screen"
     );
 
-    // The second batch finishes: its own loading screen pops,
-    // revealing the first batch's still-pending loading screen.
+    // The second batch finishes: its screen pops, and no stale
+    // loading screens remain anywhere in the stack.
     apply(
         &mut app,
         DownloadEvent::Ready {
@@ -160,9 +162,89 @@ fn finished_download_only_pops_its_own_loading_screen() {
     );
     assert_eq!(
         app.top_as::<LoadingScreen>().map(|l| l.task()),
-        Some(Some(id1)),
-        "batch 2's loading screen should pop, revealing batch 1's"
+        None,
+        "both loading screens must be gone; browser is revealed"
     );
+    assert!(app.screens().all(|s| s.as_any().downcast_ref::<LoadingScreen>().is_none()));
+}
+
+#[test]
+fn dismissed_loading_screen_is_still_cleaned_up_on_watch_ready() {
+    let mut app = mock_app();
+    open_torrent(&mut app);
+
+    // User starts a watch, then Esc's past the loading screen back to
+    // the browser.
+    let id = 3;
+    app.push_screen(registry::loading_task(id));
+    app.handle_key(crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Esc));
+    assert!(app.top_as::<LoadingScreen>().is_none());
+
+    apply(
+        &mut app,
+        DownloadEvent::Ready {
+            task: task(id, true, &["a.mkv"]),
+            torrent: TorrentId::new(0),
+            stream_url: "http://127.0.0.1:0/stream/0/0".into(),
+        },
+    );
+
+    // The stale loading screen must be gone; playback starts, but the
+    // user's current screen is not hijacked (they already moved on).
+    assert!(app.screens().all(|s| s.as_any().downcast_ref::<LoadingScreen>().is_none()));
+    assert!(app.top_as::<BrowserScreen>().is_some(), "browser must stay on top");
+    assert!(app.status_message.contains("Watching"));
+    let player: Arc<dyn PlayerPort> = app.module.resolve();
+    assert!(player.is_running(), "stream must have been handed to the player");
+}
+
+#[test]
+fn watch_ready_with_loading_on_top_replaces_it_with_player() {
+    let mut app = mock_app();
+    open_torrent(&mut app);
+
+    let id = 4;
+    app.push_screen(registry::loading_task(id));
+    apply(
+        &mut app,
+        DownloadEvent::Ready {
+            task: task(id, true, &["a.mkv"]),
+            torrent: TorrentId::new(0),
+            stream_url: "http://127.0.0.1:0/stream/0/0".into(),
+        },
+    );
+
+    assert!(top_is_player(&app), "loading screen must be replaced by the player");
+    assert_eq!(app.screens().count(), 3, "welcome + browser + player");
+}
+
+fn top_is_player(app: &App) -> bool {
+    app.top().is_some_and(|s| s.as_any().is::<twatch::app::screens::player::PlayerScreen>())
+}
+
+#[test]
+fn crashed_task_surfaces_as_failed_event() {
+    let mut app = mock_app();
+    open_torrent(&mut app);
+
+    // Simulate a task that died without sending anything: the receiver
+    // is dropped without a value.
+    let (tx, rx) = tokio::sync::oneshot::channel::<DownloadEvent>();
+    drop(tx);
+    app.download_flow.pending.push(twatch::application::background::download::PendingDownload {
+        task: task(1, false, &["a.mkv"]),
+        rx,
+    });
+
+    let events = app.download_flow.drain();
+    assert_eq!(events.len(), 1, "closed channel must yield a Failed event");
+    match &events[0] {
+        DownloadEvent::Failed { task, message } => {
+            assert_eq!(task.id, 1);
+            assert!(message.contains("unexpectedly"));
+        }
+        other => panic!("expected Failed, got {other:?}"),
+    }
 }
 
 #[test]

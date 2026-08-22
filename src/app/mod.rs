@@ -13,7 +13,7 @@ use crate::application::background::download::DownloadFlow;
 use crate::application::background::preview::PreviewFlow;
 use crate::application::background::search::SearchFlow;
 use crate::application::downloads::DownloadTracker;
-use crate::config::search::SearchConfig;
+use crate::domain::search::SearchConfig;
 use crate::domain::torrent::TorrentId;
 use crate::model::{ActiveDownload, TorrentStats};
 use crate::ui::Theme;
@@ -137,12 +137,40 @@ impl App {
         }
     }
 
+    /// Position of the topmost screen satisfying `pred` in the stack.
+    pub fn screen_position(&self, pred: impl Fn(&dyn Screen) -> bool) -> screens::ScreenPosition {
+        let Some(idx) = self.stack.iter().rposition(|s| pred(s.as_ref())) else {
+            return screens::ScreenPosition::Absent;
+        };
+        if idx + 1 == self.stack.len() {
+            screens::ScreenPosition::Top
+        } else {
+            screens::ScreenPosition::Below
+        }
+    }
+
+    /// Remove the topmost screen satisfying `pred`, wherever it sits in
+    /// the stack.  The root screen is never removed.
+    pub fn remove_screen_if(&mut self, pred: impl Fn(&dyn Screen) -> bool) {
+        let Some(idx) = self.stack.iter().rposition(|s| pred(s.as_ref())) else {
+            return;
+        };
+        if idx == 0 && self.stack.len() == 1 {
+            return;
+        }
+        self.stack.remove(idx);
+    }
+
     /// Dispatch one key press through the screen stack: global
     /// shortcuts first, then the top screen.
     pub fn handle_key(&mut self, key: KeyEvent) {
         let top_is_modal = self.top().is_some_and(|s| s.is_modal());
 
         if !top_is_modal {
+            if self.task_busy && !matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
+                return;
+            }
+
             match key.code {
                 KeyCode::Char('t') => {
                     let theme = self.theme_state.theme;
@@ -155,10 +183,6 @@ impl App {
                     return;
                 }
                 _ => {}
-            }
-
-            if self.task_busy && !matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
-                return;
             }
         }
 
