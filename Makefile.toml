@@ -15,22 +15,22 @@ args = ["fmt", "--all", "--", "--check"]
 [tasks.lint]
 description = "Run clippy with warnings as errors"
 command = "cargo"
-args = ["clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
+args = ["clippy", "--all-targets", "--all-features", "--workspace", "--", "-D", "warnings"]
 
 [tasks.lint-fix]
 description = "Auto-fix clippy warnings"
 command = "cargo"
-args = ["clippy", "--all-targets", "--all-features", "--fix", "--allow-dirty", "--allow-staged", "--", "-D", "warnings"]
+args = ["clippy", "--all-targets", "--all-features", "--workspace", "--fix", "--allow-dirty", "--allow-staged", "--", "-D", "warnings"]
 
 [tasks.test]
 description = "Run all tests"
 command = "cargo"
-args = ["test", "--all-features"]
+args = ["test", "--all-features", "--workspace"]
 
 [tasks.test-release]
 description = "Run tests in release mode"
 command = "cargo"
-args = ["test", "--all-features", "--release"]
+args = ["test", "--all-features", "--workspace", "--release"]
 
 [tasks.coverage]
 description = "Generate code coverage report with tarpaulin"
@@ -49,12 +49,12 @@ dependencies = ["fmt-check", "lint", "test"]
 [tasks.build]
 description = "Build the project"
 command = "cargo"
-args = ["build", "--all-features"]
+args = ["build", "--all-features", "--workspace"]
 
 [tasks.build-release]
 description = "Build in release mode"
 command = "cargo"
-args = ["build", "--all-features", "--release"]
+args = ["build", "--all-features", "--workspace", "--release"]
 
 [tasks.clean]
 description = "Clean build artifacts"
@@ -65,3 +65,31 @@ args = ["clean"]
 description = "Generate documentation"
 command = "cargo"
 args = ["doc", "--all-features", "--no-deps", "--open"]
+
+[tasks.web-install]
+description = "Install web dependencies"
+command = "npm"
+args = ["ci"]
+working_directory = "web"
+
+[tasks.web-build]
+description = "Build the web SPA into web/dist"
+command = "npm"
+args = ["run", "build"]
+working_directory = "web"
+
+[tasks.web-test]
+description = "Typecheck and test the web SPA"
+command = "npm"
+args = ["test"]
+working_directory = "web"
+
+[tasks.web-typecheck]
+description = "Typecheck the web SPA"
+command = "npm"
+args = ["run", "typecheck"]
+working_directory = "web"
+
+[tasks.check-all-web]
+description = "Run all web checks"
+dependencies = ["web-typecheck", "web-test", "web-build"]

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg id="tv-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <!-- Antennae -->
+                    <path d="M 226 156 L 176 96 A 10 10 0 0 1 190 82 L 244 146 Z" fill="#ffffff"/>
+                    <path d="M 286 156 L 336 96 A 10 10 0 0 0 322 82 L 268 146 Z" fill="#ffffff"/>
+                    <path d="M 224 154 A 32 20 0 0 1 288 154 Z" fill="#ffffff"/>
+
+                    <!-- Main TV Body (Rounded Body) -->
+                    <rect x="116" y="156" width="280" height="250" rx="44" ry="44" fill="#ffffff"/>
+
+                    <!-- TV Feet -->
+                    <rect x="146" y="396" width="40" height="18" rx="6" ry="6" fill="#ffffff"/>
+                    <rect x="326" y="396" width="40" height="18" rx="6" ry="6" fill="#ffffff"/>
+
+                    <!-- TV Inner Dark Screen -->
+                    <rect x="144" y="180" width="224" height="154" rx="28" ry="28" fill="#121214"/>
+
+                    <!-- Ghost Eyes -->
+                    <ellipse cx="220" cy="256" rx="16" ry="28" fill="#ffffff"/>
+                    <ellipse cx="292" cy="256" rx="16" ry="28" fill="#ffffff"/>
+
+                    <!-- Knobs Area -->
+                    <circle cx="180" cy="366" r="18" fill="#121214"/>
+                    <rect x="177" y="352" width="6" height="16" rx="3" fill="#ffffff"/>
+                    
+                    <circle cx="332" cy="366" r="18" fill="#121214"/>
+                    <rect x="329" y="352" width="6" height="16" rx="3" fill="#ffffff"/>
+                </svg>

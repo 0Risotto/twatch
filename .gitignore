@@ -3,3 +3,13 @@
 lcov.info
 tarpaulin-report.html
 cobertura.xml
+
+# Web client
+/web/node_modules
+/web/dist
+/web/.vite
+/web/coverage
+/crates/twatch-server/web-dist
+
+# Playwright evidence
+/.playwright-mcp
