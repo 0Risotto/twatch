@@ -1,14 +1,21 @@
 # twatch
 
-Terminal torrent streaming client. Browse, stream, and download torrents from your terminal.
+Terminal and web torrent streaming client. Browse, preview, stream, and
+download torrents from your terminal or a local browser console.
+
+The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
+`axum` gateway for the web client. There is no Node server at runtime.
 
 ## Prerequisites
 
 - **Rust** 1.85+ (edition 2024)
-- **mpv** or **vlc** for streaming playback
-- A C compiler (gcc/clang) for librqbit native dependencies
+- **Node.js** 22+ only when building the web UI
+- **mpv** or **vlc** for external player hand-off
+- A C compiler (gcc/clang) for `librqbit` native dependencies
 
 ## Quick Start
+
+### Terminal client
 
 ```bash
 git clone https://github.com/0Risotto/twatch.git
@@ -17,113 +24,150 @@ cargo build --release
 ./target/release/twatch
 ```
 
+### Web console
+
+```bash
+cd web
+npm install
+npm run build
+cd ..
+
+# Embeds web/dist into the binary:
+cargo build --release -p twatchd --features embed-web
+./target/release/twatchd --open
+```
+
+Open <http://127.0.0.1:7878> if the browser does not launch. The daemon sets an
+HttpOnly auth cookie on the first page load; `server-token` lives under
+`$XDG_CONFIG_HOME/twatch/`.
+
+For UI development, run the daemon and Vite separately:
+
+```bash
+# terminal 1
+cargo run -p twatchd -- --port 7878 --web-dir web/dist
+
+# terminal 2
+cd web
+npm run dev
+# http://localhost:5173 — /api and /api/ws proxy to twatchd
+```
+
+`twatchd --help` lists bind/port/token/web-dir options. It is loopback-only by
+default; `--allow-remote` is required to expose it beyond localhost.
+
 ## Development
 
-### Build
+### Rust
 
 ```bash
-cargo build
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace
 ```
 
-### Run Tests
+### Web
 
 ```bash
-cargo test --all-features
-```
-
-### Format
-
-```bash
-cargo fmt --all -- --check    # check only
-cargo fmt --all               # auto-fix
-```
-
-### Lint
-
-```bash
-cargo clippy --all-targets --all-features -- -D warnings
+cd web
+npm run typecheck
+npm test
+npm run build
 ```
 
 ### Run all checks at once
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace
+(cd web && npm run typecheck && npm test && npm run build)
 ```
 
 ## Before Submitting a PR
 
 1. Run `cargo fmt --all` and ensure no diffs.
-2. Run `cargo clippy --all-targets --all-features -- -D warnings`. Zero warnings.
-3. Run `cargo test --all-features`. All tests pass.
-4. Write a [conventional commit](https://www.conventionalcommits.org/) message: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
-5. Keep PRs small. One concern per PR.
+2. Run clippy with zero warnings.
+3. Run all workspace tests.
+4. Run the web typecheck, tests, and production build.
+5. Write a [conventional commit](https://www.conventionalcommits.org/) message:
+   `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
+6. Keep PRs small. One concern per PR.
 
 ## Architecture
 
 ```
-src/
-├── domain/          Pure domain layer — entities, value objects, ports (no I/O, no UI deps)
-│   ├── torrent/       TorrentId (opaque), FileTree, FileStatus, TorrentPort, StreamPort
-│   ├── history/       HistoryEntry, HistoryPort
-│   ├── player/        PlayerPort
-│   ├── search/        SearchResult, SearchConfig, SearchPort
-│   └── common/        fuzzy_match, validation, paging, percent-encoding, TaskSpawner
-├── application/     Business rules — use cases, background flows, observers
-│   ├── background/    Per-feature flows (each owns its channel; no central event enum)
-│   ├── downloads.rs   DownloadTracker + completion observers
-│   ├── files.rs       Delete/rename use cases
-│   └── theme.rs       Theme selection use case
-├── app/             Application shell + screens
-│   ├── state.rs       TorrentSession, InputState, ThemeState
-│   └── screens/       Self-contained screen state machines (Screen trait + stack)
-│       └── registry.rs  Single closed point enumerating every screen constructor
-├── service/         Infrastructure adapters (librqbit, mpv/vlc, JSON storage, HTTP search, tokio)
-│   └── stream_server.rs  Embedded chunked-HTTP streaming server
-├── config/          Application config + search config persistence (no runtime state)
-├── model/           Session types + re-exports of domain types
-├── module/          shaku DI container wiring
-└── ui/              Presentation only — pure renderers over view models
-    └── badges.rs      FileBadge registry (new file attribute = 1 badge + 1 registration row)
-tests/
-├── common/           Mock implementations of every port
-├── handlers.rs       Screen navigation + stack tests (34)
-├── application.rs    Use-case and observer tests (5)
-├── player.rs         Player unit + mock tests (4)
-├── storage.rs        Storage CRUD + mock tests (5)
-├── theme.rs          Theme tests (15)
-├── validation.rs     Input validation tests (14)
-└── integration.rs    Binary smoke tests (2)
+src/                     TUI client (ratatui) + facade re-exports
+crates/
+├── twatch-core/         Pure domain, config, theme catalogue, headless Gateway
+│   ├── domain/            entities, value objects, ports (no I/O/UI)
+│   ├── gateway.rs         session, downloads, history, search, player, events
+│   └── theme.rs           Built-in theme catalogue names/modes
+├── twatch-engine/       Adapters
+│   ├── service/           librqbit, JSON history, reqwest search, mpv/vlc
+│   └── stream.rs          range-capable FileStream facade
+├── twatch-server/       axum REST + WebSocket + static SPA + range streaming
+└── twatchd/             Web daemon binary
+web/                     React 19 + TypeScript + Vite + Tailwind + Motion SPA
+docs/web-api.md          Gateway endpoint, WebSocket, auth, and range contracts
 ```
 
-**Key design points**
+The TUI still uses the layered domain/application/screen stack documented
+below. The web daemon uses `twatch-core::gateway::Gateway`, which owns the
+current browse session, the download registry, and the live event stream.
 
-- **Navigation stack**: every screen (including popups like search, theme picker, and
-  rename) is a `Screen` pushed on a stack. Esc/q pops back to where you came from.
-- **Open/Closed**: adding a screen = one new module (state machine + view model) +
-  one row in `screens/registry.rs`.  Each screen implements `Screen::render`, which
-  delegates to a pure renderer in `ui/` — there is no central enum or match to
-  extend.  Adding a background flow = one new module; adding a file attribute =
-  one badge + one registration row; adding a completion side effect = one observer.
-- **Separation of concerns**: UI files never touch services or business logic — they
-  render pure view models produced by the screens.
-- **Swappable tools**: everything behind ports (`TorrentPort`, `StreamPort`,
-  `HistoryPort`, `PlayerPort`, `SearchPort`, `TaskSpawner`). Swapping an engine or
-  player = one new adapter + one line in `src/main.rs`.
+```
+Browser (React + Motion) ── HTTP + WebSocket ──┐
+TUI (ratatui) ── in-process ──────────────────┤
+                                              ▼
+                                   twatchd (Rust)
+                                   ├─ SessionService
+                                   ├─ DownloadService
+                                   ├─ HistoryService
+                                   ├─ SearchService
+                                   ├─ PlayerService
+                                   └─ librqbit + range stream
+```
 
-Dependency injection uses [shaku](https://crates.io/crates/shaku). Compile-time DI with component overrides for testing.
+**TUI design points**
 
-**Known trade-offs**
+- **Navigation stack**: every screen (including popups) is a `Screen` pushed
+  on a stack. Esc/q pops back to where you came from.
+- **Open/Closed**: adding a screen = one new module (state machine + view model)
+  plus one row in `screens/registry.rs`. Each screen implements
+  `Screen::render`, which delegates to a pure renderer in `ui/`.
+- **Separation of concerns**: UI files render pure view models produced by the
+  screens; services live behind ports.
+- **Swappable tools**: `TorrentPort`, `StreamPort`, `HistoryPort`,
+  `PlayerPort`, `SearchPort`, and `TaskSpawner` keep engine/player/storage
+  choices behind one adapter boundary.
 
-- `application/` flows (use cases and background observers) take `&mut App` and push
-  navigation transitions directly, coupling the use-case layer to the app shell.
-  This is a deliberate pragmatic choice for the TUI event loop; a follow-up can
-  invert it behind an `AppContext`/event-bus abstraction if the layer boundaries
-  ever need to be strict.
-- Search pagination is client-side over the API's first page: the `{page}`
-  placeholder is passed to the port (0 today), but the UI slices the fetched
-  results locally so selection and filtering stay consistent.
+**Web design points**
+
+- The gateway is headless: `twatch-core` has no `ratatui`, `axum`, or screen
+  dependency.
+- Progress is coalesced at 4 Hz and the UI interpolates between ticks, instead
+  of pushing 60 updates per second.
+- Streams support `HEAD`, `Range`, `206`, `416`, MIME types, and byte-range
+  seeking for video/audio/image preview.
+- Preview actions are type-aware: video plays in `<video>`, audio in `<audio>`,
+  images in `<img>`; PDFs, archives, code and other files are open/download only.
+- In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode and
+  attached as native `<track>` elements after on-the-fly WebVTT conversion. No
+  external subtitle provider is contacted.
+- Movie/TV/anime/book posters are resolved server-side from keyless providers
+  (IMDb, AniList, TVmaze, Open Library) and cached locally; misses fall back to
+  the matching file-type icon.
+- Pasting a title into the home input routes to Search; only a magnet or
+  `.torrent` URL goes through Preview.
+- The built-in catalogue lives in `web/src/styles/themes.css`: 27 base themes,
+  each with dark and light variants, including Tokyo Night, Kanagawa, Nord,
+  Gruvbox, Catppuccin, Purple, Emerald, Ocean, Forest, Sunset, Sakura and Coffee.
+  Default: Emerald dark. The TUI keeps its own palette in `src/ui/theme.rs`.
+- Motion uses short durations and springs (120–320 ms), respects
+  `prefers-reduced-motion`, and has a Settings override.
+
+Dependency injection for the TUI uses [shaku](https://crates.io/crates/shaku).
 
 ## Data
 
@@ -131,6 +175,17 @@ Dependency injection uses [shaku](https://crates.io/crates/shaku). Compile-time 
 - Session:    `$XDG_CACHE_HOME/twatch/session/`
 - Logs:       `$XDG_STATE_HOME/twatch/twatch.log`
 - Downloads:  `$XDG_DOWNLOAD_DIR/twatch/`
+- Web token:  `$XDG_CONFIG_HOME/twatch/server-token`
+- Web theme:  `web_theme` in `$XDG_CONFIG_HOME/twatch/config.json`
+- Covers:     `$XDG_CONFIG_HOME/twatch/covers.json` (30-day cache)
+
+## API
+
+See [`docs/web-api.md`](docs/web-api.md) for:
+- REST endpoints and camelCase DTOs
+- WebSocket snapshot/revision frames
+- cookie/Bearer auth and Host/Origin rules
+- `Range` streaming semantics
 
 ## License
 
