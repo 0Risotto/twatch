@@ -134,4 +134,4 @@ Dependency injection uses [shaku](https://crates.io/crates/shaku). Compile-time 
 
 ## License
 
-MIT
+Apache License 2.0. See [`LICENSE`](LICENSE).
