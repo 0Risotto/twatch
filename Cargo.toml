@@ -13,6 +13,7 @@ license = "Apache-2.0"
 name = "twatch"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
 description = "Terminal and web torrent streaming client"
 
 [lib]

@@ -3,6 +3,7 @@ license = "Apache-2.0"
 name = "twatchd"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
 description = "twatch daemon — Rust gateway for the twatch web UI"
 
 [dependencies]

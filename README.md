@@ -8,7 +8,7 @@ The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
 
 ## Prerequisites
 
-- **Rust** 1.85+ (edition 2024)
+- **Rust** 1.88+ (edition 2024)
 - **Node.js** 22+ only when building the web UI
 - **mpv** or **vlc** for external player hand-off
 - A C compiler (gcc/clang) for `librqbit` native dependencies
