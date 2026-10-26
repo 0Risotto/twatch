@@ -1,0 +1,31 @@
+[package]
+license = "Apache-2.0"
+name = "twatch-server"
+version = "0.1.0"
+edition = "2024"
+description = "Rust HTTP/WebSocket gateway for twatch"
+
+[dependencies]
+twatch-core = { path = "../twatch-core" }
+twatch-engine = { path = "../twatch-engine" }
+anyhow = "1"
+axum = { version = "0.8", features = ["ws", "macros"] }
+futures-util = "0.3"
+http = "1"
+mime_guess = "2"
+rust-embed = { version = "8", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["compression-gzip", "fs", "set-header", "trace"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+[features]
+default = []
+embed-web = ["dep:rust-embed"]
+
+[dev-dependencies]
+async-trait = "0.1"
