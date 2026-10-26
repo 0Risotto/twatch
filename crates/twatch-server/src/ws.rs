@@ -65,10 +65,10 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
     let mut events = state.gateway.subscribe();
 
-    if let Some(frame) = text_frame(&snapshot_frame(&state)) {
-        if sender.send(frame).await.is_err() {
-            return;
-        }
+    if let Some(frame) = text_frame(&snapshot_frame(&state))
+        && sender.send(frame).await.is_err()
+    {
+        return;
     }
 
     let mut heartbeat = interval(Duration::from_secs(20));
@@ -103,10 +103,10 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 };
-                if let Some(message) = text_frame(&frame) {
-                    if sender.send(message).await.is_err() {
-                        break;
-                    }
+                if let Some(message) = text_frame(&frame)
+                    && sender.send(message).await.is_err()
+                {
+                    break;
                 }
             }
             incoming = receiver.next() => {

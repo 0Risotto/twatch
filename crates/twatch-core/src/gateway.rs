@@ -753,10 +753,10 @@ impl Gateway {
             }
             {
                 let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
-                if let Some(session) = guard.as_mut() {
-                    if session.url == url {
-                        session.mark_downloaded(&file_names);
-                    }
+                if let Some(session) = guard.as_mut()
+                    && session.url == url
+                {
+                    session.mark_downloaded(&file_names);
                 }
             }
             self.emit(GatewayEvent::SessionChanged);
@@ -809,10 +809,10 @@ impl Gateway {
                 if let Some(name) = file_names.first() {
                     self.history.mark_watched(&url, name);
                     let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
-                    if let Some(session) = guard.as_mut() {
-                        if session.url == url {
-                            session.mark_watched(name);
-                        }
+                    if let Some(session) = guard.as_mut()
+                        && session.url == url
+                    {
+                        session.mark_watched(name);
                     }
                     session_dirty = true;
                 }

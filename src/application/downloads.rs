@@ -68,10 +68,10 @@ impl DownloadTracker {
         }
 
         // Also keep the single-torrent stats for the Player screen.
-        if let Some(id) = &app.torrent_id {
-            if let Ok(stats) = torrent.get_stats(id) {
-                app.stats = Some(stats);
-            }
+        if let Some(id) = &app.torrent_id
+            && let Ok(stats) = torrent.get_stats(id)
+        {
+            app.stats = Some(stats);
         }
 
         app.active_downloads.retain(|dl| dl.is_streaming || dl.progress < 1.0);

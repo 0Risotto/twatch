@@ -225,10 +225,10 @@ async fn run() -> Result<()> {
     }
     println!("Open the URL above. Press Ctrl+C to stop.");
 
-    if args.open {
-        if let Err(error) = open::that(&url) {
-            tracing::warn!("Could not open the browser: {error}");
-        }
+    if args.open
+        && let Err(error) = open::that(&url)
+    {
+        tracing::warn!("Could not open the browser: {error}");
     }
 
     let server_config =

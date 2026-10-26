@@ -11,10 +11,10 @@ use crate::state::AppState;
 /// Extract a bearer token or the `twatch_token` cookie.
 #[must_use]
 pub fn token_from_headers(headers: &header::HeaderMap) -> Option<String> {
-    if let Some(value) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()) {
-        if let Some(token) = value.strip_prefix("Bearer ") {
-            return Some(token.to_owned());
-        }
+    if let Some(value) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+        && let Some(token) = value.strip_prefix("Bearer ")
+    {
+        return Some(token.to_owned());
     }
     let cookies = headers.get(header::COOKIE).and_then(|v| v.to_str().ok())?;
     cookies.split(';').find_map(|cookie| {
@@ -24,19 +24,18 @@ pub fn token_from_headers(headers: &header::HeaderMap) -> Option<String> {
 
 #[must_use]
 pub fn has_valid_token(headers: &header::HeaderMap, expected: &str) -> bool {
-    if let Some(value) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()) {
-        if let Some(token) = value.strip_prefix("Bearer ") {
-            if constant_time_eq(token.as_bytes(), expected.as_bytes()) {
-                return true;
-            }
-        }
+    if let Some(value) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+        && let Some(token) = value.strip_prefix("Bearer ")
+        && constant_time_eq(token.as_bytes(), expected.as_bytes())
+    {
+        return true;
     }
     if let Some(cookies) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) {
         for cookie in cookies.split(';') {
-            if let Some(token) = cookie.trim().strip_prefix("twatch_token=") {
-                if constant_time_eq(token.as_bytes(), expected.as_bytes()) {
-                    return true;
-                }
+            if let Some(token) = cookie.trim().strip_prefix("twatch_token=")
+                && constant_time_eq(token.as_bytes(), expected.as_bytes())
+            {
+                return true;
             }
         }
     }

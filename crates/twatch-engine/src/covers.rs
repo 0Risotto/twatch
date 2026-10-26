@@ -224,20 +224,23 @@ impl CoverService {
             }
         }
 
-        if cover.url.is_none() && !is_book {
-            if let Some(found) = self.imdb(&clean, year, is_tv).await {
-                cover = found;
-            }
+        if cover.url.is_none()
+            && !is_book
+            && let Some(found) = self.imdb(&clean, year, is_tv).await
+        {
+            cover = found;
         }
-        if cover.url.is_none() && is_tv {
-            if let Some(found) = self.tvmaze(&clean).await {
-                cover = found;
-            }
+        if cover.url.is_none()
+            && is_tv
+            && let Some(found) = self.tvmaze(&clean).await
+        {
+            cover = found;
         }
-        if cover.url.is_none() && is_book {
-            if let Some(found) = self.imdb(&clean, year, false).await {
-                cover = found;
-            }
+        if cover.url.is_none()
+            && is_book
+            && let Some(found) = self.imdb(&clean, year, false).await
+        {
+            cover = found;
         }
 
         cover.query = query.title.clone();
