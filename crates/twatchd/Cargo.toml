@@ -1,0 +1,23 @@
+[package]
+license = "Apache-2.0"
+name = "twatchd"
+version = "0.1.0"
+edition = "2024"
+description = "twatch daemon — Rust gateway for the twatch web UI"
+
+[dependencies]
+twatch-core = { path = "../twatch-core" }
+twatch-engine = { path = "../twatch-engine" }
+twatch-server = { path = "../twatch-server" }
+anyhow = "1"
+librqbit = { version = "8", default-features = false, features = ["rust-tls"] }
+open = "5"
+shaku = { version = "0.6", features = ["thread_safe"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[features]
+default = []
+embed-web = ["twatch-server/embed-web"]
