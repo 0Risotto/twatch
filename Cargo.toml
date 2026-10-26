@@ -1,9 +1,14 @@
+[workspace]
+members = ["crates/twatch-core"]
+resolver = "3"
+default-members = ["."]
+
 [package]
 license = "Apache-2.0"
 name = "twatch"
 version = "0.1.0"
 edition = "2024"
-description = "Terminal torrent streaming client"
+description = "Terminal and web torrent streaming client"
 
 [lib]
 name = "twatch"
@@ -14,6 +19,7 @@ name = "twatch"
 path = "src/main.rs"
 
 [dependencies]
+twatch-core = { path = "crates/twatch-core" }
 ratatui = "0.30"
 crossterm = "0.28"
 librqbit = { version = "8", default-features = false, features = ["rust-tls"] }

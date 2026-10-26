@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use shaku::Interface;
 
 /// Queries a user-configured JSON API and returns a list of results.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait SearchPort: Interface {
     /// Fetch torrent search results from the configured API.

@@ -1,0 +1,19 @@
+[package]
+license = "Apache-2.0"
+name = "twatch-core"
+version = "0.1.0"
+edition = "2024"
+description = "Pure domain and application services for twatch"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+dirs = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shaku = { version = "0.6", features = ["thread_safe"] }
+tokio = { version = "1", features = ["sync", "rt", "time"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

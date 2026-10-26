@@ -9,7 +9,8 @@ use std::collections::HashMap;
 pub const SEARCH_PAGE_SIZE: usize = 21;
 
 /// A search result from the user-configured JSON API.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub name: String,
     pub info_hash: String,

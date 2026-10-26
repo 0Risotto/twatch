@@ -19,9 +19,9 @@ impl TorrentId {
         Self(raw)
     }
 
-    /// Raw adapter identifier.  Engine adapters only.
+    /// Raw adapter identifier.  Used to build local stream URLs.
     #[must_use]
-    pub(crate) const fn raw(self) -> usize {
+    pub const fn raw(self) -> usize {
         self.0
     }
 }

@@ -37,9 +37,17 @@ pub struct Config {
     /// Base filename for the history JSON file inside `config_dir` (default: `"history.json"`).
     #[serde(default = "default_history_filename")]
     pub history_filename: String,
-    /// Theme name in kebab-case (default: `"tokyonight-dark"`).
+    /// Theme name for the terminal client (default: `"tokyonight-dark"`).
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Theme name for the web UI (default: `"emerald-dark"`). Kept separate
+    /// from the TUI theme so the browser can use the built-in palette catalogue
+    /// without forcing the terminal palette to change.
+    #[serde(default = "default_web_theme")]
+    pub web_theme: String,
+    /// External player preference: `auto`, `mpv`, `vlc`, or `none`.
+    #[serde(default = "default_player")]
+    pub player: String,
 }
 
 fn default_log_level() -> String {
@@ -48,6 +56,14 @@ fn default_log_level() -> String {
 
 fn default_history_filename() -> String {
     "history.json".into()
+}
+
+fn default_player() -> String {
+    "auto".into()
+}
+
+fn default_web_theme() -> String {
+    "emerald-dark".into()
 }
 
 impl Default for Config {
@@ -67,6 +83,8 @@ impl Default for Config {
             download_dir,
             history_filename: "history.json".to_string(),
             theme: "tokyonight-dark".to_string(),
+            web_theme: "emerald-dark".to_string(),
+            player: "auto".to_string(),
         }
     }
 }
@@ -144,6 +162,8 @@ fn merge_config(default: Config, user: Config) -> Config {
         download_dir: or_default_path(&user.download_dir, &default.download_dir),
         history_filename: or_default_str(&user.history_filename, &default.history_filename),
         theme: or_default_str(&user.theme, &default.theme),
+        web_theme: or_default_str(&user.web_theme, &default.web_theme),
+        player: or_default_str(&user.player, &default.player),
     }
 }
 

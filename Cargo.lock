@@ -3602,6 +3602,21 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "twatch-core",
+]
+
+[[package]]
+name = "twatch-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dirs",
+ "serde",
+ "serde_json",
+ "shaku",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
