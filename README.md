@@ -15,6 +15,45 @@ The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
 
 ## Quick Start
 
+### NixOS / Nix
+
+The flake provides both the terminal client and the web daemon, plus a desktop
+entry and icon:
+
+```bash
+# Run the web console from a checkout
+nix run .#twatchd -- --open
+
+# Or build the app and run the result
+nix build
+./result/bin/twatchd --open
+```
+
+Launch `twatch` for the terminal client, or `twatchd --open` for the web
+console. The desktop entry starts the web console automatically.
+
+To add it declaratively to a flake-based NixOS configuration, add the flake as
+an input:
+
+```nix
+{
+  inputs.twatch.url = "github:0Risotto/twatch";
+
+  outputs = { self, nixpkgs, twatch, ... }: {
+    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            twatch.packages.${pkgs.stdenv.hostPlatform.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
 ### Terminal client
 
 ```bash

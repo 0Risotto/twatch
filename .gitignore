@@ -1,4 +1,5 @@
 /target
+/result
 *.profraw
 lcov.info
 tarpaulin-report.html
