@@ -1,5 +1,8 @@
 [workspace]
-members = ["crates/twatch-core"]
+members = [
+    "crates/twatch-core",
+    "crates/twatch-engine",
+]
 resolver = "3"
 default-members = ["."]
 
@@ -20,6 +23,7 @@ path = "src/main.rs"
 
 [dependencies]
 twatch-core = { path = "crates/twatch-core" }
+twatch-engine = { path = "crates/twatch-engine" }
 ratatui = "0.30"
 crossterm = "0.28"
 librqbit = { version = "8", default-features = false, features = ["rust-tls"] }

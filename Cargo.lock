@@ -3603,6 +3603,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "twatch-core",
+ "twatch-engine",
 ]
 
 [[package]]
@@ -3617,6 +3618,24 @@ dependencies = [
  "shaku",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "twatch-engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures-util",
+ "librqbit",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shaku",
+ "tokio",
+ "tracing",
+ "twatch-core",
 ]
 
 [[package]]

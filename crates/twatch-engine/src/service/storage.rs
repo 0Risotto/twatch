@@ -1,10 +1,8 @@
-//! Default [`HistoryPort`](crate::domain::history::ports::HistoryPort) implementation.
+//! Default [`HistoryPort`](twatch_core::domain::history::ports::HistoryPort) implementation.
 //!
 //! Persists a torrent history list to a JSON file inside the config
 //! directory.  Every mutation is written to disk immediately.
 
-use crate::domain::history::HistoryEntry;
-use crate::domain::history::ports::HistoryPort;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use shaku::{Component, Module, ModuleBuildContext};
@@ -12,6 +10,8 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use twatch_core::domain::history::HistoryEntry;
+use twatch_core::domain::history::ports::HistoryPort;
 
 /// Maximum number of history entries before older ones are evicted.
 const MAX_HISTORY: usize = 1000;

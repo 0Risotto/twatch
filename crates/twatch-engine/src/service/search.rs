@@ -1,15 +1,15 @@
-//! Default [`SearchPort`](crate::domain::search::ports::SearchPort) implementation.
+//! Default [`SearchPort`](twatch_core::domain::search::ports::SearchPort) implementation.
 //!
 //! Queries a user-configured JSON API via reqwest and maps the response
 //! using a configurable field map.
 
-use crate::domain::search::ports::SearchPort;
-use crate::domain::search::{SearchConfig, SearchResult};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
 use shaku::{Component, Module, ModuleBuildContext};
 use std::time::Duration;
+use twatch_core::domain::search::ports::SearchPort;
+use twatch_core::domain::search::{SearchConfig, SearchResult};
 
 /// Give up on a hung search API after this long.
 const SEARCH_TIMEOUT: Duration = Duration::from_secs(15);

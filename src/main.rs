@@ -76,7 +76,10 @@ fn try_main() -> anyhow::Result<()> {
         .with_component_parameters::<StreamUrlProvider>(StreamUrlProviderParameters {
             http_port: Some(http_port),
         })
-        .with_component_parameters::<TokioTaskSpawner>(TokioTaskSpawnerParameters { rt: Some(rt) })
+        .with_component_parameters::<TokioTaskSpawner>(TokioTaskSpawnerParameters {
+            rt: Some(rt),
+            handle: None,
+        })
         .with_component_parameters::<RealStorage>(RealStorageParameters {
             state: Some(Mutex::new(storage_state)),
         })

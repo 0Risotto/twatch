@@ -1,13 +1,13 @@
-//! Default [`PlayerPort`](crate::domain::player::ports::PlayerPort) implementation.
+//! Default [`PlayerPort`](twatch_core::domain::player::ports::PlayerPort) implementation.
 //!
 //! Spawns either **mpv** or **vlc** as an external process to play an
 //! HTTP stream.  State is protected by a [`Mutex`] so the component
 //! can be stored in an `Arc` without requiring `&mut self`.
 
-use crate::domain::player::ports::PlayerPort;
 use shaku::Component;
 use std::process::{Child, Command};
 use std::sync::Mutex;
+use twatch_core::domain::player::ports::PlayerPort;
 
 /// Mutable state of the external media player process.
 #[derive(Default)]
