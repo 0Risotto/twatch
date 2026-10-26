@@ -80,6 +80,9 @@ Open <http://127.0.0.1:7878> if the browser does not launch. The daemon sets an
 HttpOnly auth cookie on the first page load; `server-token` lives under
 `$XDG_CONFIG_HOME/twatch/`.
 
+`twatchd` is single-instance per config directory. Starting it again opens the
+running console instead of creating a second daemon.
+
 For UI development, run the daemon and Vite separately:
 
 ```bash

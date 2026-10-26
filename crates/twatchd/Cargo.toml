@@ -11,6 +11,7 @@ twatch-core = { path = "../twatch-core" }
 twatch-engine = { path = "../twatch-engine" }
 twatch-server = { path = "../twatch-server" }
 anyhow = "1"
+fs2 = "0.4"
 librqbit = { version = "8", default-features = false, features = ["rust-tls"] }
 open = "5"
 shaku = { version = "0.6", features = ["thread_safe"] }

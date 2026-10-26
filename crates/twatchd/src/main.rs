@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use fs2::FileExt;
 use shaku::HasComponent;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
@@ -133,6 +134,25 @@ fn web_dir(arg: Option<PathBuf>) -> Option<PathBuf> {
     fallback.join("index.html").exists().then_some(fallback)
 }
 
+fn running_url(config_dir: &Path) -> Option<String> {
+    let url = std::fs::read_to_string(config_dir.join("twatchd.url")).ok()?;
+    let url = url.trim();
+    (!url.is_empty()).then(|| url.to_owned())
+}
+
+fn write_running_url(config_dir: &Path, url: &str) -> Result<()> {
+    std::fs::write(config_dir.join("twatchd.url"), format!("{url}\n"))
+        .context("Failed to record the twatchd URL")?;
+    Ok(())
+}
+
+fn open_running_instance(url: &str, open: bool) {
+    println!("twatchd is already running at {url}");
+    if open && let Err(error) = open::that(url) {
+        tracing::warn!("Could not open the browser: {error}");
+    }
+}
+
 #[tokio::main]
 async fn main() {
     if let Err(error) = run().await {
@@ -159,9 +179,57 @@ async fn run() -> Result<()> {
             .with_context(|| format!("Failed to create directory {}", dir.display()))?;
     }
 
-    let session = librqbit::Session::new(config.session_path.clone())
-        .await
-        .context("Failed to create librqbit session")?;
+    // Discord-style single-instance behavior: the lock belong to the daemon,
+    // not to a network port.  A second launch opens the running instance.
+    let lock_path = config.config_dir.join("twatchd.lock");
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+        .with_context(|| format!("Failed to open {}", lock_path.display()))?;
+    match lock.try_lock_exclusive() {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+            match running_url(&config.config_dir) {
+                Some(url) => open_running_instance(&url, args.open),
+                None => anyhow::bail!("twatchd is already running; its URL is not available yet"),
+            }
+            return Ok(());
+        }
+        Err(error) => return Err(error).context("Failed to lock the twatchd instance"),
+    }
+    let _lock = lock;
+    let _ = std::fs::remove_file(config.config_dir.join("twatchd.url"));
+
+    let bind = SocketAddr::new(args.bind, args.port);
+    let allow_remote = args.allow_remote || !args.bind.is_loopback();
+    let listener = match TcpListener::bind(bind).await {
+        Ok(listener) => listener,
+        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+            // This also handles an older daemon that predates the lock file.
+            open_running_instance(&format!("http://{bind}"), args.open);
+            return Ok(());
+        }
+        Err(error) => return Err(error).with_context(|| format!("Failed to bind {bind}")),
+    };
+    let local_addr = listener.local_addr()?;
+    let url = format!("http://{local_addr}");
+    write_running_url(&config.config_dir, &url)?;
+
+    let session = librqbit::Session::new_with_opts(
+        config.session_path.clone(),
+        librqbit::SessionOptions {
+            dht_config: Some(librqbit::dht::PersistentDhtConfig {
+                config_filename: Some(config.session_path.join("dht.json")),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .context("Failed to create librqbit session")?;
     let stream = StreamService::new(session.clone());
 
     let storage = StorageState::new(config.config_dir.clone(), &config.history_filename)?;
@@ -212,13 +280,6 @@ async fn run() -> Result<()> {
         None => load_or_create_token(&config.config_dir)?,
     };
 
-    let bind = SocketAddr::new(args.bind, args.port);
-    let allow_remote = args.allow_remote || !args.bind.is_loopback();
-    let listener =
-        TcpListener::bind(bind).await.with_context(|| format!("Failed to bind {bind}"))?;
-    let local_addr = listener.local_addr()?;
-    let url = format!("http://{local_addr}");
-
     println!("twatchd listening on {url}");
     if allow_remote {
         println!("Remote access is enabled. Token: {token}");
@@ -234,5 +295,7 @@ async fn run() -> Result<()> {
     let server_config =
         ServerConfig { bind: local_addr, web_dir: web_dir(args.web_dir), token, allow_remote };
 
-    twatch_server::serve(listener, gateway, stream, covers, server_config).await
+    let result = twatch_server::serve(listener, gateway, stream, covers, server_config).await;
+    let _ = std::fs::remove_file(config.config_dir.join("twatchd.url"));
+    result
 }
