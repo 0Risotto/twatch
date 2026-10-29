@@ -17,20 +17,28 @@ The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
 
 ### NixOS / Nix
 
-The flake provides both the terminal client and the web daemon, plus a desktop
-entry and icon:
+The default package is the Tauri desktop app. It bundles the web UI in a
+native window and installs a desktop entry and icon:
 
 ```bash
-# Run the web console from a checkout
-nix run .#twatchd -- --open
+# Run the desktop app from a checkout
+nix run
 
-# Or build the app and run the result
+# Or build it and run the result
 nix build
-./result/bin/twatchd --open
+./result/bin/twatch-app
 ```
 
-Launch `twatch` for the terminal client, or `twatchd --open` for the web
-console. The desktop entry starts the web console automatically.
+The flake also exposes the terminal client and the headless web daemon:
+
+```bash
+nix run .#twatch
+nix run .#twatchd -- --open
+```
+
+On Wayland, the desktop app follows the desktop convention: GNOME-family
+desktops and Niri get the frameless in-app header, while KDE, XFCE, tiling
+window managers, and X11 keep the native window frame.
 
 To add it declaratively to a flake-based NixOS configuration, add the flake as
 an input:
@@ -149,6 +157,7 @@ crates/
 │   ├── service/           librqbit, JSON history, reqwest search, mpv/vlc
 │   └── stream.rs          range-capable FileStream facade
 ├── twatch-server/       axum REST + WebSocket + static SPA + range streaming
+├── twatch-app/          Tauri desktop shell with an in-process gateway
 └── twatchd/             Web daemon binary
 web/                     React 19 + TypeScript + Vite + Tailwind + Motion SPA
 docs/web-api.md          Gateway endpoint, WebSocket, auth, and range contracts

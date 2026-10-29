@@ -3,6 +3,7 @@ members = [
     "crates/twatch-core",
     "crates/twatch-engine",
     "crates/twatch-server",
+    "crates/twatch-app",
     "crates/twatchd",
 ]
 resolver = "3"

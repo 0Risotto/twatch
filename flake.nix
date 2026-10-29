@@ -17,23 +17,27 @@
         pkgs:
         let
           twatch = pkgs.callPackage ./nix/package.nix { };
+          twatchApp = pkgs.callPackage ./nix/tauri.nix { };
         in
         {
-          default = twatch;
+          default = twatchApp;
           inherit twatch;
+          twatch-app = twatchApp;
         }
       );
 
       apps = forAllSystems (
         pkgs:
         let
-          twatch = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          packages = self.packages.${pkgs.stdenv.hostPlatform.system};
+          twatch = packages.twatch;
+          twatchApp = packages.twatch-app;
         in
         {
           default = {
             type = "app";
-            program = "${twatch}/bin/twatchd";
-            meta = twatch.meta;
+            program = "${twatchApp}/bin/twatch-app";
+            meta = twatchApp.meta;
           };
           twatch = {
             type = "app";
@@ -44,6 +48,11 @@
             type = "app";
             program = "${twatch}/bin/twatchd";
             meta = twatch.meta;
+          };
+          twatch-app = {
+            type = "app";
+            program = "${twatchApp}/bin/twatch-app";
+            meta = twatchApp.meta;
           };
         }
       );
@@ -61,6 +70,14 @@
             pkg-config
             mpv
             xdg-utils
+            go
+            wrapGAppsHook3
+            webkitgtk_4_1
+            libsoup_3
+            gtk3
+            librsvg
+            openssl
+            dbus
           ];
         };
       });

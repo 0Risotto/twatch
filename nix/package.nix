@@ -6,7 +6,6 @@
   perl,
   pkg-config,
   makeWrapper,
-  makeDesktopItem,
   mpv,
   xdg-utils,
   go,
@@ -46,19 +45,6 @@ let
     '';
   };
 
-  desktopItem = makeDesktopItem {
-    name = "twatch";
-    desktopName = "twatch";
-    comment = "Terminal and web torrent streaming client";
-    exec = "twatchd --open";
-    icon = "twatch";
-    terminal = false;
-    categories = [
-      "Network"
-      "FileTransfer"
-    ];
-    startupNotify = true;
-  };
 in
 rustPlatform.buildRustPackage {
   pname = "twatch";
@@ -108,8 +94,6 @@ rustPlatform.buildRustPackage {
         xdg-utils
       ]
     }
-    install -Dm644 ${../web/public/favicon.svg} $out/share/icons/hicolor/scalable/apps/twatch.svg
-    install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
   '';
 
   meta = {
