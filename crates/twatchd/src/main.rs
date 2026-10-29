@@ -240,7 +240,7 @@ async fn run() -> Result<()> {
             session: Some(session),
         })
         .with_component_parameters::<StreamUrlProvider>(StreamUrlProviderParameters {
-            http_port: Some(args.port),
+            http_port: Some(local_addr.port()),
         })
         .with_component_parameters::<TokioTaskSpawner>(TokioTaskSpawnerParameters {
             rt: None,

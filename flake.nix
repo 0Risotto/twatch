@@ -18,11 +18,13 @@
         let
           twatch = pkgs.callPackage ./nix/package.nix { };
           twatchApp = pkgs.callPackage ./nix/tauri.nix { };
+          twatchElectron = pkgs.callPackage ./nix/electron.nix { inherit twatch; };
         in
         {
-          default = twatchApp;
+          default = twatchElectron;
           inherit twatch;
           twatch-app = twatchApp;
+          twatch-electron = twatchElectron;
         }
       );
 
@@ -32,12 +34,13 @@
           packages = self.packages.${pkgs.stdenv.hostPlatform.system};
           twatch = packages.twatch;
           twatchApp = packages.twatch-app;
+          twatchElectron = packages.twatch-electron;
         in
         {
           default = {
             type = "app";
-            program = "${twatchApp}/bin/twatch-app";
-            meta = twatchApp.meta;
+            program = "${twatchElectron}/bin/twatch-electron";
+            meta = twatchElectron.meta;
           };
           twatch = {
             type = "app";
@@ -54,6 +57,11 @@
             program = "${twatchApp}/bin/twatch-app";
             meta = twatchApp.meta;
           };
+          twatch-electron = {
+            type = "app";
+            program = "${twatchElectron}/bin/twatch-electron";
+            meta = twatchElectron.meta;
+          };
         }
       );
 
@@ -65,6 +73,7 @@
             rustfmt
             clippy
             nodejs_22
+            electron
             cmake
             perl
             pkg-config

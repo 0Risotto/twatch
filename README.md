@@ -17,8 +17,8 @@ The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
 
 ### NixOS / Nix
 
-The default package is the Tauri desktop app. It bundles the web UI in a
-native window and installs a desktop entry and icon:
+The default package is the Electron desktop app. It uses Chromium for the
+browser player and bundles the Rust gateway as a local sidecar:
 
 ```bash
 # Run the desktop app from a checkout
@@ -26,14 +26,16 @@ nix run
 
 # Or build it and run the result
 nix build
-./result/bin/twatch-app
+./result/bin/twatch-electron
 ```
 
-The flake also exposes the terminal client and the headless web daemon:
+The flake also exposes the terminal client, the headless web daemon, and the
+older Tauri shell:
 
 ```bash
 nix run .#twatch
 nix run .#twatchd -- --open
+nix run .#twatch-app
 ```
 
 On Wayland, the desktop app follows the desktop convention: GNOME-family
