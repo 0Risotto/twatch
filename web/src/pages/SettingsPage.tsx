@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import {
   Check,
   Database,
@@ -26,12 +27,14 @@ import { useUiStore, type MotionPreference } from '@/store/ui'
 import type { FieldMap, SearchConfig, ThemeMode } from '@/types/api'
 
 function SettingsSection({
+  id,
   icon,
   title,
   description,
   children,
   action,
 }: {
+  id?: string
   icon: React.ReactNode
   title: string
   description: string
@@ -39,7 +42,7 @@ function SettingsSection({
   action?: React.ReactNode
 }) {
   return (
-    <section className="panel overflow-hidden">
+    <section id={id} className="panel scroll-mt-20 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-3.5">
         <div className="flex items-center gap-3">
           <span className="grid size-9 place-items-center rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)]">
@@ -75,6 +78,7 @@ function ThemeCard({
   return (
     <button
       type="button"
+      aria-pressed={active}
       data-theme={`${base}-${mode}`}
       data-mode={mode}
       onClick={onSelect}
@@ -122,6 +126,7 @@ const defaultFieldMap: FieldMap = {
 }
 
 export function SettingsPage() {
+  const location = useLocation()
   const config = useAppStore(state => state.config)
   const bootstrap = useAppStore(state => state.bootstrap)
   const connected = useAppStore(state => state.connected)
@@ -151,6 +156,14 @@ export function SettingsPage() {
     setHeadersText(JSON.stringify(searchConfig.data.headers, null, 2))
     setFieldMap({ ...defaultFieldMap, ...searchConfig.data.fieldMap })
   }, [searchConfig.data])
+
+  useEffect(() => {
+    if (location.hash !== '#search-api') return
+    const frame = requestAnimationFrame(() => {
+      document.getElementById('search-api')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [location.hash])
 
   const chooseTheme = async (base: string, nextMode: ThemeMode) => {
     const name = themeName(base, nextMode)
@@ -182,7 +195,12 @@ export function SettingsPage() {
     try {
       let headers: Record<string, string> = {}
       if (headersText.trim()) {
-        const parsed = JSON.parse(headersText) as unknown
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(headersText)
+        } catch {
+          throw new Error('Headers must be valid JSON')
+        }
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
           throw new Error('Headers must be a JSON object')
         }
@@ -298,6 +316,7 @@ export function SettingsPage() {
         >
           <Field label="External player" hint="The engine hands the local stream URL to the player process.">
             <Select
+              aria-label="External player"
               value={config?.player ?? 'auto'}
               onChange={event => void choosePlayer(event.target.value)}
             >
@@ -315,14 +334,21 @@ export function SettingsPage() {
       </div>
 
       <SettingsSection
+        id="search-api"
         icon={<Search className="size-4" />}
         title="Search API"
         description="Any JSON endpoint returning an array works. Use {query} and {page} placeholders in the URL."
         action={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" loading={testingSearch} onClick={() => void testSearch()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={testingSearch}
+              title="Test the saved search API configuration"
+              onClick={() => void testSearch()}
+            >
               <RefreshCw className="size-3.5" />
-              Test
+              Test saved
             </Button>
             <Button variant="primary" size="sm" loading={savingSearch} onClick={() => void saveSearch()}>
               Save
@@ -339,6 +365,7 @@ export function SettingsPage() {
               hint="Example: https://api.example.com/search?q={query}&page={page}"
             >
               <TextInput
+                aria-label="Endpoint URL template"
                 value={searchUrl}
                 onChange={event => setSearchUrl(event.target.value)}
                 placeholder="https://api.example.com/search?q={query}"
@@ -347,6 +374,7 @@ export function SettingsPage() {
             </Field>
             <Field label="Headers (JSON)" hint="Optional. API keys are stored in search.json with 0600 permissions.">
               <textarea
+                aria-label="Headers JSON"
                 value={headersText}
                 onChange={event => setHeadersText(event.target.value)}
                 rows={4}
@@ -360,6 +388,7 @@ export function SettingsPage() {
                 {(Object.keys(fieldMap) as Array<keyof FieldMap>).map(key => (
                   <Field key={key} label={key}>
                     <TextInput
+                      aria-label={`Field map: ${key}`}
                       value={fieldMap[key]}
                       onChange={event => setFieldMap(current => ({ ...current, [key]: event.target.value }))}
                       className="font-mono text-xs"

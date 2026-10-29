@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
+import { PreviewDialog, type PreviewTarget } from '@/components/PreviewDialog'
 import { api } from '@/lib/api'
 import { formatBytes, magnetFor } from '@/lib/format'
 import { CoverArt } from '@/components/CoverArt'
@@ -32,21 +33,20 @@ type Sort = 'seeders' | 'size'
 export function SearchPage() {
   const navigate = useNavigate()
   const searchConfigured = useAppStore(state => state.searchConfigured)
-  const setSession = useAppStore(state => state.setSession)
-  const addToast = useAppStore(state => state.addToast)
 
   const [searchParams] = useSearchParams()
   const queryParam = searchParams.get('q')
   const [query, setQuery] = useState(queryParam ?? '')
   const [sort, setSort] = useState<Sort>('seeders')
   const [activeIndex, setActiveIndex] = useState(0)
-  const [opening, setOpening] = useState<string | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
   const debounced = useDebounced(query.trim(), 280)
+  const searchReady = searchConfigured && debounced.length >= 2
 
   const search = useQuery({
     queryKey: ['search', debounced],
     queryFn: () => api.search(debounced, 0),
-    enabled: debounced.length > 0 && searchConfigured,
+    enabled: searchReady,
     placeholderData: previous => previous,
     staleTime: 30_000,
   })
@@ -61,24 +61,18 @@ export function SearchPage() {
   }, [queryParam])
 
   const results = useMemo(() => {
+    if (!searchReady) return []
     const items = [...(search.data ?? [])]
     items.sort((a, b) => (sort === 'seeders' ? b.seeders - a.seeders : b.size - a.size))
     return items
-  }, [search.data, sort])
+  }, [search.data, sort, searchReady])
 
-  const open = async (result: SearchResult) => {
-    if (opening) return
-    setOpening(result.infoHash)
-    try {
-      const session = await api.preview(magnetFor(result))
-      setSession(session)
-      addToast('success', `${session.name} — ${session.files.length} files ready`)
-      navigate('/torrent')
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Could not load torrent')
-    } finally {
-      setOpening(null)
-    }
+  const open = (result: SearchResult) => {
+    setPreviewTarget({
+      url: magnetFor(result),
+      title: result.name,
+      meta: `${result.seeders.toLocaleString()} seeders · ${formatBytes(result.size)}`,
+    })
   }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -90,7 +84,7 @@ export function SearchPage() {
       setActiveIndex(index => Math.max(0, index - 1))
     } else if (event.key === 'Enter' && results[activeIndex]) {
       event.preventDefault()
-      void open(results[activeIndex])
+      open(results[activeIndex])
     }
   }
 
@@ -101,7 +95,7 @@ export function SearchPage() {
         title="Find something worth watching"
         description="Search the JSON API you configured. Query text and poster titles go to the search and cover providers; your files stay local."
         actions={
-          <Button variant="secondary" size="sm" onClick={() => navigate('/settings')}>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/settings#search-api')}>
             <Settings2 className="size-4" />
             Search API
           </Button>
@@ -150,14 +144,14 @@ export function SearchPage() {
           title="Connect a search API"
           description="twatch does not bundle a torrent index. Point it at any JSON endpoint that returns an array; map the fields once in Settings."
           action={
-            <Button variant="primary" onClick={() => navigate('/settings')}>
+            <Button variant="primary" onClick={() => navigate('/settings#search-api')}>
               Configure search
             </Button>
           }
         />
       )}
 
-      {searchConfigured && !debounced && (
+      {searchConfigured && !searchReady && (
         <EmptyState
           icon={<Sparkles className="size-6" />}
           title="Search the index"
@@ -165,9 +159,9 @@ export function SearchPage() {
         />
       )}
 
-      {searchConfigured && debounced && search.isLoading && <SkeletonRows count={6} />}
+      {searchReady && search.isLoading && <SkeletonRows count={6} />}
 
-      {searchConfigured && debounced && search.isError && (
+      {searchReady && search.isError && (
         <EmptyState
           icon={<Search className="size-6" />}
           title="Search failed"
@@ -180,7 +174,7 @@ export function SearchPage() {
         />
       )}
 
-      {searchConfigured && debounced && !search.isLoading && !search.isError && results.length === 0 && (
+      {searchReady && !search.isLoading && !search.isError && results.length === 0 && (
         <EmptyState
           icon={<Magnet className="size-6" />}
           title="No results"
@@ -204,7 +198,9 @@ export function SearchPage() {
             >
               <CoverArt title={result.name} className="h-16 w-11 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-[var(--fg)]">{result.name}</p>
+                <p title={result.name} className="truncate text-[13px] font-medium text-[var(--fg)]">
+                  {result.name}
+                </p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--muted)]">
                   <span className="flex items-center gap-1 text-[var(--success)]">
                     <ArrowDown className="size-3" />
@@ -229,8 +225,8 @@ export function SearchPage() {
               <Button
                 variant={index === activeIndex ? 'primary' : 'secondary'}
                 size="sm"
-                loading={opening === result.infoHash}
-                onClick={() => void open(result)}
+                aria-label={`Preview ${result.name}`}
+                onClick={() => open(result)}
                 className="shrink-0"
               >
                 Preview
@@ -245,6 +241,15 @@ export function SearchPage() {
           Results come from your configured API. twatch never proxies or stores the index.
         </p>
       )}
+
+      <PreviewDialog
+        target={previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        onOpen={() => {
+          setPreviewTarget(null)
+          navigate('/torrent')
+        }}
+      />
     </div>
   )
 }

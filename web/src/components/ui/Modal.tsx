@@ -53,8 +53,8 @@ export function Modal({
                 style={{ maxWidth }}
               >
                 <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
-                  <div>
-                    <Dialog.Title className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--fg)]">
+                  <div className="min-w-0">
+                    <Dialog.Title className="break-words pr-1 text-[15px] font-semibold tracking-[-0.01em] text-[var(--fg)]">
                       {title}
                     </Dialog.Title>
                     {description && (

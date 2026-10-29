@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { fade, modalPanel } from '@/lib/motion'
+import { commandKeyLabel } from '@/lib/platform'
 import { useUiStore } from '@/store/ui'
 
 interface Action {
@@ -158,7 +159,7 @@ export function CommandPalette() {
                 <div className="flex items-center gap-4 border-t border-[var(--border-soft)] px-4 py-2 text-[10px] text-[var(--faint)]">
                   <span className="flex items-center gap-1"><span className="kbd">↑↓</span> navigate</span>
                   <span className="flex items-center gap-1"><span className="kbd">↵</span> open</span>
-                  <span className="ml-auto flex items-center gap-1"><span className="kbd">⌘K</span> toggle</span>
+                  <span className="ml-auto flex items-center gap-1"><span className="kbd">{commandKeyLabel}</span> toggle</span>
                 </div>
               </motion.div>
             </Dialog.Content>

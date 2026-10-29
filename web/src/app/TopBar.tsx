@@ -7,6 +7,7 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { useAppStore } from '@/store/app'
 import { useUiStore } from '@/store/ui'
 import { cn } from '@/lib/cn'
+import { commandKeyLabel } from '@/lib/platform'
 
 const titles: Record<string, string> = {
   '/': 'Home',
@@ -96,10 +97,11 @@ export function TopBar() {
     >
       <button
         type="button"
+        aria-label="twatch home"
         onClick={() => navigate('/')}
         className="flex items-center gap-2.5 rounded-lg text-left transition hover:opacity-80 md:hidden"
       >
-        <img src="/tv_ghost_logo.svg" alt="twatch" className="size-8 light:invert" />
+        <img src="/tv_ghost_logo.svg" alt="" className="size-8 light:invert" />
         <span className="font-semibold tracking-[-0.03em]">twatch</span>
       </button>
 
@@ -121,7 +123,7 @@ export function TopBar() {
       >
         <Search className="size-3.5" />
         <span className="flex-1">Jump to…</span>
-        <span className="kbd">⌘K</span>
+        <span className="kbd">{commandKeyLabel}</span>
       </button>
 
       <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
@@ -148,7 +150,13 @@ export function TopBar() {
         <IconButton label="Open command palette" onClick={() => setCommandOpen(true)} className="sm:hidden">
           <Command className="size-4" />
         </IconButton>
-        <Button variant="primary" size="sm" onClick={() => navigate('/')} className="gap-1.5">
+        <Button
+          variant="primary"
+          size="sm"
+          aria-label="Add torrent"
+          onClick={() => navigate('/')}
+          className="gap-1.5"
+        >
           <Plus className="size-4" />
           <span className="hidden sm:inline">Add torrent</span>
         </Button>

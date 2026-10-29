@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader, SectionHeader } from '@/components/PageHeader'
+import { PreviewDialog, type PreviewTarget } from '@/components/PreviewDialog'
 import { api } from '@/lib/api'
 import { displayName, formatBytes, formatRelative, isTorrentInput, pluralize } from '@/lib/format'
 import { CoverArt } from '@/components/CoverArt'
@@ -26,10 +27,9 @@ export function HomePage() {
   const navigate = useNavigate()
   const session = useAppStore(state => state.session)
   const addToast = useAppStore(state => state.addToast)
-  const setSession = useAppStore(state => state.setSession)
 
   const [url, setUrl] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
 
   const history = useQuery({ queryKey: ['history'], queryFn: api.history })
 
@@ -37,7 +37,10 @@ export function HomePage() {
 
   const addTorrent = async (value: string) => {
     const trimmed = value.trim()
-    if (!trimmed || submitting) return
+    if (!trimmed) {
+      addToast('info', 'Paste a magnet or type a title to search')
+      return
+    }
     if (!isTorrentInput(trimmed)) {
       // A title is a search, not a torrent URL. This keeps the preview button
       // useful even when the user types "Dune" instead of pasting a magnet.
@@ -46,28 +49,12 @@ export function HomePage() {
       navigate(`/search?q=${encodeURIComponent(trimmed)}`)
       return
     }
-    setSubmitting(true)
-    try {
-      const next = await api.preview(trimmed)
-      setSession(next)
-      addToast('success', `${next.name} — ${pluralize(next.files.length, 'file')} ready`)
-      setUrl('')
-      navigate('/torrent')
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Could not add torrent')
-    } finally {
-      setSubmitting(false)
-    }
+    setUrl('')
+    setPreviewTarget({ url: trimmed })
   }
 
-  const openHistory = async (historyUrl: string) => {
-    try {
-      const next = await api.openHistory(historyUrl)
-      setSession(next)
-      navigate('/torrent')
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Could not open torrent')
-    }
+  const openHistory = (historyUrl: string, title: string) => {
+    setPreviewTarget({ url: historyUrl, title })
   }
 
   return (
@@ -118,7 +105,6 @@ export function HomePage() {
               type="submit"
               variant="primary"
               size="lg"
-              loading={submitting}
               className="h-14 rounded-[14px] px-6 text-[15px]"
             >
               Preview files
@@ -183,8 +169,8 @@ export function HomePage() {
                 key={entry.url}
                 variants={riseItem}
                 type="button"
-                onClick={() => void openHistory(entry.url)}
-                className="panel panel-hover group p-3 text-left"
+                onClick={() => openHistory(entry.url, displayName(entry))}
+                className="panel panel-hover group min-w-0 overflow-hidden p-3 text-left"
               >
                 <div className="flex gap-3">
                   <CoverArt title={displayName(entry)} className="h-[86px] w-[58px] shrink-0" />
@@ -211,6 +197,15 @@ export function HomePage() {
           </div>
         )}
       </motion.section>
+
+      <PreviewDialog
+        target={previewTarget}
+        onClose={() => setPreviewTarget(null)}
+        onOpen={() => {
+          setPreviewTarget(null)
+          navigate('/torrent')
+        }}
+      />
     </div>
   )
 }
