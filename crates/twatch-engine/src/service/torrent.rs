@@ -249,16 +249,18 @@ impl TorrentEngineImpl {
             .await
             .context("Failed to add torrent")?;
 
-        let (id, handle) = match response {
-            AddTorrentResponse::Added(id, handle) => (id, handle),
-            AddTorrentResponse::AlreadyManaged(id, handle) => (id, handle),
+        let (id, handle, already_managed) = match response {
+            AddTorrentResponse::Added(id, handle) => (id, handle, false),
+            AddTorrentResponse::AlreadyManaged(id, handle) => (id, handle, true),
             AddTorrentResponse::ListOnly(_) => anyhow::bail!("Unexpected list-only response"),
         };
 
         // If this torrent was already managed, `only_files` in the add call may
-        // be ignored. Re-apply it so companion subtitle sidecars are selected
-        // along with the stream file.
-        if let Err(error) = self.session.update_only_files(&handle, &only_files).await {
+        // be ignored. Newly added torrents already received it and cannot be
+        // updated until initialization completes.
+        if already_managed
+            && let Err(error) = self.session.update_only_files(&handle, &only_files).await
+        {
             tracing::warn!("Could not update only_files for torrent {id}: {error:#}");
         }
 

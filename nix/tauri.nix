@@ -22,6 +22,8 @@
   librsvg,
   openssl,
   dbus,
+  gst_all_1,
+  runtimeShell,
 }:
 let
   version = "0.1.0";
@@ -104,6 +106,12 @@ rustPlatform.buildRustPackage {
     librsvg
     openssl
     dbus
+    gst_all_1.gstreamer.out
+    gst_all_1.gst-plugins-base.out
+    gst_all_1.gst-plugins-good.out
+    gst_all_1.gst-plugins-bad.out
+    gst_all_1.gst-plugins-ugly.out
+    gst_all_1.gst-libav.out
   ];
 
   preBuild = ''
@@ -119,14 +127,31 @@ rustPlatform.buildRustPackage {
   doCheck = false;
 
   postInstall = ''
-    wrapProgram $out/bin/twatch-app --prefix PATH : ${
+        mv $out/bin/twatch-app $out/bin/twatch-app-real
+        cat > $out/bin/twatch-app <<EOF
+    #!${runtimeShell}
+    export PATH="${
       lib.makeBinPath [
         mpv
         xdg-utils
       ]
-    }
-    install -Dm644 ${../web/public/favicon.svg} $out/share/icons/hicolor/scalable/apps/twatch.svg
-    install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
+    }:\$PATH"
+    export GST_PLUGIN_SYSTEM_PATH_1_0='${
+      lib.makeSearchPath "lib/gstreamer-1.0" [
+        gst_all_1.gstreamer.out
+        gst_all_1.gst-plugins-base.out
+        gst_all_1.gst-plugins-good.out
+        gst_all_1.gst-plugins-bad.out
+        gst_all_1.gst-plugins-ugly.out
+        gst_all_1.gst-libav.out
+      ]
+    }'
+    export GST_PLUGIN_SCANNER='${gst_all_1.gstreamer.out}/libexec/gstreamer-1.0/gst-plugin-scanner'
+    exec "$out/bin/twatch-app-real" "\$@"
+    EOF
+        chmod +x $out/bin/twatch-app
+        install -Dm644 ${../web/public/favicon.svg} $out/share/icons/hicolor/scalable/apps/twatch.svg
+        install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
   '';
 
   meta = {
