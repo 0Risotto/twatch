@@ -21,6 +21,11 @@ pub trait HistoryPort: Interface {
     /// Mark the entry matching `url` as downloaded, recording the file name.
     fn mark_downloaded(&self, url: &str, file_name: &str);
 
+    /// Record the resume position for one file in the entry matching `url`.
+    ///
+    /// Implementations should ignore non-finite or negative values.
+    fn set_progress(&self, _url: &str, _file_name: &str, _position: f64, _duration: f64) {}
+
     /// Remove `file_name` from watched/downloaded files on the entry matching `url`.
     fn mark_deleted(&self, url: &str, file_name: &str);
 

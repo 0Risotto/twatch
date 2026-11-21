@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -7,10 +7,12 @@ import {
   Copy,
   ExternalLink,
   Eye,
-  FileImage,
+  ListVideo,
   MonitorPlay,
   Music2,
   Play,
+  SkipBack,
+  SkipForward,
   Tv,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -19,24 +21,38 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/Progress'
 import { PageHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
-import { formatBytes, formatEta, formatSpeed } from '@/lib/format'
-import { canPreview, fileKind, isAudio, isImage, isVideo, kindLabel, mediaKind, FileTypeIcon } from '@/lib/fileIcons'
+import { formatBytes, formatEta, formatSpeed, formatTime } from '@/lib/format'
+import {
+  FileTypeIcon,
+  canPreview,
+  fileKind,
+  isAudio,
+  isImage,
+  isVideo,
+  kindLabel,
+  mediaKind,
+} from '@/lib/fileIcons'
 import { useCover } from '@/lib/covers'
-import { matchingSubtitles, subtitleLabel, subtitleLanguage, subtitleUrl } from '@/lib/subtitles'
+import { subtitleLabel } from '@/lib/subtitles'
 import { useAppStore } from '@/store/app'
 import { cn } from '@/lib/cn'
+import { PlayerStage } from '@/features/player/PlayerStage'
+import { useMediaPlayer } from '@/features/player/useMediaPlayer'
+import { usePlayerShortcuts } from '@/features/player/usePlayerShortcuts'
+import { useSubtitleTracks } from '@/features/player/useSubtitleTracks'
+import { useThumbnails } from '@/features/player/useThumbnails'
+import type { SubtitleSize } from '@/features/player/useSubtitleTracks'
 
 export function PlayerPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
   const downloads = useAppStore(state => state.downloads)
-  const player = useAppStore(state => state.player)
+  const playerState = useAppStore(state => state.player)
   const addToast = useAppStore(state => state.addToast)
-  const [mediaError, setMediaError] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [subtitle, setSubtitle] = useState<number | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const mediaRef = useRef<HTMLMediaElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   const requestedId = Number(params.get('download')) || null
 
@@ -45,8 +61,8 @@ export function PlayerPage() {
       const exact = downloads.find(item => item.id === requestedId)
       if (exact) return exact
     }
-    if (player.downloadId) {
-      const playing = downloads.find(item => item.id === player.downloadId)
+    if (playerState.downloadId) {
+      const playing = downloads.find(item => item.id === playerState.downloadId)
       if (playing) return playing
     }
     return (
@@ -54,61 +70,117 @@ export function PlayerPage() {
       downloads.find(item => item.isStreaming) ??
       null
     )
-  }, [downloads, player.downloadId, requestedId])
+  }, [downloads, playerState.downloadId, requestedId])
 
   const cover = useCover(
     download?.torrentName,
     download ? mediaKind(download.torrentName) : undefined,
   )
-  const tracks = download?.subtitles ?? []
-  const matching = useMemo(
-    () => matchingSubtitles(download?.fileNames[0] ?? download?.label ?? '', tracks),
-    [download?.fileNames, download?.label, tracks],
+
+  const queue = download?.queue ?? []
+  const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
+  const hasPrev = queueIndex > 0
+  const hasNext = queueIndex >= 0 && queueIndex + 1 < queue.length
+
+  const switchTo = useCallback(
+    async (index: number) => {
+      if (!download || busy) return
+      setBusy('switch')
+      try {
+        const next = await api.watchFile(index)
+        const from = (location.state as { from?: string } | null)?.from
+        navigate(`/player?download=${next.id}`, {
+          replace: true,
+          state: from ? { from } : undefined,
+        })
+      } catch (reason) {
+        addToast('error', reason instanceof Error ? reason.message : 'Could not start playback')
+      } finally {
+        setBusy(null)
+      }
+    },
+    [addToast, busy, download, location.state, navigate],
   )
-  const defaultSubtitle =
-    (matching.find(track => subtitleLanguage(track.name).code.startsWith('en')) ?? matching[0])?.index ??
-    null
 
-  useEffect(() => {
-    setMediaError(false)
-  }, [download?.streamPath])
+  const playPrev = useCallback(() => {
+    if (hasPrev) void switchTo(queue[queueIndex - 1].index)
+  }, [hasPrev, queue, queueIndex, switchTo])
 
-  useEffect(() => {
-    setSubtitle(defaultSubtitle)
-  }, [download?.id, defaultSubtitle])
+  const playNext = useCallback(() => {
+    if (hasNext) void switchTo(queue[queueIndex + 1].index)
+  }, [hasNext, queue, queueIndex, switchTo])
 
-  const syncTextTracks = () => {
-    const video = videoRef.current
-    if (!video) return
-    for (let index = 0; index < video.textTracks.length; index += 1) {
-      const track = tracks[index]
-      video.textTracks[index].mode =
-        track && track.index === subtitle ? 'showing' : 'disabled'
+  const handleEnded = useCallback(() => {
+    if (hasNext) playNext()
+  }, [hasNext, playNext])
+
+  const mediaPlayer = useMediaPlayer(download, mediaRef, {
+    artworkUrl: cover?.url,
+    onEnded: handleEnded,
+  })
+  const subtitles = useSubtitleTracks(download, mediaRef, containerRef)
+  const streamUrl = download?.streamPath ?? null
+  const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
+  const video = isVideo(kind)
+  const audio = isAudio(kind)
+  const image = isImage(kind)
+  const previewable = canPreview(kind)
+  const externalPlayable = video || audio
+  const playable = video || audio
+  const { getThumbnail, getCachedThumbnail, prefetchThumbnail } = useThumbnails(
+    video ? streamUrl : null,
+  )
+
+  const cycleSubtitles = useCallback(() => {
+    const tracks = subtitles.tracks
+    if (tracks.length === 0) return
+    if (!subtitles.selected) {
+      subtitles.selectTrack(tracks[0].name)
+      return
     }
-  }
+    const index = tracks.findIndex(track => track.name === subtitles.selected)
+    subtitles.selectTrack(
+      index >= 0 && index + 1 < tracks.length ? tracks[index + 1].name : null,
+    )
+  }, [subtitles])
+
+  usePlayerShortcuts({
+    enabled: Boolean(download && playable && streamUrl),
+    toggle: mediaPlayer.toggle,
+    seek: mediaPlayer.seek,
+    skip: mediaPlayer.skip,
+    setVolume: mediaPlayer.setVolume,
+    volume: () => mediaRef.current?.volume ?? 1,
+    toggleMute: mediaPlayer.toggleMute,
+    toggleFullscreen: () => mediaPlayer.toggleFullscreen(containerRef.current),
+    togglePip: () => void mediaPlayer.togglePiP(),
+    cycleSubtitles,
+    next: playNext,
+    prev: playPrev,
+    setRate: mediaPlayer.setRate,
+    rate: () => mediaRef.current?.playbackRate ?? 1,
+  })
 
   useEffect(() => {
-    syncTextTracks()
-  }, [subtitle, tracks, download?.streamPath])
-
-  const call = async (name: string, action: () => Promise<unknown>) => {
-    if (busy) return
-    setBusy(name)
-    try {
-      await action()
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Playback action failed')
-    } finally {
-      setBusy(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (document.fullscreenElement) void document.exitFullscreen()
     }
-  }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const openExternal = () => {
     if (!download) return
-    void call('external', async () => {
-      await api.openPlayer(download.id)
-      addToast('info', 'Opened in the external player')
-    })
+    if (busy) return
+    setBusy('external')
+    api
+      .openPlayer(download.id)
+      .then(() => addToast('info', 'Opened in the external player'))
+      .catch((reason: unknown) =>
+        addToast('error', reason instanceof Error ? reason.message : 'Playback action failed'),
+      )
+      .finally(() => setBusy(null))
   }
 
   const goBack = () => {
@@ -122,9 +194,9 @@ export function PlayerPage() {
   }
 
   const copyStream = async () => {
-    if (!download?.streamPath) return
+    if (!streamUrl) return
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${download.streamPath}`)
+      await navigator.clipboard.writeText(`${window.location.origin}${streamUrl}`)
       addToast('success', 'Stream URL copied')
     } catch {
       addToast('warning', 'Clipboard is unavailable')
@@ -159,16 +231,10 @@ export function PlayerPage() {
     )
   }
 
-  const preparing = !download.streamPath && download.state !== 'failed'
-  const streamUrl = download.streamPath
-  const external = player.running && player.downloadId === download.id
-  const kind = fileKind(download.fileNames[0] ?? download.label)
-  const video = isVideo(kind)
-  const audio = isAudio(kind)
-  const image = isImage(kind)
-  const previewable = canPreview(kind)
-  const externalPlayable = video || audio
-  const PreparingIcon = audio ? Music2 : image ? FileImage : Play
+  const preparing = !streamUrl && download.state !== 'failed'
+  const external = playerState.running && playerState.downloadId === download.id
+  const PreparingIcon = audio ? Music2 : image ? MonitorPlay : Play
+  const error = mediaPlayer.state.error || download.state === 'failed'
 
   return (
     <div className="space-y-4">
@@ -186,7 +252,12 @@ export function PlayerPage() {
               Downloads
             </Link>
             {externalPlayable && (
-              <Button variant="secondary" size="sm" loading={busy === 'external'} onClick={openExternal}>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'external'}
+                onClick={openExternal}
+              >
                 <Tv className="size-4" />
                 Open in mpv / VLC
               </Button>
@@ -206,158 +277,140 @@ export function PlayerPage() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <div className="panel overflow-hidden">
-          <div className="relative aspect-video bg-black">
-            {streamUrl && !mediaError ? (
-              video ? (
-                <video
-                  key={streamUrl}
-                  ref={videoRef}
-                  src={streamUrl}
-                  poster={cover?.url ?? undefined}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="h-full w-full bg-black"
-                  onLoadedMetadata={syncTextTracks}
-                  onError={() => setMediaError(true)}
-                >
-                  {download.torrentId !== null &&
-                    tracks.map(track => (
-                      <track
-                        key={track.index}
-                        kind="subtitles"
-                        src={subtitleUrl(download.torrentId!, track.index)}
-                        srcLang={subtitleLanguage(track.name).code}
-                        label={subtitleLabel(track)}
-                        default={track.index === subtitle}
-                      />
-                    ))}
-                </video>
-              ) : audio ? (
-                <div className="flex h-full flex-col items-center justify-center gap-5 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--warning)_12%,transparent),transparent_65%)] p-6">
-                  {cover?.url ? (
-                    <img
-                      src={cover.url}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className="h-48 w-32 rounded-[var(--radius-lg)] border border-[var(--border)] object-cover shadow-[var(--shadow-lg)]"
-                    />
-                  ) : (
-                    <div className="relative grid size-32 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)] shadow-[var(--shadow-md)]">
-                      <div className="absolute inset-2 rounded-full border border-[var(--border)]" />
-                      <Music2 className="size-12 text-[var(--warning)]" />
-                    </div>
-                  )}
-                  <div className="max-w-md text-center">
-                    <p className="truncate text-sm font-semibold text-[var(--fg)]">{download.label}</p>
-                    <p className="mt-1 truncate text-xs text-[var(--muted)]">{download.torrentName}</p>
-                  </div>
-                  <audio
-                    key={streamUrl}
-                    src={streamUrl}
-                    controls
-                    autoPlay
-                    className="w-full max-w-md"
-                    onError={() => setMediaError(true)}
-                  />
-                </div>
-              ) : image ? (
+          {streamUrl && !error && playable && (
+            <PlayerStage
+              download={download}
+              kind={video ? 'video' : 'audio'}
+              streamUrl={streamUrl}
+              coverUrl={cover?.url}
+              mediaRef={mediaRef}
+              containerRef={containerRef}
+              player={mediaPlayer}
+              subtitles={subtitles}
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPrev={playPrev}
+              onNext={playNext}
+              getThumbnail={getThumbnail}
+              getCachedThumbnail={getCachedThumbnail}
+              prefetchThumbnail={prefetchThumbnail}
+            />
+          )}
+
+          {streamUrl && !error && image && (
+            <PlayerStage
+              download={download}
+              kind="image"
+              streamUrl={streamUrl}
+              coverUrl={cover?.url}
+              mediaRef={mediaRef}
+              containerRef={containerRef}
+              player={mediaPlayer}
+              subtitles={subtitles}
+              hasPrev={false}
+              hasNext={false}
+              onPrev={playPrev}
+              onNext={playNext}
+            />
+          )}
+
+          {streamUrl && !error && !previewable && (
+            <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
+              <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-10" />
+              <p className="text-sm font-semibold text-[var(--fg)]">
+                {kindLabel(kind)} preview is not available in the browser
+              </p>
+              <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
+                The stream is ready. Open it directly, copy the URL, or hand it to a native app.
+              </p>
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
                 <a
                   href={streamUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex h-full items-center justify-center bg-[var(--bg)] p-2"
-                  title="Open original image"
+                  className="btn btn-primary h-8 px-3 text-xs"
                 >
-                  <img
-                    src={streamUrl}
-                    alt={download.label}
-                    className="max-h-full max-w-full object-contain"
-                    onError={() => setMediaError(true)}
-                  />
+                  <Eye className="size-4" />
+                  Open file
                 </a>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                  <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-10" />
-                  <p className="text-sm font-semibold text-[var(--fg)]">
-                    {kindLabel(kind)} preview is not available in the browser
-                  </p>
-                  <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                    The stream is ready. Open it directly, copy the URL, or hand it to a native app.
-                  </p>
-                  <div className="mt-1 flex flex-wrap justify-center gap-2">
-                    <a
-                      href={streamUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-primary h-8 px-3 text-xs"
-                    >
-                      <Eye className="size-4" />
-                      Open file
-                    </a>
-                    <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                      <Copy className="size-4" />
-                      Copy stream URL
-                    </Button>
-                  </div>
-                </div>
-              )
-            ) : preparing ? (
-              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
-                  <PreparingIcon className="size-8 text-[var(--accent)]" />
-                  <span className="absolute inset-0 animate-ping rounded-full border border-[var(--accent)] opacity-30" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--fg)]">Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…</p>
-                  <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-                    Waiting for the first pieces from the swarm. The preview starts automatically once the
-                    first bytes are available.
-                  </p>
-                </div>
-                <div className="w-56">
-                  <ProgressBar progress={download.progress} tone="stream" />
-                </div>
+                <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
+                  <Copy className="size-4" />
+                  Copy stream URL
+                </Button>
               </div>
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                <AlertTriangle className="size-7 text-[var(--warning)]" />
+            </div>
+          )}
+
+          {preparing && (
+            <div className="flex aspect-video flex-col items-center justify-center gap-4 text-center">
+              <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
+                <PreparingIcon className="size-8 text-[var(--accent)]" />
+                <span className="absolute inset-0 animate-ping rounded-full border border-[var(--accent)] opacity-30" />
+              </div>
+              <div>
                 <p className="text-sm font-semibold text-[var(--fg)]">
-                  {image ? 'Could not load this image' : audio ? 'This audio codec cannot play in the browser' : 'This video container cannot play in the browser'}
+                  Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…
                 </p>
-                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                  The stream is ready. {externalPlayable
-                    ? 'Hand it to mpv or VLC, or download the file and play it locally.'
-                    : 'Open the file directly, or copy the stream URL.'}
+                <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
+                  Waiting for the first pieces from the swarm. The preview starts automatically once
+                  the first bytes are available.
                 </p>
-                <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  {externalPlayable && (
-                    <Button variant="primary" size="sm" onClick={openExternal}>
-                      <Tv className="size-4" />
-                      Open in mpv / VLC
-                    </Button>
-                  )}
-                  {streamUrl && (
-                    <a
-                      href={streamUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary h-8 px-3 text-xs"
-                    >
-                      <Eye className="size-4" />
-                      Open file
-                    </a>
-                  )}
-                  <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                    <Copy className="size-4" />
-                    Copy stream URL
-                  </Button>
-                </div>
               </div>
-            )}
-          </div>
+              <div className="w-56">
+                <ProgressBar progress={download.progress} tone="stream" />
+              </div>
+            </div>
+          )}
+
+          {(error || download.state === 'failed') && (
+            <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
+              <AlertTriangle className="size-7 text-[var(--warning)]" />
+              <p className="text-sm font-semibold text-[var(--fg)]">
+                {image
+                  ? 'Could not load this image'
+                  : audio
+                    ? 'This audio codec cannot play in the browser'
+                    : 'This video container cannot play in the browser'}
+              </p>
+              <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
+                The stream is ready.{' '}
+                {externalPlayable
+                  ? 'Hand it to mpv or VLC, or download the file and play it locally.'
+                  : 'Open the file directly, or copy the stream URL.'}
+              </p>
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
+                {externalPlayable && (
+                  <Button variant="primary" size="sm" onClick={openExternal}>
+                    <Tv className="size-4" />
+                    Open in mpv / VLC
+                  </Button>
+                )}
+                {streamUrl && (
+                  <Button variant="secondary" size="sm" onClick={mediaPlayer.retry}>
+                    <Play className="size-4" />
+                    Retry
+                  </Button>
+                )}
+                {streamUrl && (
+                  <a
+                    href={streamUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary h-8 px-3 text-xs"
+                  >
+                    <Eye className="size-4" />
+                    Open file
+                  </a>
+                )}
+                <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
+                  <Copy className="size-4" />
+                  Copy stream URL
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-soft)] px-4 py-3">
             <Badge tone={download.state === 'completed' ? 'success' : 'stream'} dot>
@@ -366,8 +419,17 @@ export function PlayerPage() {
             <span className="font-mono text-[11px] tabular text-[var(--muted)]">
               {Math.round(download.progress * 100)}% · {formatSpeed(download.speed)}
             </span>
+            {mediaPlayer.state.resumed && (
+              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
+                resumed
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-2">
-              {external && <span className="text-[11px] text-[var(--badge-stream)]">Playing in external player</span>}
+              {external && (
+                <span className="text-[11px] text-[var(--badge-stream)]">
+                  Playing in external player
+                </span>
+              )}
               <Button variant="ghost" size="sm" onClick={() => void copyStream()}>
                 <Copy className="size-3.5" />
                 Copy URL
@@ -377,6 +439,52 @@ export function PlayerPage() {
         </div>
 
         <aside className="space-y-3">
+          {queue.length > 1 && (
+            <section className="panel p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+                  <ListVideo className="size-3.5 text-[var(--accent)]" />
+                  Playback queue
+                </h2>
+                <span className="text-[10px] text-[var(--muted)]">
+                  {Math.max(1, queueIndex + 1)} / {queue.length}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center gap-1">
+                <Button variant="ghost" size="sm" disabled={!hasPrev} onClick={playPrev}>
+                  <SkipBack className="size-3.5" />
+                  Prev
+                </Button>
+                <Button variant="ghost" size="sm" disabled={!hasNext} onClick={playNext}>
+                  Next
+                  <SkipForward className="size-3.5" />
+                </Button>
+              </div>
+              <ul className="mt-2 max-h-56 space-y-0.5 overflow-y-auto">
+                {queue.map((file, index) => (
+                  <li key={file.index}>
+                    <button
+                      type="button"
+                      onClick={() => void switchTo(file.index)}
+                      disabled={busy !== null || index === queueIndex}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left text-[11px] transition-colors',
+                        index === queueIndex
+                          ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
+                          : 'text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]',
+                      )}
+                    >
+                      <span className="w-5 shrink-0 font-mono text-[10px] tabular opacity-60">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="panel p-4">
             <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
               Stream health
@@ -395,38 +503,115 @@ export function PlayerPage() {
                 value={`${formatBytes(download.downloaded)} / ${formatBytes(download.totalSize)}`}
               />
               <Metric label="ETA" value={formatEta(download.etaSeconds)} />
+              {playable && mediaPlayer.state.duration > 0 && (
+                <Metric
+                  label="Played"
+                  value={`${formatTime(mediaPlayer.state.currentTime)} / ${formatTime(
+                    mediaPlayer.state.duration,
+                  )}`}
+                />
+              )}
             </div>
           </section>
 
-          {video && tracks.length > 0 && (
+          {video && subtitles.tracks.length > 0 && (
             <section className="panel p-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
                   <Captions className="size-3.5 text-[var(--accent)]" />
                   Subtitles
                 </h2>
-                <span className="text-[10px] text-[var(--muted)]">{tracks.length} track{tracks.length === 1 ? '' : 's'}</span>
+                <span className="text-[10px] text-[var(--muted)]">
+                  {subtitles.tracks.length} track{subtitles.tracks.length === 1 ? '' : 's'}
+                </span>
               </div>
               <select
-                value={subtitle ?? 'off'}
+                value={subtitles.selected ?? 'off'}
                 onChange={event => {
                   const value = event.target.value
-                  setSubtitle(value === 'off' ? null : Number(value))
+                  subtitles.selectTrack(value === 'off' ? null : value)
                 }}
                 className="input mt-3 h-9 text-xs"
                 aria-label="Subtitle track"
               >
                 <option value="off">Off</option>
-                {tracks.map(track => (
-                  <option key={track.index} value={track.index}>
+                {subtitles.tracks.map(track => (
+                  <option key={track.index} value={track.name}>
                     {subtitleLabel(track)}
-                    {matching.some(item => item.index === track.index) ? ' · matched' : ''}
                   </option>
                 ))}
               </select>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
+                  Delay
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="btn btn-ghost h-7 px-2 text-[11px]"
+                    onClick={() => subtitles.adjustDelay(-1)}
+                  >
+                    −1s
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost h-7 px-2 text-[11px]"
+                    onClick={() => subtitles.adjustDelay(-0.1)}
+                  >
+                    −.1
+                  </button>
+                  <button
+                    type="button"
+                    className="min-w-12 font-mono text-[11px] text-[var(--fg)]"
+                    onClick={subtitles.resetDelay}
+                    title="Reset delay"
+                  >
+                    {subtitles.delay > 0 ? '+' : ''}
+                    {subtitles.delay.toFixed(1)}s
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost h-7 px-2 text-[11px]"
+                    onClick={() => subtitles.adjustDelay(0.1)}
+                  >
+                    +.1
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost h-7 px-2 text-[11px]"
+                    onClick={() => subtitles.adjustDelay(1)}
+                  >
+                    +1s
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
+                  Size
+                </span>
+                <div className="flex items-center gap-1">
+                  {(['sm', 'md', 'lg'] as SubtitleSize[]).map(value => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => subtitles.setSize(value)}
+                      className={cn(
+                        'rounded-[2px] px-2 py-0.5 text-[11px] uppercase',
+                        subtitles.size === value
+                          ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
+                          : 'text-[var(--muted)] hover:bg-[var(--surface-2)]',
+                      )}
+                    >
+                      {value === 'sm' ? 'S' : value === 'md' ? 'M' : 'L'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
                 Tracks are read from this torrent. SRT, ASS/SSA and VTT are converted to WebVTT on
-                the fly for the browser player.
+                the fly. Your track, delay and size are remembered per torrent.
               </p>
             </section>
           )}
@@ -436,7 +621,10 @@ export function PlayerPage() {
               File
             </h2>
             <p className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] leading-relaxed text-[var(--muted)]">
-              <FileTypeIcon name={download.fileNames[0] ?? download.label} className="mt-0.5 size-4 shrink-0" />
+              <FileTypeIcon
+                name={download.fileNames[0] ?? download.label}
+                className="mt-0.5 size-4 shrink-0"
+              />
               <span>{download.fileNames.join(', ')}</span>
             </p>
             {streamUrl && (
@@ -452,7 +640,7 @@ export function PlayerPage() {
               {video
                 ? 'MP4/H.264 and WebM play inline. For MKV, HEVC, DTS, or subtitle-heavy releases, use mpv/VLC — the same byte stream is handed to the player.'
                 : audio
-                  ? 'Audio is played with the browser’s native audio element. MP3, AAC, FLAC and Opus usually work; DTS and exotic codecs may need a native player.'
+                  ? 'Audio is played with the browser engine. MP3, AAC, FLAC and Opus usually work; DTS and exotic codecs may need a native player.'
                   : image
                     ? 'Images are served through the same byte-range stream. Click the image to open the original resolution in a new tab.'
                     : 'This file type is not rendered in the browser. Open it directly or hand it to a native application.'}

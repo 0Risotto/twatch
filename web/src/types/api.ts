@@ -58,6 +58,12 @@ export type DownloadState =
   | 'completed'
   | 'failed'
 
+export interface QueueFile {
+  index: number
+  name: string
+  size: number
+}
+
 export interface DownloadSnapshot {
   id: number
   torrentId: number | null
@@ -77,6 +83,9 @@ export interface DownloadSnapshot {
   streamPath: string | null
   subtitles: SubtitleTrack[]
   error: string | null
+  fileIndex: number
+  queue: QueueFile[]
+  resumePosition: number | null
 }
 
 export interface PlayerSnapshot {
@@ -102,6 +111,12 @@ export interface BootstrapSnapshot {
   searchConfigured: boolean
 }
 
+export interface PlaybackProgress {
+  position: number
+  duration: number
+  updatedAt: number
+}
+
 export interface HistoryEntry {
   url: string
   customName: string | null
@@ -111,6 +126,7 @@ export interface HistoryEntry {
   watchedFiles: string[]
   downloaded: boolean
   downloadedFiles: string[]
+  progress: Record<string, PlaybackProgress>
 }
 
 export interface SearchResult {

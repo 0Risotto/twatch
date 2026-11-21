@@ -66,7 +66,7 @@ export function useThemeSync(): void {
 
   useEffect(() => {
     const stored = typeof localStorage === 'undefined' ? undefined : localStorage.getItem('twatch.theme') ?? undefined
-    const candidate = config?.theme ?? stored ?? 'emerald-dark'
-    applyTheme(isKnownTheme(candidate) ? candidate : 'emerald-dark')
+    const candidate = config?.theme ?? stored ?? 'mono-dark'
+    applyTheme(isKnownTheme(candidate) ? candidate : 'mono-dark')
   }, [config?.theme])
 }

@@ -32,6 +32,33 @@ export function formatPercent(progress: number): string {
   return `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`
 }
 
+/** Format a media timestamp as `m:ss` or `h:mm:ss`. */
+export function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const total = Math.floor(seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const rest = total % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+  }
+  return `${minutes}:${String(rest).padStart(2, '0')}`
+}
+
+/** Elapsed and remaining labels, matching Shiru's `current / remaining` readout. */
+export function formatPlaybackTimes(
+  current: number,
+  duration: number,
+): { elapsed: string; remaining: string } {
+  const safeCurrent = Math.max(0, Number.isFinite(current) ? current : 0)
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0
+  const position = safeDuration > 0 ? Math.min(safeCurrent, safeDuration) : safeCurrent
+  return {
+    elapsed: formatTime(position),
+    remaining: formatTime(Math.max(0, safeDuration - position)),
+  }
+}
+
 export function formatDate(unixSeconds: number): string {
   if (!unixSeconds) return '—'
   const date = new Date(unixSeconds * 1000)

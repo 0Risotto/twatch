@@ -2,11 +2,8 @@ import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Command, Maximize2, Minus, Plus, Search, X } from 'lucide-react'
 import { Button, IconButton } from '@/components/ui/Button'
-import { StatusDot } from '@/components/ui/StatusDot'
-import { Tooltip } from '@/components/ui/Tooltip'
 import { useAppStore } from '@/store/app'
 import { useUiStore } from '@/store/ui'
-import { cn } from '@/lib/cn'
 import { commandKeyLabel } from '@/lib/platform'
 
 const titles: Record<string, string> = {
@@ -40,7 +37,7 @@ function windowCommand(command: string) {
 
 function DesktopWindowControls() {
   return (
-    <div className="ml-1 flex items-center gap-0.5 rounded-[9px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] p-0.5">
+    <div className="ml-1 flex items-center gap-0.5 rounded-[3px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] p-0.5">
       <button
         type="button"
         aria-label="Minimize window"
@@ -75,7 +72,6 @@ function DesktopWindowControls() {
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const connected = useAppStore(state => state.connected)
   const downloads = useAppStore(state => state.downloads)
   const session = useAppStore(state => state.session)
   const setCommandOpen = useUiStore(state => state.setCommandOpen)
@@ -119,7 +115,7 @@ export function TopBar() {
       <button
         type="button"
         onClick={() => setCommandOpen(true)}
-        className="group ml-auto hidden h-9 w-[220px] items-center gap-2 rounded-[10px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 text-left text-xs text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--fg)] sm:flex lg:w-[280px]"
+        className="group ml-auto hidden h-9 w-[220px] items-center gap-2 rounded-[3px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 text-left text-xs text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--fg)] sm:flex lg:w-[280px]"
       >
         <Search className="size-3.5" />
         <span className="flex-1">Jump to…</span>
@@ -127,20 +123,6 @@ export function TopBar() {
       </button>
 
       <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
-        <Tooltip content={connected ? 'Live engine connection' : 'Reconnecting to twatchd'}>
-          <div
-            className={cn(
-              'hidden items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider sm:flex',
-              connected
-                ? 'border-[color-mix(in_srgb,var(--success)_24%,transparent)] bg-[var(--success-soft)] text-[var(--success)]'
-                : 'border-[color-mix(in_srgb,var(--danger)_24%,transparent)] bg-[var(--danger-soft)] text-[var(--danger)]',
-            )}
-          >
-            <StatusDot tone={connected ? 'success' : 'danger'} pulse={connected} />
-            {connected ? 'Live' : 'Offline'}
-          </div>
-        </Tooltip>
-
         {totalSpeed > 0 && (
           <span className="hidden font-mono text-[11px] tabular text-[var(--muted)] lg:inline">
             ↓ {formatSpeed(totalSpeed)}

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   isSubtitleFile,
   matchingSubtitles,
+  rawSubtitleUrl,
+  subtitleExtension,
   subtitleLabel,
   subtitleLanguage,
   subtitleUrl,
@@ -42,7 +44,9 @@ describe('subtitles', () => {
     expect(matchingSubtitles('Movie.mkv', tracks).map(track => track.index)).toEqual([2])
   })
 
-  it('builds the subtitle endpoint URL', () => {
+  it('builds subtitle endpoint URLs', () => {
     expect(subtitleUrl(7, 3)).toBe('/api/subtitles/7/3')
+    expect(rawSubtitleUrl(7, 3)).toBe('/api/subtitles/7/3?format=raw')
+    expect(subtitleExtension('subs/Show.S01E02.ass')).toBe('ass')
   })
 })

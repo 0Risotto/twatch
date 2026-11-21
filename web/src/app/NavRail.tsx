@@ -89,7 +89,7 @@ export function MobileNav() {
   )
   return (
     <nav
-      className="glass fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-[20px] px-1.5 py-1.5 md:hidden"
+      className="glass fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-[6px] px-1.5 py-1.5 md:hidden"
       aria-label="Main navigation"
     >
       {NAV_ITEMS.map(item => {
@@ -100,14 +100,14 @@ export function MobileNav() {
             key={item.to}
             to={item.to}
             className={cn(
-              'relative flex size-12 flex-col items-center justify-center gap-0.5 rounded-[14px] text-[9px] font-semibold',
+              'relative flex size-12 flex-col items-center justify-center gap-0.5 rounded-[4px] text-[9px] font-semibold',
               active ? 'text-[var(--fg)]' : 'text-[var(--muted)]',
             )}
           >
             {active && (
               <motion.span
                 layoutId="mobile-nav-active"
-                className="absolute inset-0 rounded-[14px] bg-[var(--surface-2)]"
+                className="absolute inset-0 rounded-[4px] bg-[var(--surface-2)]"
                 transition={springs.layout}
               />
             )}

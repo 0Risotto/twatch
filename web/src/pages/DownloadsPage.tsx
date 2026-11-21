@@ -120,11 +120,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
   return (
     <motion.article
       layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98 }}
       transition={springs.smooth}
       className="panel overflow-hidden"
+      data-download-id={download.id}
     >
       <div className="flex items-start gap-4 p-4">
         <CoverArt title={download.torrentName} className="hidden h-[68px] w-[46px] shrink-0 sm:block" />

@@ -4,12 +4,46 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, SeekFrom};
+use tokio::time::{Duration, sleep};
 use tokio_util::io::ReaderStream;
 
 use twatch_core::domain::torrent::TorrentId;
+use twatch_engine::stream::StreamService;
 
 use crate::state::AppState;
+
+/// Open a file stream, waiting briefly while a freshly added torrent initializes.
+pub(crate) async fn open_stream(
+    stream_service: &StreamService,
+    torrent: TorrentId,
+    file_idx: usize,
+) -> Result<impl AsyncRead + AsyncSeek + Unpin + Send + 'static, (StatusCode, &'static str)> {
+    for attempt in 0..40u8 {
+        match stream_service.open(torrent, file_idx) {
+            Ok(stream) => return Ok(stream),
+            Err(error) => {
+                let initializing = format!("{error:#}").contains("initializing");
+                if !initializing {
+                    tracing::warn!(
+                        "Stream open failed for {}/{file_idx}: {error:#}",
+                        torrent.raw()
+                    );
+                    return Err((StatusCode::NOT_FOUND, "Torrent file not found"));
+                }
+                if attempt == 39 {
+                    tracing::warn!(
+                        "Stream still initializing for {}/{file_idx}: {error:#}",
+                        torrent.raw()
+                    );
+                    return Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent is still initializing"));
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+        }
+    }
+    Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent is still initializing"))
+}
 
 /// Inclusive byte range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,12 +139,9 @@ pub async fn stream_file(
         return (StatusCode::SERVICE_UNAVAILABLE, "Stream engine unavailable").into_response();
     };
     let torrent = TorrentId::new(torrent_id);
-    let mut stream = match stream_service.open(torrent, file_idx) {
+    let mut stream = match open_stream(stream_service, torrent, file_idx).await {
         Ok(stream) => stream,
-        Err(error) => {
-            tracing::warn!("Stream open failed for {torrent_id}/{file_idx}: {error:#}");
-            return (StatusCode::NOT_FOUND, "Torrent file not found").into_response();
-        }
+        Err((status, message)) => return (status, message).into_response(),
     };
 
     let len = match stream.seek(SeekFrom::End(0)).await {

@@ -47,11 +47,11 @@ export function ActivityPanel() {
             <Link
               key={download.id}
               to="/downloads"
-              className="block rounded-[10px] px-2 py-2 transition hover:bg-[var(--hover)]"
+              className="block rounded-[3px] px-2 py-2 transition hover:bg-[var(--hover)]"
             >
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium text-[var(--fg)]">
-                  <CoverArt title={download.torrentName} className="h-8 w-[22px] shrink-0 rounded-[4px]" />
+                  <CoverArt title={download.torrentName} className="h-8 w-[22px] shrink-0 rounded-[1px]" />
                   <span className="truncate">{download.label}</span>
                 </span>
                 <span className="shrink-0 font-mono text-[10px] tabular text-[var(--muted)]">

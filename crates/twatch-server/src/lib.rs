@@ -49,6 +49,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/history", patch(routes::rename_history))
         .route("/api/history", delete(routes::delete_history))
         .route("/api/history/open", post(routes::open_history))
+        .route("/api/history/progress", put(routes::save_progress))
         .route("/api/player", get(routes::player))
         .route("/api/player/open", post(routes::open_player))
         .route("/api/player/stop", post(routes::stop_player))

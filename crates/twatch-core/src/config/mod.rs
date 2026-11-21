@@ -40,7 +40,7 @@ pub struct Config {
     /// Theme name for the terminal client (default: `"tokyonight-dark"`).
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Theme name for the web UI (default: `"emerald-dark"`). Kept separate
+    /// Theme name for the web UI (default: `"mono-dark"`). Kept separate
     /// from the TUI theme so the browser can use the built-in palette catalogue
     /// without forcing the terminal palette to change.
     #[serde(default = "default_web_theme")]
@@ -63,7 +63,7 @@ fn default_player() -> String {
 }
 
 fn default_web_theme() -> String {
-    "emerald-dark".into()
+    "mono-dark".into()
 }
 
 impl Default for Config {
@@ -83,7 +83,7 @@ impl Default for Config {
             download_dir,
             history_filename: "history.json".to_string(),
             theme: "tokyonight-dark".to_string(),
-            web_theme: "emerald-dark".to_string(),
+            web_theme: "mono-dark".to_string(),
             player: "auto".to_string(),
         }
     }

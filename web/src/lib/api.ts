@@ -94,6 +94,8 @@ export const api = {
     patch<{ ok: boolean }>('/api/history', { url, name }),
   deleteHistory: (url: string) => del<{ ok: boolean }>('/api/history', { url }),
   openHistory: (url: string) => post<SessionSnapshot>('/api/history/open', { url }),
+  saveProgress: (url: string, file: string, position: number, duration: number) =>
+    put<{ ok: boolean }>('/api/history/progress', { url, file, position, duration }),
 
   player: () => request<PlayerSnapshot>('/api/player'),
   openPlayer: (downloadId: number) =>

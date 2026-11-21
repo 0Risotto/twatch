@@ -7,6 +7,7 @@ import {
   Clock3,
   Download,
   Pencil,
+  Play,
   Search,
   Trash2,
 } from 'lucide-react'
@@ -14,14 +15,29 @@ import { Badge } from '@/components/ui/Badge'
 import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
+import { ProgressBar } from '@/components/ui/Progress'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
-import { displayName, formatDate, formatRelative } from '@/lib/format'
+import { displayName, formatDate, formatRelative, formatTime } from '@/lib/format'
 import { CoverArt } from '@/components/CoverArt'
 import { riseItem, stagger } from '@/lib/motion'
 import { useAppStore } from '@/store/app'
-import type { HistoryEntry } from '@/types/api'
+import type { HistoryEntry, PlaybackProgress } from '@/types/api'
+
+interface ResumePoint {
+  name: string
+  progress: PlaybackProgress
+}
+
+function resumePoint(entry: HistoryEntry): ResumePoint | null {
+  const points = Object.entries(entry.progress ?? {})
+  if (points.length === 0) return null
+  const [name, progress] = points.sort(
+    ([, left], [, right]) => right.updatedAt - left.updatedAt,
+  )[0]
+  return { name, progress }
+}
 
 export function HistoryPage() {
   const navigate = useNavigate()
@@ -52,6 +68,28 @@ export function HistoryPage() {
       navigate('/torrent')
     } catch (error) {
       addToast('error', error instanceof Error ? error.message : 'Could not open torrent')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const resume = async (entry: HistoryEntry) => {
+    const point = resumePoint(entry)
+    if (!point) return
+    setBusy(`resume:${entry.url}`)
+    try {
+      const session = await api.openHistory(entry.url)
+      setSession(session)
+      const file = session.files.find(item => item.name === point.name)
+      if (!file) {
+        addToast('warning', 'That file is no longer in the torrent')
+        navigate('/torrent')
+        return
+      }
+      const download = await api.watchFile(file.index)
+      navigate(`/player?download=${download.id}`)
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Could not resume playback')
     } finally {
       setBusy(null)
     }
@@ -109,7 +147,7 @@ export function HistoryPage() {
             onChange={event => setQuery(event.target.value)}
             placeholder="Filter by name or URL…"
             aria-label="Filter history"
-            className="h-11 w-full rounded-[11px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-10 pr-3 text-sm text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[var(--accent)]"
+            className="h-11 w-full rounded-[3px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-10 pr-3 text-sm text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[var(--accent)]"
           />
         </div>
       </div>
@@ -135,11 +173,16 @@ export function HistoryPage() {
 
       {entries.length > 0 && (
         <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-2">
-          {entries.map(entry => (
+          {entries.map(entry => {
+            const point = resumePoint(entry)
+            const fraction = point?.progress.duration
+              ? Math.min(1, point.progress.position / point.progress.duration)
+              : 0
+            return (
             <motion.div
               key={entry.url}
               variants={riseItem}
-              className="group flex flex-wrap items-center gap-3 rounded-[13px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]"
+              className="group flex flex-wrap items-center gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]"
             >
               <CoverArt title={displayName(entry)} className="h-16 w-11 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -153,12 +196,37 @@ export function HistoryPage() {
                   )}
                 </div>
                 <p className="mt-1 truncate font-mono text-[10px] text-[var(--faint)]">{entry.url}</p>
+                {point && (
+                  <div className="mt-2 max-w-sm">
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
+                      <span className="truncate">{point.name}</span>
+                      <span className="shrink-0 font-mono tabular">
+                        {formatTime(point.progress.position)} /{' '}
+                        {formatTime(point.progress.duration)}
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <ProgressBar progress={fraction} tone="stream" height={4} />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="hidden shrink-0 text-right sm:block">
                 <p className="text-[11px] text-[var(--muted)]">{formatRelative(entry.addedAt)}</p>
                 <p className="text-[10px] text-[var(--faint)]">{formatDate(entry.addedAt)}</p>
               </div>
               <div className="flex items-center gap-1">
+                {point && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={busy === `resume:${entry.url}`}
+                    onClick={() => void resume(entry)}
+                  >
+                    <Play className="size-3.5" />
+                    Resume
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -183,7 +251,8 @@ export function HistoryPage() {
                 </IconButton>
               </div>
             </motion.div>
-          ))}
+            )
+          })}
         </motion.div>
       )}
 

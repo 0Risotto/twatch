@@ -171,7 +171,7 @@ async fn api_accepts_the_bearer_token() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(json["config"]["theme"], "emerald-dark");
+    assert_eq!(json["config"]["theme"], "mono-dark");
     assert_eq!(json["themes"][0]["name"], "tokyonight-dark");
 }
 
@@ -180,8 +180,9 @@ async fn themes_expose_the_full_catalogue() {
     let response = app().oneshot(request("/api/themes", Some("test-token"))).await.unwrap();
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let themes: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
-    assert_eq!(themes.len(), 54);
+    assert_eq!(themes.len(), 56);
     assert!(themes.iter().any(|theme| theme["name"] == "orchid-light"));
+    assert!(themes.iter().any(|theme| theme["name"] == "mono-dark"));
     assert!(themes.iter().any(|theme| theme["name"] == "amethyst-oled-dark"));
     assert!(themes.iter().any(|theme| theme["name"] == "kanagawa-dark"));
 }
@@ -216,6 +217,24 @@ async fn covers_batch_is_available() {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json, serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn playback_progress_accepts_a_put() {
+    let request = Request::builder()
+        .uri("/api/history/progress")
+        .method("PUT")
+        .header("authorization", "Bearer test-token")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"url":"magnet:test","file":"episode.mkv","position":42.5,"duration":100}"#,
+        ))
+        .unwrap();
+    let response = app().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["ok"], true);
 }
 
 #[tokio::test]

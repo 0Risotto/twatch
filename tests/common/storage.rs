@@ -32,6 +32,7 @@ impl HistoryPort for MockStorageService {
         let watched_files = old.map(|e| e.watched_files.clone()).unwrap_or_default();
         let downloaded = old.map(|e| e.downloaded).unwrap_or(false);
         let downloaded_files = old.map(|e| e.downloaded_files.clone()).unwrap_or_default();
+        let progress = old.map(|e| e.progress.clone()).unwrap_or_default();
 
         entries.retain(|e| e.url != url);
         entries.push(HistoryEntry {
@@ -43,6 +44,7 @@ impl HistoryPort for MockStorageService {
             watched_files,
             downloaded,
             downloaded_files,
+            progress,
         });
     }
 

@@ -99,6 +99,15 @@ export function subtitleUrl(torrentId: number, fileIndex: number): string {
   return `/api/subtitles/${torrentId}/${fileIndex}`
 }
 
+/** Original subtitle bytes (ASS/SSA/VTT/SRT) for client-side rendering. */
+export function rawSubtitleUrl(torrentId: number, fileIndex: number): string {
+  return `/api/subtitles/${torrentId}/${fileIndex}?format=raw`
+}
+
+export function subtitleExtension(name: string): string {
+  return name.split('/').pop()?.split('.').pop()?.toLowerCase() ?? ''
+}
+
 function episodeKey(name: string): string | null {
   const match = name.match(/s(\d{1,2})e(\d{1,3})/i)
   return match ? `s${Number(match[1])}e${Number(match[2])}` : null

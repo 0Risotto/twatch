@@ -5,7 +5,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::HeaderMap;
 use serde::{Deserialize, Serialize};
 
-use twatch_core::domain::history::HistoryEntry;
+use twatch_core::domain::history::{HistoryEntry, PlaybackProgress};
 use twatch_core::domain::search::{FieldMap, SearchConfig};
 use twatch_core::gateway::{
     BootstrapSnapshot, ConfigView, DeleteReport, DownloadSnapshot, PlayerSnapshot, SessionSnapshot,
@@ -60,6 +60,14 @@ pub struct HistoryUrlRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ProgressRequest {
+    pub url: String,
+    pub file: String,
+    pub position: f64,
+    pub duration: f64,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SearchParams {
     pub q: String,
     #[serde(default)]
@@ -88,6 +96,7 @@ pub struct HistoryEntryDto {
     pub watched_files: Vec<String>,
     pub downloaded: bool,
     pub downloaded_files: Vec<String>,
+    pub progress: std::collections::BTreeMap<String, PlaybackProgress>,
 }
 
 impl From<HistoryEntry> for HistoryEntryDto {
@@ -101,6 +110,7 @@ impl From<HistoryEntry> for HistoryEntryDto {
             watched_files: entry.watched_files,
             downloaded: entry.downloaded,
             downloaded_files: entry.downloaded_files,
+            progress: entry.progress,
         }
     }
 }
@@ -339,6 +349,14 @@ pub async fn open_history(
     Json(request): Json<HistoryUrlRequest>,
 ) -> Result<Json<SessionSnapshot>, ApiError> {
     Ok(Json(state.gateway.open_history(&request.url).await?))
+}
+
+pub async fn save_progress(
+    State(state): State<AppState>,
+    Json(request): Json<ProgressRequest>,
+) -> Json<OkResponse> {
+    state.gateway.save_progress(&request.url, &request.file, request.position, request.duration);
+    Json(OkResponse { ok: true })
 }
 
 pub async fn player(State(state): State<AppState>) -> Json<PlayerSnapshot> {

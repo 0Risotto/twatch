@@ -29,6 +29,7 @@ export const THEME_BASES = [
   { value: 'sunset', label: 'Sunset', emoji: '🌅' },
   { value: 'sakura', label: 'Sakura', emoji: '🌸' },
   { value: 'coffee', label: 'Coffee', emoji: '☕' },
+  { value: 'mono', label: 'Black & White', emoji: '◐' },
 ] as const
 
 export type ThemeBase = (typeof THEME_BASES)[number]['value']
@@ -52,7 +53,7 @@ export function isKnownTheme(name: string): boolean {
 }
 
 export function applyTheme(name: string): void {
-  const effective = isKnownTheme(name) ? name : 'emerald-dark'
+  const effective = isKnownTheme(name) ? name : 'mono-dark'
   const { mode } = splitTheme(effective)
   const root = document.documentElement
   root.dataset.theme = effective

@@ -69,6 +69,15 @@ pub struct SubtitleTrack {
     pub name: String,
 }
 
+/// One playable file in the current torrent, used to build a next/previous queue.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueFile {
+    pub index: usize,
+    pub name: String,
+    pub size: u64,
+}
+
 /// A live or recently completed download.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +100,12 @@ pub struct DownloadSnapshot {
     pub stream_path: Option<String>,
     pub subtitles: Vec<SubtitleTrack>,
     pub error: Option<String>,
+    /// Index of this file inside the torrent (streams only).
+    pub file_index: usize,
+    /// Playable files in the torrent, in torrent order (streams only).
+    pub queue: Vec<QueueFile>,
+    /// Saved resume position for this file, if any.
+    pub resume_position: Option<f64>,
 }
 
 /// What the external player is doing.
@@ -279,6 +294,9 @@ struct DownloadEntry {
     stream_path: Option<String>,
     subtitles: Vec<SubtitleTrack>,
     error: Option<String>,
+    file_index: usize,
+    queue: Vec<QueueFile>,
+    resume_position: Option<f64>,
 }
 
 impl DownloadEntry {
@@ -310,8 +328,32 @@ impl DownloadEntry {
             stream_path: self.stream_path.clone(),
             subtitles: self.subtitles.clone(),
             error: self.error.clone(),
+            file_index: self.file_index,
+            queue: self.queue.clone(),
+            resume_position: self.resume_position,
         }
     }
+}
+
+/// Extensions the browser player or a native player can reasonably open.
+const PLAYABLE_EXTENSIONS: &[&str] = &[
+    "mp4", "m4v", "mkv", "webm", "avi", "mov", "ts", "m2ts", "flv", "wmv", "ogv", "mpg", "mpeg",
+    "mp3", "m4a", "aac", "flac", "opus", "ogg", "oga", "wav", "wma",
+];
+
+fn is_playable_file(name: &str) -> bool {
+    name.rsplit('.').next().is_some_and(|extension| {
+        let extension = extension.to_ascii_lowercase();
+        PLAYABLE_EXTENSIONS.iter().any(|candidate| *candidate == extension)
+    })
+}
+
+fn playable_queue(files: &[TorrentFile]) -> Vec<QueueFile> {
+    files
+        .iter()
+        .filter(|file| is_playable_file(&file.name))
+        .map(|file| QueueFile { index: file.index, name: file.name.clone(), size: file.size })
+        .collect()
 }
 
 #[derive(Default)]
@@ -461,6 +503,7 @@ impl Gateway {
                 watched_files: Vec::new(),
                 downloaded: false,
                 downloaded_files: Vec::new(),
+                progress: std::collections::BTreeMap::new(),
             },
         );
 
@@ -544,6 +587,14 @@ impl Gateway {
         self.history.remove_entry(index)
     }
 
+    /// Persist the resume position for one file in the history entry.
+    pub fn save_progress(&self, url: &str, file_name: &str, position: f64, duration: f64) {
+        if !position.is_finite() || !duration.is_finite() || position < 0.0 || duration <= 0.0 {
+            return;
+        }
+        self.history.set_progress(url, file_name, position.min(duration), duration);
+    }
+
     // ── Search ───────────────────────────────────────────────────────
 
     pub async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
@@ -561,13 +612,21 @@ impl Gateway {
 
     /// Start downloading one file for streaming.
     pub fn watch_file(&self, index: usize) -> Result<DownloadSnapshot> {
-        let (url, torrent_name, file, subtitles) = {
+        let (url, torrent_name, file, subtitles, queue) = {
             let guard = self.session.read().unwrap_or_else(|e| e.into_inner());
             let session = guard.as_ref().context("No active torrent session")?;
             let file = session.files.get(index).context("File not found")?.clone();
             let subtitles = collect_subtitles(&session.files);
-            (session.url.clone(), session.name.clone(), file, subtitles)
+            let queue = playable_queue(&session.files);
+            (session.url.clone(), session.name.clone(), file, subtitles, queue)
         };
+        let resume_position = self
+            .history
+            .history()
+            .iter()
+            .find(|entry| entry.url == url)
+            .and_then(|entry| entry.progress.get(&file.name))
+            .map(|progress| progress.position);
 
         let subtitle_indices: Vec<usize> = subtitles.iter().map(|track| track.index).collect();
         let id = self.next_download_id.fetch_add(1, Ordering::SeqCst);
@@ -590,6 +649,9 @@ impl Gateway {
             stream_path: None,
             subtitles,
             error: None,
+            file_index: file.index,
+            queue,
+            resume_position,
         };
         let snapshot = entry.snapshot();
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).push(entry);
@@ -669,6 +731,9 @@ impl Gateway {
             stream_path: None,
             subtitles,
             error: None,
+            file_index: 0,
+            queue: Vec::new(),
+            resume_position: None,
         };
         let snapshot = entry.snapshot();
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).push(entry);
@@ -1120,6 +1185,32 @@ fn collect_subtitles(files: &[TorrentFile]) -> Vec<SubtitleTrack> {
         .filter(|file| is_subtitle_file(&file.name))
         .map(|file| SubtitleTrack { index: file.index, name: file.name.clone() })
         .collect()
+}
+
+#[cfg(test)]
+mod playable_tests {
+    use super::{is_playable_file, playable_queue};
+    use crate::domain::torrent::TorrentFile;
+
+    #[test]
+    fn filters_to_playable_media_and_keeps_torrent_order() {
+        let files = vec![
+            TorrentFile { index: 0, name: "Show.S01E01.mkv".into(), size: 10 },
+            TorrentFile { index: 1, name: "Show.S01E01.en.srt".into(), size: 2 },
+            TorrentFile { index: 2, name: "Show.S01E02.MKV".into(), size: 11 },
+            TorrentFile { index: 3, name: "extras/notes.txt".into(), size: 1 },
+            TorrentFile { index: 4, name: "Show.S01E03.flac".into(), size: 12 },
+        ];
+        assert!(is_playable_file("Show.S01E01.mkv"));
+        assert!(is_playable_file("Show.S01E02.MKV"));
+        assert!(is_playable_file("track.flac"));
+        assert!(!is_playable_file("Show.S01E01.en.srt"));
+        assert!(!is_playable_file("notes.txt"));
+
+        let queue = playable_queue(&files);
+        assert_eq!(queue.iter().map(|file| file.index).collect::<Vec<_>>(), vec![0, 2, 4]);
+        assert_eq!(queue[1].name, "Show.S01E02.MKV");
+    }
 }
 
 #[cfg(test)]

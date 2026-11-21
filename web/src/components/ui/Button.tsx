@@ -74,7 +74,7 @@ export function IconButton({
       className={cn(
         'btn !px-0',
         variants[variant],
-        size === 'sm' ? 'size-8 rounded-md' : 'size-10 rounded-[10px]',
+        size === 'sm' ? 'size-8 rounded-md' : 'size-10 rounded-[3px]',
         className,
       )}
       {...rest}

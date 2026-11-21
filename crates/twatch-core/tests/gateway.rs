@@ -11,8 +11,8 @@ use async_trait::async_trait;
 
 use twatch_core::config::Config;
 use twatch_core::domain::common::spawner::TaskSpawner;
-use twatch_core::domain::history::HistoryEntry;
 use twatch_core::domain::history::ports::HistoryPort;
+use twatch_core::domain::history::{HistoryEntry, PlaybackProgress};
 use twatch_core::domain::player::ports::PlayerPort;
 use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::search::{SearchConfig, SearchResult};
@@ -105,6 +105,7 @@ impl HistoryPort for MockHistory {
             watched_files: Vec::new(),
             downloaded: false,
             downloaded_files: Vec::new(),
+            progress: std::collections::BTreeMap::new(),
         });
     }
 
@@ -128,6 +129,15 @@ impl HistoryPort for MockHistory {
         if let Some(entry) = entries.iter_mut().find(|entry| entry.url == url) {
             entry.downloaded = true;
             entry.downloaded_files.push(file_name.into());
+        }
+    }
+
+    fn set_progress(&self, url: &str, file_name: &str, position: f64, duration: f64) {
+        let mut entries = self.entries.lock().unwrap();
+        if let Some(entry) = entries.iter_mut().find(|entry| entry.url == url) {
+            entry
+                .progress
+                .insert(file_name.into(), PlaybackProgress { position, duration, updated_at: 2 });
         }
     }
 
@@ -312,6 +322,28 @@ async fn history_and_search_are_available() {
 
     gateway.delete_history("magnet:test").unwrap();
     assert!(gateway.history().is_empty());
+}
+
+#[tokio::test]
+async fn playback_progress_is_persisted_and_clamped() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+
+    gateway.save_progress("magnet:test", "one.bin", 42.5, 100.0);
+    gateway.save_progress("magnet:test", "two.bin", 150.0, 100.0);
+    gateway.save_progress("magnet:test", "zero.bin", 10.0, 0.0);
+
+    let entry = &gateway.history()[0];
+    let played = entry.progress.get("one.bin").unwrap();
+    assert!((played.position - 42.5).abs() < f64::EPSILON);
+    assert!((played.fraction() - 0.425).abs() < f64::EPSILON);
+
+    let clamped = entry.progress.get("two.bin").unwrap();
+    assert!((clamped.position - 100.0).abs() < f64::EPSILON);
+    assert!((clamped.fraction() - 1.0).abs() < f64::EPSILON);
+
+    assert!(!entry.progress.contains_key("zero.bin"));
 }
 
 #[tokio::test]

@@ -140,7 +140,7 @@ export function CommandPalette() {
                         onMouseEnter={() => setActive(index)}
                         onClick={action.run}
                         className={cn(
-                          'flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors',
+                          'flex w-full items-center gap-3 rounded-[3px] px-3 py-2.5 text-left transition-colors',
                           index === active ? 'bg-[var(--surface-2)]' : 'hover:bg-[var(--hover)]',
                         )}
                       >

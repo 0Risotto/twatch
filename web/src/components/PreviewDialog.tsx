@@ -125,7 +125,7 @@ export function PreviewDialog({ target, onClose, onOpen }: PreviewDialogProps) {
         {coverTitle ? (
           <CoverArt title={coverTitle} className="h-[150px] w-[100px] shrink-0" eager />
         ) : (
-          <div className="grid h-[150px] w-[100px] shrink-0 place-items-center rounded-[7px] border border-[var(--border)] bg-[var(--surface-2)]">
+          <div className="grid h-[150px] w-[100px] shrink-0 place-items-center rounded-[2px] border border-[var(--border)] bg-[var(--surface-2)]">
             <MediaIcon name="torrent" className="size-10 opacity-70" />
           </div>
         )}

@@ -22,6 +22,7 @@ import { PreviewDialog, type PreviewTarget } from '@/components/PreviewDialog'
 import { api } from '@/lib/api'
 import { formatBytes, magnetFor } from '@/lib/format'
 import { CoverArt } from '@/components/CoverArt'
+import { CoverBackdrop } from '@/components/CoverBackdrop'
 import { riseItem, stagger } from '@/lib/motion'
 import { useDebounced } from '@/lib/useDebounced'
 import { useAppStore } from '@/store/app'
@@ -118,7 +119,7 @@ export function SearchPage() {
             placeholder="Search releases, titles, uploaders…"
             aria-label="Search torrents"
             autoFocus
-            className="h-12 w-full rounded-[12px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-11 pr-12 text-sm text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[color-mix(in_srgb,var(--accent)_52%,transparent)] focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+            className="h-12 w-full rounded-[4px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-11 pr-12 text-sm text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[color-mix(in_srgb,var(--accent)_52%,transparent)] focus:shadow-[0_0_0_3px_var(--accent-soft)]"
           />
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -189,20 +190,27 @@ export function SearchPage() {
               key={result.infoHash}
               variants={riseItem}
               className={cn(
-                'group flex items-center gap-3 rounded-[13px] border bg-[color-mix(in_srgb,var(--surface)_86%,transparent)] px-3 py-2.5 transition-colors',
+                'group relative flex min-h-[112px] items-center gap-3 overflow-hidden rounded-[4px] border bg-[var(--card)] px-4 py-3 transition-[transform,border-color,box-shadow] duration-200 hover:scale-[1.005]',
                 index === activeIndex
-                  ? 'border-[color-mix(in_srgb,var(--accent)_38%,transparent)] bg-[color-mix(in_srgb,var(--accent)_6%,var(--surface))]'
+                  ? 'border-[color-mix(in_srgb,var(--accent)_48%,transparent)] shadow-[0_0_0_1px_var(--accent-subtle)]'
                   : 'border-[var(--border-soft)] hover:border-[var(--border-strong)]',
               )}
               onMouseEnter={() => setActiveIndex(index)}
             >
-              <CoverArt title={result.name} className="h-16 w-11 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p title={result.name} className="truncate text-[13px] font-medium text-[var(--fg)]">
+              <CoverBackdrop title={result.name} />
+              <CoverArt
+                title={result.name}
+                className="relative z-10 h-[80px] w-[56px] shrink-0 shadow-[var(--shadow-md)]"
+              />
+              <div className="relative z-10 min-w-0 flex-1">
+                <p
+                  title={result.name}
+                  className="line-clamp-2 text-[13px] font-medium leading-snug text-[var(--fg)]"
+                >
                   {result.name}
                 </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--muted)]">
-                  <span className="flex items-center gap-1 text-[var(--success)]">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--muted-strong)]">
+                  <span className="flex items-center gap-1 font-semibold text-[var(--success)]">
                     <ArrowDown className="size-3" />
                     {result.seeders.toLocaleString()}
                   </span>
@@ -222,15 +230,21 @@ export function SearchPage() {
                   )}
                 </div>
               </div>
-              <Button
-                variant={index === activeIndex ? 'primary' : 'secondary'}
-                size="sm"
-                aria-label={`Preview ${result.name}`}
-                onClick={() => open(result)}
-                className="shrink-0"
-              >
-                Preview
-              </Button>
+              <div className="relative z-10 shrink-0">
+                <Button
+                  variant={index === activeIndex ? 'primary' : 'secondary'}
+                  size="sm"
+                  aria-label={`Preview ${result.name}`}
+                  onClick={() => open(result)}
+                  className={cn(
+                    'shrink-0',
+                    index !== activeIndex &&
+                      'bg-[color-mix(in_srgb,var(--surface)_78%,transparent)] backdrop-blur-sm',
+                  )}
+                >
+                  Preview
+                </Button>
+              </div>
             </motion.div>
           ))}
         </motion.div>

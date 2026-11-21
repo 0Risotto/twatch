@@ -22,7 +22,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
         className,
       )}
     >
-      <div className="mb-4 grid size-14 place-items-center rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)] shadow-[var(--shadow-sm)]">
+      <div className="mb-4 grid size-14 place-items-center rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)] shadow-[var(--shadow-sm)]">
         {icon}
       </div>
       <h3 className="text-base font-semibold tracking-[-0.01em] text-[var(--fg)]">{title}</h3>

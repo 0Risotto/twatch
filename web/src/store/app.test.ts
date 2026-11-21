@@ -45,6 +45,9 @@ const download: DownloadSnapshot = {
   streamPath: '/api/stream/1/0',
   subtitles: [],
   error: null,
+  fileIndex: 0,
+  queue: [],
+  resumePosition: null,
 }
 
 beforeEach(() => {

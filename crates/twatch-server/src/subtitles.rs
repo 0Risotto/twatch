@@ -5,9 +5,10 @@
 //! and karaoke effects are intentionally dropped). No external subtitle service
 //! is involved — only files that are already inside the torrent.
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use serde::Deserialize;
 use tokio::io::AsyncReadExt;
 
 use twatch_core::domain::torrent::TorrentId;
@@ -16,32 +17,57 @@ use crate::state::AppState;
 
 const MAX_SUBTITLE_BYTES: u64 = 4 * 1024 * 1024;
 
-/// `GET /api/subtitles/{torrentId}/{fileIndex}`.
+/// `GET /api/subtitles/{torrentId}/{fileIndex}?format=vtt|raw`.
+#[derive(Debug, Deserialize)]
+pub struct SubtitleParams {
+    /// `vtt` (default) or `raw` for the original file bytes.
+    pub format: Option<String>,
+}
+
 pub async fn subtitles(
     State(state): State<AppState>,
     Path((torrent_id, file_idx)): Path<(usize, usize)>,
+    Query(params): Query<SubtitleParams>,
 ) -> Response {
     let Some(stream_service) = &state.stream else {
         return (StatusCode::SERVICE_UNAVAILABLE, "Stream engine unavailable").into_response();
     };
     let torrent = TorrentId::new(torrent_id);
+    let stream = match crate::stream::open_stream(stream_service, torrent, file_idx).await {
+        Ok(stream) => stream,
+        Err((status, message)) => return (status, message).into_response(),
+    };
     let Some(name) = stream_service.file_name(torrent, file_idx) else {
         return (StatusCode::NOT_FOUND, "Subtitle file not found").into_response();
     };
     let extension = name.rsplit('.').next().unwrap_or_default().to_ascii_lowercase();
 
-    let stream = match stream_service.open(torrent, file_idx) {
-        Ok(stream) => stream,
-        Err(error) => {
-            tracing::warn!("Subtitle open failed for {torrent_id}/{file_idx}: {error:#}");
-            return (StatusCode::NOT_FOUND, "Subtitle file not found").into_response();
-        }
-    };
     let mut data = Vec::new();
     if let Err(error) = stream.take(MAX_SUBTITLE_BYTES).read_to_end(&mut data).await {
         tracing::warn!("Subtitle read failed for {torrent_id}/{file_idx}: {error:#}");
         return (StatusCode::BAD_GATEWAY, "Could not read subtitle").into_response();
     }
+    if params.format.as_deref() == Some("raw") {
+        let content_type = match extension.as_str() {
+            "ass" | "ssa" => "text/x-ssa; charset=utf-8",
+            "srt" => "text/plain; charset=utf-8",
+            "vtt" => "text/vtt; charset=utf-8",
+            _ => {
+                return (
+                    StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                    "Only SRT, ASS, SSA and VTT subtitles can be previewed",
+                )
+                    .into_response();
+            }
+        };
+        let mut response = data.into_response();
+        let headers = response.headers_mut();
+        headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+        headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+        headers.insert(header::CONTENT_DISPOSITION, HeaderValue::from_static("inline"));
+        return response;
+    }
+
     let text = String::from_utf8_lossy(&data);
 
     let vtt = match extension.as_str() {

@@ -24,6 +24,9 @@ const base: DownloadSnapshot = {
   streamPath: '/api/stream/7/0',
   subtitles: [],
   error: null,
+  fileIndex: 0,
+  queue: [],
+  resumePosition: null,
 }
 
 function renderWith(download: DownloadSnapshot) {

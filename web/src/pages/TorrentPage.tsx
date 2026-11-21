@@ -53,7 +53,7 @@ function Checkbox({
         onChange()
       }}
       className={cn(
-        'grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors',
+        'grid size-[18px] shrink-0 place-items-center rounded-[1px] border transition-colors',
         checked || indeterminate
           ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-fg)]'
           : 'border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--surface)_60%,transparent)] hover:border-[var(--accent)]',
@@ -291,7 +291,7 @@ export function TorrentPage() {
               value={filter}
               onChange={event => setFilter(event.target.value)}
               placeholder="Filter files…"
-              className="h-9 w-full rounded-[9px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-9 pr-3 text-xs text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[var(--accent)]"
+              className="h-9 w-full rounded-[3px] border border-[var(--border-soft)] bg-[var(--surface-2)] pl-9 pr-3 text-xs text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[var(--accent)]"
             />
           </div>
           <div className="flex items-center gap-1">
@@ -484,7 +484,7 @@ function TreeRowView({
     const some = folder.selected > 0 && !all
     return (
       <div
-        className="group flex h-[42px] items-center gap-2 rounded-[9px] px-2 hover:bg-[var(--hover)]"
+        className="group flex h-[42px] items-center gap-2 rounded-[3px] px-2 hover:bg-[var(--hover)]"
         style={{ paddingLeft: indent + 8 }}
         onClick={() => onToggleFolder(folder.path)}
         role="treeitem"
@@ -517,7 +517,7 @@ function TreeRowView({
   const RowOpenIcon = kind === 'image' ? Eye : Play
   return (
     <div
-      className="group flex h-[42px] items-center gap-2 rounded-[9px] px-2 hover:bg-[var(--hover)]"
+      className="group flex h-[42px] items-center gap-2 rounded-[3px] px-2 hover:bg-[var(--hover)]"
       style={{ paddingLeft: indent + 30 }}
       onClick={() => onToggleFile(file)}
       role="treeitem"

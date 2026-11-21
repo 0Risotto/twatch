@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, formatEta, formatPercent, isTorrentInput, magnetFor, pluralize } from './format'
+import {
+  formatBytes,
+  formatEta,
+  formatPercent,
+  formatPlaybackTimes,
+  formatTime,
+  isTorrentInput,
+  magnetFor,
+  pluralize,
+} from './format'
 
 describe('format helpers', () => {
   it('formats bytes across units', () => {
@@ -21,6 +30,19 @@ describe('format helpers', () => {
     expect(formatPercent(-1)).toBe('0%')
     expect(formatPercent(0.456)).toBe('46%')
     expect(formatPercent(2)).toBe('100%')
+  })
+
+  it('formats media timestamps', () => {
+    expect(formatTime(0)).toBe('0:00')
+    expect(formatTime(65)).toBe('1:05')
+    expect(formatTime(3725)).toBe('1:02:05')
+    expect(formatTime(Number.NaN)).toBe('0:00')
+  })
+
+  it('formats elapsed and remaining playback time', () => {
+    expect(formatPlaybackTimes(83, 551)).toEqual({ elapsed: '1:23', remaining: '7:48' })
+    expect(formatPlaybackTimes(600, 600)).toEqual({ elapsed: '10:00', remaining: '0:00' })
+    expect(formatPlaybackTimes(10, 0)).toEqual({ elapsed: '0:10', remaining: '0:00' })
   })
 
   it('distinguishes torrent sources from search titles', () => {

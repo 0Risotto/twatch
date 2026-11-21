@@ -203,11 +203,17 @@ TUI (ratatui) ── in-process ────────────────
   of pushing 60 updates per second.
 - Streams support `HEAD`, `Range`, `206`, `416`, MIME types, and byte-range
   seeking for video/audio/image preview.
-- Preview actions are type-aware: video plays in `<video>`, audio in `<audio>`,
-  images in `<img>`; PDFs, archives, code and other files are open/download only.
+- Preview actions are type-aware: video and audio use a custom player, images use
+  `<img>`; PDFs, archives, code and other files are open/download only.
+- The player has an auto-hiding control bar, buffered-range seekbar, lazy
+  seek-preview thumbnails, keyboard shortcuts, PiP/fullscreen, speed control,
+  Media Session metadata, next/previous playback from the torrent's media queue,
+  and resume points persisted per file.
 - In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode and
-  attached as native `<track>` elements after on-the-fly WebVTT conversion. No
-  external subtitle provider is contacted.
+  attached as native `<track>` elements after on-the-fly WebVTT conversion. The
+  player remembers the track, delay and size per torrent, and can apply a
+  ±0.1 s / ±1 s cue delay. Raw ASS/SSA bytes are available for richer renderers.
+  No external subtitle provider is contacted.
 - Movie/TV/anime/book posters are resolved server-side from keyless providers
   (IMDb, AniList, TVmaze, Open Library) and cached locally; misses fall back to
   the matching file-type icon.

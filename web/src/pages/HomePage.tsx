@@ -98,14 +98,14 @@ export function HomePage() {
                 placeholder="Paste a magnet or type a movie / anime title…"
                 aria-label="Magnet link or torrent URL"
                 autoFocus
-                className="h-14 w-full rounded-[14px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--bg)_52%,transparent)] pl-11 pr-4 font-mono text-[13px] text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[color-mix(in_srgb,var(--accent)_52%,transparent)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
+                className="h-14 w-full rounded-[4px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--bg)_52%,transparent)] pl-11 pr-4 font-mono text-[13px] text-[var(--fg)] outline-none transition placeholder:text-[var(--faint)] focus:border-[color-mix(in_srgb,var(--accent)_52%,transparent)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
               />
             </div>
             <Button
               type="submit"
               variant="primary"
               size="lg"
-              className="h-14 rounded-[14px] px-6 text-[15px]"
+              className="h-14 rounded-[4px] px-6 text-[15px]"
             >
               Preview files
               <ArrowRight className="size-4" />

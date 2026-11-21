@@ -32,7 +32,7 @@ export function CoverArt({ title, kind, className, file = false, eager = false }
     <div
       ref={ref}
       className={cn(
-        'relative overflow-hidden rounded-[7px] border border-[var(--border)] bg-[var(--surface-2)]',
+        'relative overflow-hidden rounded-[2px] border border-[var(--border)] bg-[var(--surface-2)]',
         className,
       )}
     >

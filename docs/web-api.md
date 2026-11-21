@@ -41,14 +41,15 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | PATCH | `/api/history` | `{url, name}` — rename a history entry |
 | DELETE | `/api/history` | `{url}` — remove a history entry |
 | POST | `/api/history/open` | `{url}` — re-preview a history entry |
+| PUT | `/api/history/progress` | `{url, file, position, duration}` — persist a resume point |
 | GET | `/api/player` | External player state |
 | POST | `/api/player/open` | `{downloadId}` — hand the stream to mpv/VLC |
 | POST | `/api/player/stop` | Kill the external player |
-| GET | `/api/themes` | 54 built-in theme variants (27 bases × dark/light) |
+| GET | `/api/themes` | 56 built-in theme variants (28 bases × dark/light) |
 | POST | `/api/covers` | `{items:[{title,kind?}]}` — batched movie/anime/book cover lookup |
 | GET/PATCH | `/api/config` | Web theme and external player preference |
 | GET | `/api/stream/{torrentId}/{fileIndex}` | Byte-range media stream |
-| GET | `/api/subtitles/{torrentId}/{fileIndex}` | SRT/ASS/SSA/VTT converted to WebVTT |
+| GET | `/api/subtitles/{torrentId}/{fileIndex}` | SRT/ASS/SSA/VTT as WebVTT (or `?format=raw`) |
 
 All response bodies are camelCase JSON. Errors use:
 
@@ -100,10 +101,43 @@ the torrent** and returns `text/vtt; charset=utf-8`:
   positioning are intentionally dropped
 - other subtitle formats return `415`
 
+Add `?format=raw` to receive the original bytes with a format-specific
+`Content-Type` (`text/x-ssa` for ASS/SSA, `text/plain` for SRT, `text/vtt` for
+VTT). The raw form is used by richer client-side subtitle engines; the default
+WebVTT form feeds native `<track>` elements.
+
 No external subtitle provider is contacted. `DownloadSnapshot.subtitles` lists
 the torrent's convertible subtitle files, and the SPA matches them to the
 playing video by episode tag or base name, then attaches them as native
-`<track kind="subtitles">` elements. The player has an Off / track selector.
+`<track kind="subtitles">` elements. The player has an Off / track selector,
+per-torrent track memory, a ±0.1 s / ±1 s delay control, and three cue sizes.
+Delay is applied to the loaded VTT cues, so it works with the native renderer.
+
+## Playback progress
+
+`PUT /api/history/progress` stores the resume point for one file:
+
+```json
+{ "url": "magnet:?xt=...", "file": "Show.S01E02.mkv", "position": 742.5, "duration": 1440 }
+```
+
+Positions are clamped to the duration and invalid/non-finite values are ignored.
+`GET /api/history` includes the saved points:
+
+```json
+{
+  "url": "magnet:?xt=...",
+  "progress": {
+    "Show.S01E02.mkv": { "position": 742.5, "duration": 1440, "updatedAt": 1795280663 }
+  }
+}
+```
+
+Starting a stream returns the saved point as `DownloadSnapshot.resumePosition`
+and the player seeks to it after metadata loads. The player writes progress
+every five seconds, on pause, on tab hide, and on unmount. `DownloadSnapshot`
+also carries the current `fileIndex` and a `queue` of playable files so the
+player can provide next/previous/autoplay without re-fetching the session.
 
 ## Streaming
 
@@ -159,8 +193,8 @@ The UI decides what to do with a streamed file:
 
 | Kind | UI |
 |---|---|
-| `movie`, `tv` | `<video controls>` |
-| `audio` | `<audio controls>` |
+| `movie`, `tv` | custom `<video>` player with seek-preview thumbnails, subtitles, queue |
+| `audio` | custom player with cover art and the same controls |
 | `image` | `<img>` with open-original link |
 | PDF/ebook/archive/code/subtitle/app/game/other | Open file or download only |
 

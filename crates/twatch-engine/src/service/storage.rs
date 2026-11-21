@@ -127,6 +127,7 @@ impl HistoryPort for RealStorage {
         let watched_files = old.map(|e| e.watched_files.clone()).unwrap_or_default();
         let downloaded = old.map(|e| e.downloaded).unwrap_or(false);
         let downloaded_files = old.map(|e| e.downloaded_files.clone()).unwrap_or_default();
+        let progress = old.map(|e| e.progress.clone()).unwrap_or_default();
 
         state.data.history.retain(|e| e.url != url);
 
@@ -139,6 +140,7 @@ impl HistoryPort for RealStorage {
             watched_files,
             downloaded,
             downloaded_files,
+            progress,
         });
 
         log_save_error(state.save());
@@ -179,12 +181,38 @@ impl HistoryPort for RealStorage {
         log_save_error(state.save());
     }
 
+    fn set_progress(&self, url: &str, file_name: &str, position: f64, duration: f64) {
+        if !position.is_finite() || !duration.is_finite() || position < 0.0 || duration <= 0.0 {
+            return;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let mut state = super::lock_state(&self.state);
+        for entry in &mut state.data.history {
+            if entry.url == url {
+                entry.progress.insert(
+                    file_name.to_string(),
+                    twatch_core::domain::history::PlaybackProgress {
+                        position: position.min(duration),
+                        duration,
+                        updated_at: now,
+                    },
+                );
+                break;
+            }
+        }
+        log_save_error(state.save());
+    }
+
     fn mark_deleted(&self, url: &str, file_name: &str) {
         let mut state = super::lock_state(&self.state);
         for e in &mut state.data.history {
             if e.url == url {
                 e.watched_files.retain(|f| f != file_name);
                 e.downloaded_files.retain(|f| f != file_name);
+                e.progress.remove(file_name);
                 if e.watched_files.is_empty() {
                     e.watched = false;
                 }
@@ -207,6 +235,9 @@ impl HistoryPort for RealStorage {
                             *name = new_name.to_string();
                         }
                     }
+                }
+                if let Some(progress) = e.progress.remove(old_name) {
+                    e.progress.insert(new_name.to_string(), progress);
                 }
                 break;
             }

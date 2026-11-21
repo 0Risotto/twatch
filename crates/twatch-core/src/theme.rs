@@ -68,6 +68,8 @@ pub const THEMES: &[ThemeSpec] = &[
     ThemeSpec { name: "sakura-light", display_name: "Sakura", mode: "light" },
     ThemeSpec { name: "coffee-dark", display_name: "Coffee", mode: "dark" },
     ThemeSpec { name: "coffee-light", display_name: "Coffee", mode: "light" },
+    ThemeSpec { name: "mono-dark", display_name: "Black & White", mode: "dark" },
+    ThemeSpec { name: "mono-light", display_name: "Black & White", mode: "light" },
 ];
 
 #[must_use]
@@ -82,5 +84,5 @@ pub fn find(name: &str) -> Option<&'static ThemeSpec> {
 
 #[must_use]
 pub const fn default_theme() -> &'static str {
-    "emerald-dark"
+    "mono-dark"
 }
