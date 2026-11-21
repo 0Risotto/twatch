@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import JASSUB from 'jassub'
 import workerUrl from 'jassub/dist/jassub-worker.js?url'
@@ -10,11 +10,32 @@ import {
   matchingSubtitles,
   rawSubtitleUrl,
   subtitleExtension,
+  subtitleLabel,
   subtitleLanguage,
+  subtitleToVtt,
+  subtitleUrl,
 } from '@/lib/subtitles'
 import type { DownloadSnapshot, SubtitleTrack } from '@/types/api'
 
 export type SubtitleSize = 'sm' | 'md' | 'lg'
+
+export interface ExternalSubtitle {
+  name: string
+  content: string
+}
+
+export interface SubtitleSource extends SubtitleTrack {
+  external?: boolean
+  content?: string
+}
+
+export interface NativeSubtitleTrack {
+  key: string
+  name: string
+  url: string
+  srclang: string
+  label: string
+}
 
 const JASSUB_ASSET_VERSION = 'jassub-1'
 const assetUrl = (url: string) => `${url}?v=${JASSUB_ASSET_VERSION}`
@@ -64,13 +85,28 @@ export function useSubtitleTracks(
   mediaRef: RefObject<HTMLMediaElement | null>,
   containerRef: RefObject<HTMLElement | null>,
   subtitleCanvasRef: RefObject<HTMLCanvasElement | null>,
+  externalSubtitle: ExternalSubtitle | null,
 ) {
   const torrentName = download?.torrentName ?? ''
   const torrentId = download?.torrentId ?? null
   const fileName = download?.fileNames[0] ?? download?.label ?? ''
   const streamPath = download?.streamPath ?? null
-  const tracks = download?.subtitles ?? []
-  const trackKey = tracks.map(track => `${track.index}:${track.name}`).join('|')
+  const baseTracks = download?.subtitles ?? []
+  const tracks = useMemo<SubtitleSource[]>(() => {
+    if (!externalSubtitle) return baseTracks
+    return [
+      ...baseTracks,
+      {
+        index: -1,
+        name: externalSubtitle.name,
+        external: true,
+        content: externalSubtitle.content,
+      },
+    ]
+  }, [baseTracks, externalSubtitle])
+  const trackKey = `${baseTracks.map(track => `${track.index}:${track.name}`).join('|')}|ext:${
+    externalSubtitle?.name ?? ''
+  }:${externalSubtitle?.content.length ?? 0}`
 
   const [selected, setSelected] = useState<string | null>(null)
   const [delay, setDelay] = useState(0)
@@ -85,12 +121,35 @@ export function useSubtitleTracks(
   const selectedIndex = selectedTrack?.index ?? null
   const selectedExtension = selectedTrack ? subtitleExtension(selectedTrack.name) : ''
   const selectedIsAss = selectedExtension === 'ass' || selectedExtension === 'ssa'
+  const selectedExternalContent = selectedTrack?.external ? (selectedTrack.content ?? '') : ''
   const nativeFallback = selectedIsAss && assFailed
+
+  const nativeTracks = useMemo<NativeSubtitleTrack[]>(
+    () =>
+      tracks.map(track => {
+        const language = subtitleLanguage(track.name)
+        const label = subtitleLabel(track)
+        return {
+          key: `${track.external ? 'external' : 'torrent'}:${track.index}:${track.name}`,
+          name: track.name,
+          url: track.external
+            ? `data:text/vtt;charset=utf-8,${encodeURIComponent(
+                subtitleToVtt(track.name, track.content ?? ''),
+              )}`
+            : torrentId !== null
+              ? subtitleUrl(torrentId, track.index)
+              : '',
+          srclang: language.code,
+          label: track.external ? `${label} (external)` : label,
+        }
+      }),
+    [externalSubtitle?.content, torrentId, trackKey],
+  )
 
   // Give a newly selected/loaded track a fresh chance to initialize JASSUB.
   useEffect(() => {
     setAssFailed(false)
-  }, [selected, streamPath, torrentId])
+  }, [selected, selectedExtension, selectedExternalContent, streamPath, torrentId])
 
   // Restore the last choice for this torrent.
   useEffect(() => {
@@ -111,6 +170,11 @@ export function useSubtitleTracks(
     setSize('md')
     setSelected(defaultTrack(fileName, current))
   }, [fileName, torrentName, trackKey])
+
+  // Loading an external file should select it immediately, after restore.
+  useEffect(() => {
+    if (externalSubtitle) setSelected(externalSubtitle.name)
+  }, [externalSubtitle])
 
   const applyDelay = useCallback(() => {
     const media = mediaRef.current
@@ -133,8 +197,7 @@ export function useSubtitleTracks(
     }
   }, [delay, mediaRef])
 
-  // Show the selected native track unless JASSUB owns ASS/SSA rendering.
-  useEffect(() => {
+  const syncNativeModes = useCallback(() => {
     const media = mediaRef.current
     if (!media) return
     const current = tracksRef.current
@@ -144,24 +207,23 @@ export function useSubtitleTracks(
       media.textTracks[index].mode = visible ? 'showing' : 'disabled'
     }
     applyDelay()
-  }, [
-    applyDelay,
-    mediaRef,
-    nativeFallback,
-    selected,
-    selectedIsAss,
-    streamPath,
-    torrentId,
-    trackKey,
-  ])
+  }, [applyDelay, mediaRef, nativeFallback, selected, selectedIsAss])
+
+  // Show the selected native track unless JASSUB owns ASS/SSA rendering.
+  useEffect(() => {
+    syncNativeModes()
+    const timer = window.setTimeout(syncNativeModes, 250)
+    return () => window.clearTimeout(timer)
+  }, [syncNativeModes, streamPath, torrentId, trackKey])
 
   // ASS/SSA tracks are rendered by libass through JASSUB for real styling.
   useEffect(() => {
     const video = mediaRef.current as HTMLVideoElement | null
     const canvas = subtitleCanvasRef.current
-    if (selectedIndex === null || !selectedIsAss || !video || !canvas || !torrentId || assFailed) {
+    if (selectedIndex === null || !selectedIsAss || !video || !canvas || assFailed) {
       return
     }
+    if (!selectedExternalContent && torrentId === null) return
 
     let instance: JASSUB | null = null
     let disposed = false
@@ -180,7 +242,9 @@ export function useSubtitleTracks(
       instance = new JASSUB({
         video,
         canvas,
-        subUrl: rawSubtitleUrl(torrentId, selectedIndex),
+        ...(selectedExternalContent
+          ? { subContent: selectedExternalContent }
+          : { subUrl: rawSubtitleUrl(torrentId!, selectedIndex) }),
         workerUrl: assetUrl(workerUrl),
         wasmUrl: assetUrl(wasmUrl),
         legacyWasmUrl: assetUrl(legacyWasmUrl),
@@ -208,16 +272,27 @@ export function useSubtitleTracks(
       }
     }
     resize()
+    const retryTimers = [
+      window.setTimeout(resize, 250),
+      window.setTimeout(resize, 1_000),
+    ]
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize)
     observer?.observe(canvas)
     video.addEventListener('loadedmetadata', resize)
+    video.addEventListener('loadeddata', resize)
+    video.addEventListener('canplay', resize)
+    video.addEventListener('playing', resize)
     const onReady = () => resize()
     instance.addEventListener('ready', onReady)
 
     return () => {
       disposed = true
       observer?.disconnect()
+      for (const timer of retryTimers) window.clearTimeout(timer)
       video.removeEventListener('loadedmetadata', resize)
+      video.removeEventListener('loadeddata', resize)
+      video.removeEventListener('canplay', resize)
+      video.removeEventListener('playing', resize)
       instance?.removeEventListener('ready', onReady)
       instance?.removeEventListener('error', fail)
       try {
@@ -231,6 +306,7 @@ export function useSubtitleTracks(
     subtitleCanvasRef,
     assFailed,
     mediaRef,
+    selectedExternalContent,
     selectedIsAss,
     selectedIndex,
     streamPath,
@@ -254,7 +330,10 @@ export function useSubtitleTracks(
   useEffect(() => {
     const media = mediaRef.current
     if (!media) return
-    const onLoaded = () => applyDelay()
+    const onLoaded = () => {
+      syncNativeModes()
+      applyDelay()
+    }
     media.addEventListener('loadedmetadata', onLoaded)
     media.addEventListener('canplay', onLoaded)
     const elements = [...media.querySelectorAll('track')]
@@ -270,7 +349,7 @@ export function useSubtitleTracks(
       }
       window.clearTimeout(timer)
     }
-  }, [applyDelay, mediaRef, streamPath, torrentId, trackKey])
+  }, [applyDelay, mediaRef, streamPath, syncNativeModes, torrentId, trackKey])
 
   // Apply subtitle size through a CSS variable.
   useEffect(() => {
@@ -301,6 +380,7 @@ export function useSubtitleTracks(
 
   return {
     tracks,
+    nativeTracks,
     selected,
     selectTrack,
     delay,

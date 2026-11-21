@@ -6,6 +6,7 @@ import {
   subtitleExtension,
   subtitleLabel,
   subtitleLanguage,
+  subtitleToVtt,
   subtitleUrl,
 } from './subtitles'
 
@@ -48,5 +49,25 @@ describe('subtitles', () => {
     expect(subtitleUrl(7, 3)).toBe('/api/subtitles/7/3')
     expect(rawSubtitleUrl(7, 3)).toBe('/api/subtitles/7/3?format=raw')
     expect(subtitleExtension('subs/Show.S01E02.ass')).toBe('ass')
+  })
+
+  it('converts SRT and ASS files to WebVTT', () => {
+    const srt = '1\r\n00:00:01,000 --> 00:00:02,500\r\nHello\r\n'
+    expect(subtitleToVtt('movie.srt', srt)).toBe(
+      'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.500\nHello',
+    )
+
+    const ass = `[Script Info]
+ScriptType: v4.00+
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:03.50,Default,,0,0,0,,{\\an8}Top text
+Dialogue: 0,0:00:04.00,0:00:05.25,Default,,0,0,0,,{\\i1}Italic, with comma
+`
+    expect(subtitleToVtt('movie.ass', ass)).toBe(
+      'WEBVTT\n\n00:00:01.000 --> 00:00:03.500\nTop text\n\n00:00:04.000 --> 00:00:05.250\nItalic, with comma',
+    )
+    expect(subtitleToVtt('movie.vtt', 'WEBVTT\n\nHello')).toBe('WEBVTT\n\nHello')
   })
 })

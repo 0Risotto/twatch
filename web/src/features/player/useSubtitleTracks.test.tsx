@@ -83,7 +83,7 @@ describe('useSubtitleTracks ASS rendering', () => {
     mockState.instances.length = 0
     const { media, mediaRef, containerRef, canvasRef } = refs()
     const { result } = renderHook(() =>
-      useSubtitleTracks(download, mediaRef, containerRef, canvasRef),
+      useSubtitleTracks(download, mediaRef, containerRef, canvasRef, null),
     )
 
     await waitFor(() => expect(mockState.instances).toHaveLength(1))
@@ -101,12 +101,41 @@ describe('useSubtitleTracks ASS rendering', () => {
     mockState.instances.length = 0
     const { mediaRef, containerRef, canvasRef } = refs()
     const { result } = renderHook(() =>
-      useSubtitleTracks(download, mediaRef, containerRef, canvasRef),
+      useSubtitleTracks(download, mediaRef, containerRef, canvasRef, null),
     )
 
     await waitFor(() => expect(mockState.instances).toHaveLength(1))
     const instance = mockState.instances[0]
     act(() => result.current.selectTrack(null))
     await waitFor(() => expect(instance.destroy).toHaveBeenCalled())
+  })
+
+  it('passes external ASS content to JASSUB and exposes a native fallback track', async () => {
+    mockState.instances.length = 0
+    const { mediaRef, containerRef, canvasRef } = refs()
+    const external = {
+      name: 'external.en.ass',
+      content:
+        '[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,External line\n',
+    }
+    const { result } = renderHook(() =>
+      useSubtitleTracks(
+        { ...download, subtitles: [] },
+        mediaRef,
+        containerRef,
+        canvasRef,
+        external,
+      ),
+    )
+
+    expect(result.current.tracks).toHaveLength(1)
+    await waitFor(() => expect(result.current.selected).toBe('external.en.ass'))
+    await waitFor(() => expect(mockState.instances).toHaveLength(1))
+    const instance = mockState.instances[0]
+    expect(instance.options.subContent).toBe(external.content)
+    expect(instance.options.subUrl).toBeUndefined()
+    expect(result.current.nativeTracks).toHaveLength(1)
+    expect(result.current.nativeTracks[0].url).toContain('data:text/vtt')
+    expect(result.current.nativeTracks[0].label).toContain('external')
   })
 })

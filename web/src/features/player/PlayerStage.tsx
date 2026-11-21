@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
 import { formatPlaybackTimes } from '@/lib/format'
-import { subtitleLabel, subtitleLanguage, subtitleUrl } from '@/lib/subtitles'
 import { cn } from '@/lib/cn'
 import { PlayerControls } from './PlayerControls'
 import type { useMediaPlayer } from './useMediaPlayer'
@@ -110,14 +109,13 @@ export function PlayerStage({
           onClick={() => player.toggle()}
           onDoubleClick={toggleFullscreen}
         >
-          {download.subtitles.map(track => (
+          {subtitles.nativeTracks.map(track => (
             <track
-              key={track.index}
+              key={track.key}
               kind="subtitles"
-              src={subtitleUrl(download.torrentId!, track.index)}
-              srcLang={subtitleLanguage(track.name).code}
-              label={subtitleLabel(track)}
-              default={track.name === subtitles.selected}
+              src={track.url}
+              srcLang={track.srclang}
+              label={track.label}
             />
           ))}
         </video>

@@ -173,6 +173,7 @@ async fn csp_allows_wasm_subtitle_workers() {
     assert!(csp.contains("'wasm-unsafe-eval'"));
     assert!(csp.contains("'unsafe-eval'"));
     assert!(csp.contains("worker-src 'self'"));
+    assert!(csp.contains("media-src 'self' blob: data:"));
 }
 
 #[tokio::test]

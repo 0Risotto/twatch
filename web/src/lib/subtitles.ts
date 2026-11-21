@@ -108,6 +108,109 @@ export function subtitleExtension(name: string): string {
   return name.split('/').pop()?.split('.').pop()?.toLowerCase() ?? ''
 }
 
+function ensureVtt(text: string): string {
+  const body = text.trimStart()
+  return body.startsWith('WEBVTT') ? text : `WEBVTT\n\n${text}`
+}
+
+function srtToVtt(text: string): string {
+  const body = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(line => (line.includes('-->') ? line.replace(/,/g, '.') : line))
+    .join('\n')
+  return `WEBVTT\n\n${body.trim()}`
+}
+
+function assTime(value: string): string | null {
+  const pieces = value.trim().split(':')
+  if (pieces.length !== 3) return null
+  const hours = Number(pieces[0])
+  const minutes = Number(pieces[1])
+  const [secondsRaw, fractionRaw = ''] = pieces[2].split('.')
+  const seconds = Number(secondsRaw)
+  if (![hours, minutes, seconds].every(Number.isFinite)) return null
+  const fraction = `${fractionRaw}000`.slice(0, 3)
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+    seconds,
+  ).padStart(2, '0')}.${fraction}`
+}
+
+function stripAssTags(text: string): string {
+  return text
+    .replace(/\{[^}]*\}/g, '')
+    .replace(/\\N/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\h/g, ' ')
+}
+
+function assToVtt(text: string): string {
+  const fields = [
+    'Layer',
+    'Start',
+    'End',
+    'Style',
+    'Name',
+    'MarginL',
+    'MarginR',
+    'MarginV',
+    'Effect',
+    'Text',
+  ]
+  const cues: string[] = []
+  let inEvents = false
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trimEnd()
+    if (line.startsWith('[') && line.endsWith(']')) {
+      inEvents = line.toLowerCase() === '[events]'
+      continue
+    }
+    if (!inEvents) continue
+    if (line.startsWith('Format:')) {
+      const parsed = line
+        .slice('Format:'.length)
+        .split(',')
+        .map(field => field.trim())
+      if (parsed.length) fields.splice(0, fields.length, ...parsed)
+      continue
+    }
+    if (!line.startsWith('Dialogue:')) continue
+
+    const parts = line.slice('Dialogue:'.length).split(',')
+    const values = parts.slice(0, Math.max(0, fields.length - 1))
+    values.push(parts.slice(Math.max(0, fields.length - 1)).join(','))
+    const value = (name: string) => {
+      const index = fields.findIndex(field => field.toLowerCase() === name.toLowerCase())
+      return index >= 0 ? (values[index] ?? '').trim() : ''
+    }
+    const start = assTime(value('Start'))
+    const end = assTime(value('End'))
+    if (!start || !end) continue
+    const cue = stripAssTags(value('Text')).trim()
+    if (!cue) continue
+    cues.push(`${start} --> ${end}\n${cue}`)
+  }
+
+  return `WEBVTT\n\n${cues.join('\n\n')}`
+}
+
+/** Convert any supported subtitle file to WebVTT for native `<track>` use. */
+export function subtitleToVtt(name: string, content: string): string {
+  switch (subtitleExtension(name)) {
+    case 'vtt':
+      return ensureVtt(content)
+    case 'srt':
+      return srtToVtt(content)
+    case 'ass':
+    case 'ssa':
+      return assToVtt(content)
+    default:
+      return ensureVtt(content)
+  }
+}
+
 function episodeKey(name: string): string | null {
   const match = name.match(/s(\d{1,2})e(\d{1,3})/i)
   return match ? `s${Number(match[1])}e${Number(match[2])}` : null

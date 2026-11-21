@@ -133,7 +133,7 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
             // JASSUB's Emscripten worker generates JS invokers with Function().
             // All script sources are served by this local daemon; subtitle files
             // are parsed, never evaluated as JavaScript.
-            "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; \
+            "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: data:; \
              style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; \
              worker-src 'self'; connect-src 'self' ws: wss:; font-src 'self' data:; \
              object-src 'none'; base-uri 'self'; frame-ancestors 'none'",

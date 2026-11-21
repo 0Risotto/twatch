@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -14,6 +15,8 @@ import {
   SkipBack,
   SkipForward,
   Tv,
+  Upload,
+  X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -45,11 +48,14 @@ export function PlayerPage() {
   const playerState = useAppStore(state => state.player)
   const addToast = useAppStore(state => state.addToast)
   const [busy, setBusy] = useState<string | null>(null)
+  const subtitleInputRef = useRef<HTMLInputElement | null>(null)
   const {
     download: activeDownload,
     cover,
     player,
     subtitles,
+    externalSubtitle,
+    setExternalSubtitle,
     switchTo,
     playPrev,
     playNext,
@@ -125,6 +131,23 @@ export function PlayerPage() {
       addToast('success', 'Stream URL copied')
     } catch {
       addToast('warning', 'Clipboard is unavailable')
+    }
+  }
+
+  const loadSubtitle = async (event: ReactChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!/\.(srt|vtt|ass|ssa)$/i.test(file.name)) {
+      addToast('warning', 'Choose an SRT, VTT, ASS or SSA subtitle file')
+      return
+    }
+    try {
+      const content = await file.text()
+      setExternalSubtitle({ name: file.name, content })
+      addToast('success', `Loaded ${file.name}`)
+    } catch {
+      addToast('error', 'Could not read that subtitle file')
     }
   }
 
@@ -430,7 +453,7 @@ export function PlayerPage() {
             </div>
           </section>
 
-          {video && subtitles.tracks.length > 0 && (
+          {video && (
             <section className="panel p-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
@@ -452,11 +475,43 @@ export function PlayerPage() {
               >
                 <option value="off">Off</option>
                 {subtitles.tracks.map(track => (
-                  <option key={track.index} value={track.name}>
+                  <option
+                    key={`${track.external ? 'external' : 'torrent'}:${track.index}`}
+                    value={track.name}
+                  >
                     {subtitleLabel(track)}
+                    {track.external ? ' · external' : ''}
                   </option>
                 ))}
               </select>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => subtitleInputRef.current?.click()}
+                >
+                  <Upload className="size-3.5" />
+                  Load subtitle file
+                </Button>
+                {externalSubtitle && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExternalSubtitle(null)}
+                  >
+                    <X className="size-3.5" />
+                    Remove external
+                  </Button>
+                )}
+                <input
+                  ref={subtitleInputRef}
+                  type="file"
+                  accept=".srt,.vtt,.ass,.ssa"
+                  className="hidden"
+                  onChange={event => void loadSubtitle(event)}
+                />
+              </div>
 
               <div className="mt-3 flex items-center justify-between gap-2">
                 <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
@@ -530,8 +585,9 @@ export function PlayerPage() {
                 </div>
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
-                Tracks are read from this torrent. SRT, ASS/SSA and VTT are converted to WebVTT on
-                the fly. Your track, delay and size are remembered per torrent.
+                Tracks come from this torrent or an external file. SRT/VTT use native tracks;
+                ASS/SSA renders through libass. Accepted external formats: SRT, VTT, ASS, SSA. Your
+                track, delay and size are remembered per torrent.
               </p>
             </section>
           )}
