@@ -108,6 +108,31 @@ npm run dev
 `twatchd --help` lists bind/port/token/web-dir options. It is loopback-only by
 default; `--allow-remote` is required to expose it beyond localhost.
 
+### Desktop packaging
+
+The desktop shell bundles the release `twatchd` sidecar with the SPA embedded,
+so the installed app needs neither Node nor a separate daemon.
+
+```bash
+# Linux via Nix (recommended on NixOS)
+nix build .#twatch-electron
+./result/bin/twatch-electron
+
+# AppImage + deb on a generic Linux host / CI
+scripts/build-desktop.sh linux
+
+# Windows portable exe + NSIS installer (run on Windows or use CI)
+scripts/build-desktop.sh win
+```
+
+Artifacts land in `electron/dist/`. The GitHub **Desktop** workflow builds
+Linux and Windows packages on every push and uploads them as artifacts.
+
+For testing the Windows portable exe in Bottles/Wine, launch it with
+`--no-sandbox` if Chromium refuses to start, and add `--disable-gpu` if the
+window renders blank. The daemon log is written to the Electron logs directory
+(`twatchd.log`).
+
 ## Development
 
 ### Rust

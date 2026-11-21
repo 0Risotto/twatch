@@ -51,7 +51,7 @@ let
       src = ../web;
       filter = sourceFilter;
     };
-    npmDepsHash = "sha256-cFfGyCWrGmbahPoBz5W4/Hv3fuueCs8wSQZz/NFkzgc=";
+    npmDepsHash = "sha256-GM7f/iDGDcXdGONGYqh1ScE0pWX15thf30/1P0II+vE=";
     installPhase = ''
       runHook preInstall
       mkdir -p $out
@@ -150,7 +150,7 @@ rustPlatform.buildRustPackage {
     exec "$out/bin/twatch-app-real" "\$@"
     EOF
         chmod +x $out/bin/twatch-app
-        install -Dm644 ${../web/public/favicon.svg} $out/share/icons/hicolor/scalable/apps/twatch.svg
+        install -Dm644 ${../electron/build/icons/512x512.png} $out/share/icons/hicolor/512x512/apps/twatch.png
         install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
   '';
 

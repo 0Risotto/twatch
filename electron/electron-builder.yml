@@ -1,0 +1,67 @@
+appId: io.github.risotto.twatch
+productName: twatch
+copyright: Copyright © 2026 twatch contributors
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - main.js
+  - package.json
+  - icon.png
+
+extraResources:
+  - from: resources
+    to: .
+    filter:
+      - '**/*'
+  - from: ../THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+
+asar: true
+npmRebuild: false
+compression: normal
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: build/icons
+  category: Network;FileTransfer
+  synopsis: Torrent streaming desktop client
+  description: Browse, stream, and download torrents from a local-first desktop console.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: twatch
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

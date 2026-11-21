@@ -1,0 +1,109 @@
+name: Desktop
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            electron/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build web UI
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Build twatchd sidecar
+        run: cargo build --release -p twatchd --features embed-web
+      - name: Stage sidecar
+        run: |
+          mkdir -p electron/resources
+          cp target/release/twatchd electron/resources/twatchd
+      - name: Install Electron shell dependencies
+        working-directory: electron
+        run: npm ci
+      - name: Package Linux app
+        working-directory: electron
+        run: npx electron-builder --publish never --linux AppImage deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: twatch-linux
+          path: |
+            electron/dist/*.AppImage
+            electron/dist/*.deb
+          if-no-files-found: error
+
+  windows:
+    name: Windows package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            electron/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - name: Install NASM
+        run: choco install nasm -y --no-progress
+      - name: Build web UI
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Build twatchd sidecar
+        run: cargo build --release -p twatchd --features embed-web
+      - name: Stage sidecar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force electron/resources | Out-Null
+          Copy-Item target/release/twatchd.exe electron/resources/twatchd.exe
+      - name: Install Electron shell dependencies
+        working-directory: electron
+        run: npm ci
+      - name: Package Windows app
+        working-directory: electron
+        run: npx electron-builder --publish never --win portable nsis
+      - uses: actions/upload-artifact@v4
+        with:
+          name: twatch-windows
+          path: electron/dist/*.exe
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: twatch ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release/**/*

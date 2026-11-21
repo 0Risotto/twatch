@@ -2,7 +2,26 @@
   "name": "twatch-electron",
   "version": "0.1.0",
   "private": true,
-  "description": "Electron desktop shell for the twatch local console",
+  "description": "Desktop shell for the twatch local console",
+  "homepage": "https://github.com/0Risotto/twatch",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0Risotto/twatch.git"
+  },
+  "author": {
+    "name": "twatch contributors",
+    "email": "twatch@users.noreply.github.com"
+  },
+  "license": "Apache-2.0",
   "main": "main.js",
-  "license": "Apache-2.0"
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:linux": "electron-builder --publish never --linux AppImage deb",
+    "dist:win": "electron-builder --publish never --win portable nsis"
+  },
+  "devDependencies": {
+    "electron": "39.2.7",
+    "electron-builder": "26.0.12"
+  }
 }

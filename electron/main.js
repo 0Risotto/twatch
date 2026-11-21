@@ -2,12 +2,46 @@
 
 const { app, BrowserWindow, dialog, Menu, shell } = require('electron');
 const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
+
+app.setName('twatch');
 
 let mainWindow = null;
 let daemon = null;
+let daemonLog = null;
 let daemonOwned = false;
 let started = false;
+
+function daemonBinary() {
+  if (process.env.TWATCHD_BIN) return process.env.TWATCHD_BIN;
+  if (app.isPackaged) {
+    return path.join(
+      process.resourcesPath,
+      process.platform === 'win32' ? 'twatchd.exe' : 'twatchd',
+    );
+  }
+  return process.platform === 'win32' ? 'twatchd.exe' : 'twatchd';
+}
+
+function daemonLogPath() {
+  try {
+    return path.join(app.getPath('logs'), 'twatchd.log');
+  } catch {
+    return null;
+  }
+}
+
+function openDaemonLog() {
+  try {
+    const logPath = daemonLogPath();
+    if (!logPath) return null;
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    return fs.createWriteStream(logPath, { flags: 'a' });
+  } catch {
+    return null;
+  }
+}
 
 const CSD_DESKTOPS = new Set([
   'gnome',
@@ -65,8 +99,10 @@ function stopDaemon() {
 }
 
 function fail(message) {
-  console.error(`twatch-electron: ${message}`);
-  dialog.showErrorBox('twatch could not start', String(message));
+  const logPath = daemonLogPath();
+  const detail = logPath ? `${message}\n\nDaemon log: ${logPath}` : String(message);
+  console.error(`twatch-electron: ${detail}`);
+  dialog.showErrorBox('twatch could not start', detail);
   app.quit();
 }
 
@@ -145,16 +181,35 @@ function startDaemon() {
   if (started) return;
   started = true;
 
-  const binary = process.env.TWATCHD_BIN || 'twatchd';
+  const binary = daemonBinary();
+  if (app.isPackaged) {
+    if (!fs.existsSync(binary)) {
+      fail(`The bundled twatchd daemon is missing at ${binary}`);
+      return;
+    }
+    if (process.platform !== 'win32') {
+      try {
+        fs.chmodSync(binary, 0o755);
+      } catch {
+        // The packaged file may already be executable.
+      }
+    }
+  }
+
+  daemonLog = openDaemonLog();
+  daemonLog?.write(`\n[twatch-electron] starting ${binary}\n`);
+
   daemon = spawn(binary, ['--port', '0'], {
     env: process.env,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   });
   daemonOwned = true;
 
   let buffer = '';
   daemon.stdout.setEncoding('utf8');
   daemon.stdout.on('data', chunk => {
+    daemonLog?.write(chunk);
     buffer += chunk;
     let newline;
     while ((newline = buffer.indexOf('\n')) >= 0) {
@@ -164,10 +219,14 @@ function startDaemon() {
     }
   });
   daemon.stderr.setEncoding('utf8');
-  daemon.stderr.on('data', chunk => console.error(chunk.trimEnd()));
+  daemon.stderr.on('data', chunk => {
+    daemonLog?.write(chunk);
+    console.error(chunk.trimEnd());
+  });
   daemon.on('error', error => fail(`Could not start twatchd: ${error.message}`));
   daemon.on('exit', (code, signal) => {
     daemon = null;
+    daemonLog?.write(`[twatch-electron] twatchd exited (${signal || code})\n`);
     if (!mainWindow) {
       fail(`twatchd exited before opening the console (${signal || code})`);
     }
@@ -187,6 +246,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    if (process.platform === 'win32') app.setAppUserModelId('io.github.risotto.twatch');
     Menu.setApplicationMenu(null);
     startDaemon();
   });

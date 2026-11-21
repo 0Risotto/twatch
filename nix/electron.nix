@@ -25,7 +25,19 @@ in
 stdenv.mkDerivation {
   pname = "twatch-electron";
   inherit version;
-  src = ../electron;
+  src = lib.cleanSourceWith {
+    src = ../electron;
+    filter =
+      path: type:
+      let
+        base = baseNameOf (toString path);
+      in
+      !(builtins.elem base [
+        "node_modules"
+        "dist"
+        "resources"
+      ]);
+  };
 
   nativeBuildInputs = [ makeWrapper ];
 
@@ -39,7 +51,7 @@ stdenv.mkDerivation {
       --add-flags "--no-sandbox" \
       --add-flags "$out/share/twatch-electron/main.js" \
       --set TWATCHD_BIN ${twatch}/bin/twatchd
-    install -Dm644 ${../web/public/favicon.svg} $out/share/icons/hicolor/scalable/apps/twatch.svg
+    install -Dm644 ${../electron/build/icons/512x512.png} $out/share/icons/hicolor/512x512/apps/twatch.png
     install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
     runHook postInstall
   '';

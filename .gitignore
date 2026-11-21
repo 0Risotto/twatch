@@ -12,5 +12,10 @@ cobertura.xml
 /web/coverage
 /crates/twatch-server/web-dist
 
+# Desktop shell
+/electron/node_modules
+/electron/dist
+/electron/resources
+
 # Playwright evidence
 /.playwright-mcp
