@@ -212,11 +212,12 @@ TUI (ratatui) ── in-process ────────────────
 - Playback is owned by a global dock. Leaving `/player` keeps the stream alive
   as a draggable miniplayer; expanding it restores the full player and its
   side panels without interrupting playback.
-- In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode and
-  attached as native `<track>` elements after on-the-fly WebVTT conversion. The
-  player remembers the track, delay and size per torrent, and can apply a
-  ±0.1 s / ±1 s cue delay. Raw ASS/SSA bytes are available for richer renderers.
-  No external subtitle provider is contacted.
+- In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode.
+  SRT/VTT use native `<track>` elements after WebVTT conversion; ASS/SSA is
+  rendered by libass through JASSUB for real styles, positioning, fonts and
+  karaoke, with the flattened WebVTT track kept as a fallback. The player
+  remembers the track, delay and size per torrent and applies shared
+  ±0.1 s / ±1 s delay. No external subtitle provider is contacted.
 - Movie/TV/anime/book posters are resolved server-side from keyless providers
   (IMDb, AniList, TVmaze, Open Library) and cached locally; misses fall back to
   the matching file-type icon.

@@ -508,21 +508,25 @@ export function PlayerPage() {
                   Size
                 </span>
                 <div className="flex items-center gap-1">
-                  {(['sm', 'md', 'lg'] as SubtitleSize[]).map(value => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => subtitles.setSize(value)}
-                      className={cn(
-                        'rounded-[2px] px-2 py-0.5 text-[11px] uppercase',
-                        subtitles.size === value
-                          ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
-                          : 'text-[var(--muted)] hover:bg-[var(--surface-2)]',
-                      )}
-                    >
-                      {value === 'sm' ? 'S' : value === 'md' ? 'M' : 'L'}
-                    </button>
-                  ))}
+                  {subtitles.selectedIsAss ? (
+                    <span className="text-[10px] text-[var(--muted)]">from release</span>
+                  ) : (
+                    (['sm', 'md', 'lg'] as SubtitleSize[]).map(value => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => subtitles.setSize(value)}
+                        className={cn(
+                          'rounded-[2px] px-2 py-0.5 text-[11px] uppercase',
+                          subtitles.size === value
+                            ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
+                            : 'text-[var(--muted)] hover:bg-[var(--surface-2)]',
+                        )}
+                      >
+                        {value === 'sm' ? 'S' : value === 'md' ? 'M' : 'L'}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">

@@ -36,6 +36,7 @@ interface PlaybackContextValue {
   subtitles: Subtitles
   mediaRef: RefObject<HTMLMediaElement | null>
   containerRef: RefObject<HTMLDivElement | null>
+  subtitleCanvasRef: RefObject<HTMLCanvasElement | null>
   getThumbnail: (time: number) => Promise<string | null>
   getCachedThumbnail: (time: number) => string | null
   prefetchThumbnail: (time: number) => void
@@ -79,6 +80,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const mediaRef = useRef<HTMLMediaElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const subtitleCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const storeDownload = activeId
     ? (downloads.find(download => download.id === activeId) ?? null)
@@ -157,7 +159,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     artworkUrl: cover?.url,
     onEnded: handleEnded,
   })
-  const subtitles = useSubtitleTracks(download, mediaRef, containerRef)
+  const subtitles = useSubtitleTracks(download, mediaRef, containerRef, subtitleCanvasRef)
   const { getThumbnail, getCachedThumbnail, prefetchThumbnail } = useThumbnails(
     video ? streamUrl : null,
   )
@@ -219,6 +221,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       subtitles,
       mediaRef,
       containerRef,
+      subtitleCanvasRef,
       getThumbnail,
       getCachedThumbnail,
       prefetchThumbnail,
@@ -235,6 +238,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }),
     [
       activate,
+      subtitleCanvasRef,
       cover,
       deactivate,
       dockActive,
@@ -313,6 +317,7 @@ function PlayerDock({ slot }: { slot: HTMLDivElement | null }) {
     cover,
     mediaRef,
     containerRef,
+    subtitleCanvasRef,
     player,
     subtitles,
     hasPrev,
@@ -476,6 +481,7 @@ function PlayerDock({ slot }: { slot: HTMLDivElement | null }) {
         coverUrl={cover?.url}
         mediaRef={mediaRef}
         containerRef={containerRef}
+        subtitleCanvasRef={subtitleCanvasRef}
         player={player}
         subtitles={subtitles}
         hasPrev={hasPrev}

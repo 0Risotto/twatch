@@ -1,9 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { matchingSubtitles, subtitleLanguage } from '@/lib/subtitles'
+import JASSUB from 'jassub'
+import workerUrl from 'jassub/dist/jassub-worker.js?url'
+import wasmUrl from 'jassub/dist/jassub-worker.wasm?url'
+import legacyWasmUrl from 'jassub/dist/jassub-worker.wasm.js?url'
+import modernWasmUrl from 'jassub/dist/jassub-worker-modern.wasm?url'
+import defaultFontUrl from 'jassub/dist/default.woff2?url'
+import {
+  matchingSubtitles,
+  rawSubtitleUrl,
+  subtitleExtension,
+  subtitleLanguage,
+} from '@/lib/subtitles'
 import type { DownloadSnapshot, SubtitleTrack } from '@/types/api'
 
 export type SubtitleSize = 'sm' | 'md' | 'lg'
+
+const JASSUB_ASSET_VERSION = 'jassub-1'
+const assetUrl = (url: string) => `${url}?v=${JASSUB_ASSET_VERSION}`
 
 interface SubtitlePreference {
   name: string | null
@@ -49,6 +63,7 @@ export function useSubtitleTracks(
   download: DownloadSnapshot | null,
   mediaRef: RefObject<HTMLMediaElement | null>,
   containerRef: RefObject<HTMLElement | null>,
+  subtitleCanvasRef: RefObject<HTMLCanvasElement | null>,
 ) {
   const torrentName = download?.torrentName ?? ''
   const torrentId = download?.torrentId ?? null
@@ -60,9 +75,22 @@ export function useSubtitleTracks(
   const [selected, setSelected] = useState<string | null>(null)
   const [delay, setDelay] = useState(0)
   const [size, setSize] = useState<SubtitleSize>('md')
+  const [assFailed, setAssFailed] = useState(false)
   const baseTimes = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>())
   const tracksRef = useRef(tracks)
   tracksRef.current = tracks
+  const jassubRef = useRef<JASSUB | null>(null)
+
+  const selectedTrack = tracks.find(track => track.name === selected) ?? null
+  const selectedIndex = selectedTrack?.index ?? null
+  const selectedExtension = selectedTrack ? subtitleExtension(selectedTrack.name) : ''
+  const selectedIsAss = selectedExtension === 'ass' || selectedExtension === 'ssa'
+  const nativeFallback = selectedIsAss && assFailed
+
+  // Give a newly selected/loaded track a fresh chance to initialize JASSUB.
+  useEffect(() => {
+    setAssFailed(false)
+  }, [selected, streamPath, torrentId])
 
   // Restore the last choice for this torrent.
   useEffect(() => {
@@ -105,18 +133,122 @@ export function useSubtitleTracks(
     }
   }, [delay, mediaRef])
 
-  // Show the selected track and apply the current delay.
+  // Show the selected native track unless JASSUB owns ASS/SSA rendering.
   useEffect(() => {
     const media = mediaRef.current
     if (!media) return
     const current = tracksRef.current
     for (let index = 0; index < media.textTracks.length; index += 1) {
       const track = current[index]
-      media.textTracks[index].mode =
-        track && track.name === selected ? 'showing' : 'disabled'
+      const visible = track?.name === selected && (!selectedIsAss || nativeFallback)
+      media.textTracks[index].mode = visible ? 'showing' : 'disabled'
     }
     applyDelay()
-  }, [applyDelay, mediaRef, selected, streamPath, torrentId, trackKey])
+  }, [
+    applyDelay,
+    mediaRef,
+    nativeFallback,
+    selected,
+    selectedIsAss,
+    streamPath,
+    torrentId,
+    trackKey,
+  ])
+
+  // ASS/SSA tracks are rendered by libass through JASSUB for real styling.
+  useEffect(() => {
+    const video = mediaRef.current as HTMLVideoElement | null
+    const canvas = subtitleCanvasRef.current
+    if (selectedIndex === null || !selectedIsAss || !video || !canvas || !torrentId || assFailed) {
+      return
+    }
+
+    let instance: JASSUB | null = null
+    let disposed = false
+    const fail = () => {
+      if (disposed) return
+      setAssFailed(true)
+      try {
+        instance?.destroy()
+      } catch {
+        // Ignore teardown failures.
+      }
+      if (jassubRef.current === instance) jassubRef.current = null
+    }
+
+    try {
+      instance = new JASSUB({
+        video,
+        canvas,
+        subUrl: rawSubtitleUrl(torrentId, selectedIndex),
+        workerUrl: assetUrl(workerUrl),
+        wasmUrl: assetUrl(wasmUrl),
+        legacyWasmUrl: assetUrl(legacyWasmUrl),
+        modernWasmUrl: assetUrl(modernWasmUrl),
+        timeOffset: 0,
+        availableFonts: {
+          'liberation sans': assetUrl(defaultFontUrl),
+          arial: assetUrl(defaultFontUrl),
+          roboto: assetUrl(defaultFontUrl),
+        },
+        fallbackFont: 'liberation sans',
+      })
+      jassubRef.current = instance
+      instance.addEventListener('error', fail)
+    } catch {
+      fail()
+      return
+    }
+
+    const resize = () => {
+      try {
+        instance?.resize()
+      } catch {
+        // The canvas may not have a video frame yet.
+      }
+    }
+    resize()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize)
+    observer?.observe(canvas)
+    video.addEventListener('loadedmetadata', resize)
+    const onReady = () => resize()
+    instance.addEventListener('ready', onReady)
+
+    return () => {
+      disposed = true
+      observer?.disconnect()
+      video.removeEventListener('loadedmetadata', resize)
+      instance?.removeEventListener('ready', onReady)
+      instance?.removeEventListener('error', fail)
+      try {
+        instance?.destroy()
+      } catch {
+        // Ignore teardown failures.
+      }
+      if (jassubRef.current === instance) jassubRef.current = null
+    }
+  }, [
+    subtitleCanvasRef,
+    assFailed,
+    mediaRef,
+    selectedIsAss,
+    selectedIndex,
+    streamPath,
+    torrentId,
+  ])
+
+  // JASSUB reads its offset property on every render tick.
+  useEffect(() => {
+    const instance = jassubRef.current
+    const video = mediaRef.current
+    if (!instance || !video) return
+    ;(instance as JASSUB & { timeOffset: number }).timeOffset = delay
+    try {
+      instance.setCurrentTime(video.paused, video.currentTime + delay, video.playbackRate)
+    } catch {
+      // The worker may still be initializing.
+    }
+  }, [delay, mediaRef, selectedIndex, selectedIsAss, streamPath])
 
   // Cues arrive after metadata; listen for track load events as they land.
   useEffect(() => {
@@ -177,5 +309,6 @@ export function useSubtitleTracks(
     resetDelay,
     size,
     setSize,
+    selectedIsAss,
   }
 }

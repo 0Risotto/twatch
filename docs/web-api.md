@@ -103,8 +103,9 @@ the torrent** and returns `text/vtt; charset=utf-8`:
 
 Add `?format=raw` to receive the original bytes with a format-specific
 `Content-Type` (`text/x-ssa` for ASS/SSA, `text/plain` for SRT, `text/vtt` for
-VTT). The raw form is used by richer client-side subtitle engines; the default
-WebVTT form feeds native `<track>` elements.
+VTT). The SPA feeds ASS/SSA directly to libass via JASSUB for styled rendering
+and keeps the default WebVTT form as a native `<track>` fallback. SRT and VTT
+use the native WebVTT track path.
 
 No external subtitle provider is contacted. `DownloadSnapshot.subtitles` lists
 the torrent's convertible subtitle files, and the SPA matches them to the

@@ -19,6 +19,7 @@ interface PlayerStageProps {
   coverUrl?: string | null
   mediaRef: RefObject<HTMLMediaElement | null>
   containerRef: RefObject<HTMLDivElement | null>
+  subtitleCanvasRef: RefObject<HTMLCanvasElement | null>
   player: Player
   subtitles: Subtitles
   hasPrev: boolean
@@ -40,6 +41,7 @@ export function PlayerStage({
   coverUrl,
   mediaRef,
   containerRef,
+  subtitleCanvasRef,
   player,
   subtitles,
   hasPrev,
@@ -117,6 +119,14 @@ export function PlayerStage({
             />
           ))}
         </video>
+      )}
+
+      {kind === 'video' && streamUrl && !state.error && (
+        <canvas
+          ref={subtitleCanvasRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+        />
       )}
 
       {kind === 'audio' && streamUrl && !state.error && (

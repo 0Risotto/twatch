@@ -166,6 +166,16 @@ async fn api_requires_the_token() {
 }
 
 #[tokio::test]
+async fn csp_allows_wasm_subtitle_workers() {
+    let response = app().oneshot(request("/api/bootstrap", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let csp = response.headers()["content-security-policy"].to_str().unwrap();
+    assert!(csp.contains("'wasm-unsafe-eval'"));
+    assert!(csp.contains("'unsafe-eval'"));
+    assert!(csp.contains("worker-src 'self'"));
+}
+
+#[tokio::test]
 async fn api_accepts_the_bearer_token() {
     let response = app().oneshot(request("/api/bootstrap", Some("test-token"))).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);

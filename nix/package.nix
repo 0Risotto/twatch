@@ -36,7 +36,7 @@ let
       src = ../web;
       filter = sourceFilter;
     };
-    npmDepsHash = "sha256-cFfGyCWrGmbahPoBz5W4/Hv3fuueCs8wSQZz/NFkzgc=";
+    npmDepsHash = "sha256-GM7f/iDGDcXdGONGYqh1ScE0pWX15thf30/1P0II+vE=";
     installPhase = ''
       runHook preInstall
       mkdir -p $out
