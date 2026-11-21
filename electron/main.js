@@ -12,6 +12,8 @@ let daemon = null;
 let daemonLog = null;
 let daemonOwned = false;
 let started = false;
+let quitting = false;
+let opened = false;
 
 function daemonBinary() {
   if (process.env.TWATCHD_BIN) return process.env.TWATCHD_BIN;
@@ -93,12 +95,15 @@ function shouldUseFramelessWindow() {
 }
 
 function stopDaemon() {
+  quitting = true;
   if (daemon && daemonOwned && !daemon.killed) {
     daemon.kill('SIGTERM');
   }
 }
 
 function fail(message) {
+  if (quitting) return;
+  quitting = true;
   const logPath = daemonLogPath();
   const detail = logPath ? `${message}\n\nDaemon log: ${logPath}` : String(message);
   console.error(`twatch-electron: ${detail}`);
@@ -141,6 +146,7 @@ function createWindow(url) {
 
   const win = new BrowserWindow(options);
   mainWindow = win;
+  opened = true;
   win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(({ url: external }) => {
     void shell.openExternal(external);
@@ -227,7 +233,7 @@ function startDaemon() {
   daemon.on('exit', (code, signal) => {
     daemon = null;
     daemonLog?.write(`[twatch-electron] twatchd exited (${signal || code})\n`);
-    if (!mainWindow) {
+    if (!opened) {
       fail(`twatchd exited before opening the console (${signal || code})`);
     }
   });

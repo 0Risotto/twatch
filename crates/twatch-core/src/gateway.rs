@@ -922,8 +922,24 @@ impl Gateway {
         let torrent = self.torrent.clone();
         let tx = self.internal_tx.clone();
         let indices = indices.to_vec();
+        let expected_paths: Vec<PathBuf> =
+            file_names.iter().map(|name| output_dir.join(name)).collect();
         self.spawner.spawn(Box::pin(async move {
-            match torrent.download_to_folder(&url, &indices, &output_dir).await {
+            let mut result = torrent.download_to_folder(&url, &indices, &output_dir).await;
+
+            // Deleting a file from disk does not clear the engine's completed
+            // piece state.  If any expected file is gone, drop the managed
+            // torrent and add it again so the engine rechecks what is on disk.
+            if let Ok(torrent_id) = result.as_ref()
+                && expected_paths.iter().any(|path| !path.exists())
+            {
+                if let Err(error) = torrent.remove(torrent_id, false).await {
+                    tracing::warn!("Could not reset torrent after file deletion: {error:#}");
+                }
+                result = torrent.download_to_folder(&url, &indices, &output_dir).await;
+            }
+
+            match result {
                 Ok(torrent_id) => {
                     let _ = tx.send(InternalEvent::Ready { id, torrent_id, stream_path: None });
                 }
