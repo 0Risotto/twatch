@@ -922,24 +922,9 @@ impl Gateway {
         let torrent = self.torrent.clone();
         let tx = self.internal_tx.clone();
         let indices = indices.to_vec();
-        let expected_paths: Vec<PathBuf> =
-            file_names.iter().map(|name| output_dir.join(name)).collect();
+        let recheck = file_names.iter().any(|name| !output_dir.join(name).exists());
         self.spawner.spawn(Box::pin(async move {
-            let mut result = torrent.download_to_folder(&url, &indices, &output_dir).await;
-
-            // Deleting a file from disk does not clear the engine's completed
-            // piece state.  If any expected file is gone, drop the managed
-            // torrent and add it again so the engine rechecks what is on disk.
-            if let Ok(torrent_id) = result.as_ref()
-                && expected_paths.iter().any(|path| !path.exists())
-            {
-                if let Err(error) = torrent.remove(torrent_id, false).await {
-                    tracing::warn!("Could not reset torrent after file deletion: {error:#}");
-                }
-                result = torrent.download_to_folder(&url, &indices, &output_dir).await;
-            }
-
-            match result {
+            match torrent.download_to_folder_rechecked(&url, &indices, &output_dir, recheck).await {
                 Ok(torrent_id) => {
                     let _ = tx.send(InternalEvent::Ready { id, torrent_id, stream_path: None });
                 }
@@ -1213,14 +1198,35 @@ impl Gateway {
     }
 
     pub async fn remove_download(&self, id: u64) -> Result<()> {
-        let torrent_id = {
+        let entry = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
-            downloads.iter().find(|entry| entry.id == id).and_then(|entry| entry.torrent_id)
+            downloads
+                .iter()
+                .find(|entry| entry.id == id)
+                .map(|entry| (entry.torrent_id, entry.url.clone(), entry.file_names.clone()))
+        };
+        let Some((torrent_id, url, file_names)) = entry else {
+            return Ok(());
         };
         if let Some(torrent_id) = torrent_id {
             self.torrent.remove(&torrent_id, false).await?;
         }
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).retain(|entry| entry.id != id);
+
+        let session_changed = {
+            let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
+            match guard.as_mut() {
+                Some(session) if session.url == url => {
+                    let before = session.downloading_files.len();
+                    session.downloading_files.retain(|name| !file_names.contains(name));
+                    session.downloading_files.len() != before
+                }
+                _ => false,
+            }
+        };
+        if session_changed {
+            self.emit(GatewayEvent::SessionChanged);
+        }
 
         let should_stop = {
             let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());

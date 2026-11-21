@@ -387,3 +387,22 @@ async fn remove_download_calls_engine() {
     gateway.remove_download(1).await.unwrap();
     assert!(gateway.downloads().is_empty());
 }
+
+#[tokio::test]
+async fn removing_download_clears_session_activity() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+    gateway.download_files(&[0]).unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    gateway.tick();
+
+    let session = gateway.session().unwrap();
+    assert!(session.files[0].downloading);
+
+    gateway.remove_download(1).await.unwrap();
+
+    let session = gateway.session().unwrap();
+    assert!(!session.files[0].downloading);
+    assert_eq!(gateway.downloads().len(), 0);
+}

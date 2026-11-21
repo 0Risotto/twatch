@@ -114,6 +114,25 @@ impl TorrentPort for TorrentEngineImpl {
         self.add_torrent_with_opts(url, indices.to_vec(), Some(dir)).await
     }
 
+    async fn download_to_folder_rechecked(
+        &self,
+        url: &str,
+        indices: &[usize],
+        dir: &Path,
+        recheck: bool,
+    ) -> Result<TorrentId> {
+        let (id, already_managed) =
+            self.add_torrent_with_managed(url, indices.to_vec(), Some(dir)).await?;
+        if recheck && already_managed {
+            self.session
+                .delete(librqbit::api::TorrentIdOrHash::Id(id.raw()), false)
+                .await
+                .context("Failed to reset torrent for recheck")?;
+            return self.add_torrent_with_opts(url, indices.to_vec(), Some(dir)).await;
+        }
+        Ok(id)
+    }
+
     fn get_stats(&self, id: &TorrentId) -> Result<TorrentStats> {
         let stats = self
             .session
@@ -232,6 +251,15 @@ impl TorrentEngineImpl {
         file_indices: Vec<usize>,
         output_dir: Option<&Path>,
     ) -> Result<TorrentId> {
+        Ok(self.add_torrent_with_managed(url, file_indices, output_dir).await?.0)
+    }
+
+    async fn add_torrent_with_managed(
+        &self,
+        url: &str,
+        file_indices: Vec<usize>,
+        output_dir: Option<&Path>,
+    ) -> Result<(TorrentId, bool)> {
         let only_files: HashSet<usize> = file_indices.iter().copied().collect();
         let mut opts = AddTorrentOptions {
             overwrite: true,
@@ -264,6 +292,6 @@ impl TorrentEngineImpl {
             tracing::warn!("Could not update only_files for torrent {id}: {error:#}");
         }
 
-        Ok(TorrentId::new(id))
+        Ok((TorrentId::new(id), already_managed))
     }
 }

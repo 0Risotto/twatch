@@ -35,6 +35,18 @@ pub trait TorrentPort: Interface {
         dir: &Path,
     ) -> Result<TorrentId>;
 
+    /// Download into `dir`, optionally forcing a recheck when the torrent is
+    /// already managed and its files were removed from disk.
+    async fn download_to_folder_rechecked(
+        &self,
+        url: &str,
+        indices: &[usize],
+        dir: &Path,
+        _recheck: bool,
+    ) -> Result<TorrentId> {
+        self.download_to_folder(url, indices, dir).await
+    }
+
     /// Query download progress and speed for a running torrent.
     fn get_stats(&self, id: &TorrentId) -> Result<TorrentStats>;
 
