@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { MotionConfig } from 'motion/react'
 import { TooltipProvider } from '@/components/ui/Tooltip'
 import { ToastViewport } from '@/components/ui/Toast'
+import { PlaybackProvider } from '@/features/player/PlaybackProvider'
 import { useUiStore } from '@/store/ui'
 import { Shell } from './Shell'
 import { useLive, useThemeSync } from './useLive'
@@ -33,18 +34,20 @@ function AppShell() {
   return (
     <MotionConfig reducedMotion={motion === 'reduced' ? 'always' : 'user'}>
       <BrowserRouter>
-        <Routes>
-          <Route element={<Shell />}>
-            <Route index element={<HomePage />} />
-            <Route path="search" element={<SearchPage />} />
-            <Route path="torrent" element={<TorrentPage />} />
-            <Route path="downloads" element={<DownloadsPage />} />
-            <Route path="player" element={<PlayerPage />} />
-            <Route path="history" element={<HistoryPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
+        <PlaybackProvider>
+          <Routes>
+            <Route element={<Shell />}>
+              <Route index element={<HomePage />} />
+              <Route path="search" element={<SearchPage />} />
+              <Route path="torrent" element={<TorrentPage />} />
+              <Route path="downloads" element={<DownloadsPage />} />
+              <Route path="player" element={<PlayerPage />} />
+              <Route path="history" element={<HistoryPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </PlaybackProvider>
       </BrowserRouter>
       <ToastViewport />
     </MotionConfig>

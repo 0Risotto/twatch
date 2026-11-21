@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { Loader2, Play, TriangleAlert } from 'lucide-react'
+import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
+import { formatPlaybackTimes } from '@/lib/format'
 import { subtitleLabel, subtitleLanguage, subtitleUrl } from '@/lib/subtitles'
 import { cn } from '@/lib/cn'
 import { PlayerControls } from './PlayerControls'
@@ -27,6 +28,9 @@ interface PlayerStageProps {
   getThumbnail?: (time: number) => Promise<string | null>
   getCachedThumbnail?: (time: number) => string | null
   prefetchThumbnail?: (time: number) => void
+  compact?: boolean
+  onExpand?: () => void
+  onClose?: () => void
 }
 
 export function PlayerStage({
@@ -45,13 +49,18 @@ export function PlayerStage({
   getThumbnail,
   getCachedThumbnail,
   prefetchThumbnail,
+  compact = false,
+  onExpand,
+  onClose,
 }: PlayerStageProps) {
   const { state } = player
   const [controlsVisible, setControlsVisible] = useState(true)
   const hideTimer = useRef(0)
+  const { elapsed, remaining } = formatPlaybackTimes(state.currentTime, state.duration)
 
   const showControls = () => {
     setControlsVisible(true)
+    if (compact) return
     window.clearTimeout(hideTimer.current)
     hideTimer.current = window.setTimeout(function hide() {
       if (state.paused) return
@@ -72,13 +81,13 @@ export function PlayerStage({
   }, [state.paused])
 
   const toggleFullscreen = () => player.toggleFullscreen(containerRef.current)
-  const showOverlay = controlsVisible || state.paused
+  const showOverlay = compact || controlsVisible || state.paused
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        'player-stage relative aspect-video w-full overflow-hidden bg-black',
+        'player-stage relative h-full w-full overflow-hidden bg-black',
         !showOverlay && 'cursor-none',
       )}
       onPointerMove={showControls}
@@ -111,23 +120,40 @@ export function PlayerStage({
       )}
 
       {kind === 'audio' && streamUrl && !state.error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--warning)_14%,transparent),transparent_68%)] p-8">
+        <div
+          className={cn(
+            'absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--warning)_14%,transparent),transparent_68%)]',
+            compact ? 'gap-2 p-4' : 'gap-6 p-8',
+          )}
+        >
           {coverUrl ? (
             <img
               src={coverUrl}
               alt=""
               referrerPolicy="no-referrer"
-              className="h-44 w-44 rounded-[var(--radius-lg)] border border-white/10 object-cover shadow-[0_24px_80px_rgba(0,0,0,0.6)]"
+              className={cn(
+                'rounded-[var(--radius-lg)] border border-white/10 object-cover shadow-[0_24px_80px_rgba(0,0,0,0.6)]',
+                compact ? 'h-20 w-20' : 'h-44 w-44',
+              )}
             />
           ) : (
-            <div className="relative grid size-40 place-items-center rounded-full border border-white/15 bg-white/5">
+            <div
+              className={cn(
+                'relative grid place-items-center rounded-full border border-white/15 bg-white/5',
+                compact ? 'size-20' : 'size-40',
+              )}
+            >
               <div className="absolute inset-3 rounded-full border border-white/10" />
-              <Play className="size-10 text-[var(--warning)]" />
+              <Play className={compact ? 'size-7 text-[var(--warning)]' : 'size-10 text-[var(--warning)]'} />
             </div>
           )}
-          <div className="max-w-lg text-center">
-            <p className="truncate text-sm font-semibold text-white">{download.label}</p>
-            <p className="mt-1 truncate text-xs text-white/55">{download.torrentName}</p>
+          <div className={cn('text-center', compact ? 'max-w-[14rem]' : 'max-w-lg')}>
+            <p className={cn('truncate font-semibold text-white', compact ? 'text-xs' : 'text-sm')}>
+              {download.label}
+            </p>
+            <p className={cn('mt-1 truncate text-white/55', compact ? 'text-[10px]' : 'text-xs')}>
+              {download.torrentName}
+            </p>
           </div>
           <audio
             key={streamUrl}
@@ -160,24 +186,50 @@ export function PlayerStage({
       )}
 
       {state.error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center text-white">
-          <TriangleAlert className="size-8 text-[var(--warning)]" />
-          <p className="text-sm font-semibold">
+        <div
+          className={cn(
+            'absolute inset-0 flex flex-col items-center justify-center bg-black/85 text-center text-white',
+            compact ? 'gap-2 px-4' : 'gap-3 px-6',
+          )}
+        >
+          <TriangleAlert className={compact ? 'size-5 text-[var(--warning)]' : 'size-8 text-[var(--warning)]'} />
+          <p className={cn('font-semibold', compact ? 'text-xs' : 'text-sm')}>
             {kind === 'audio'
-              ? 'This audio codec cannot play in the browser'
+              ? 'Audio codec unsupported'
               : kind === 'image'
                 ? 'Could not load this image'
-                : 'This video container cannot play in the browser'}
+                : 'Container cannot play in the browser'}
           </p>
-          <p className="max-w-md text-xs leading-relaxed text-white/60">
-            The stream is ready. Hand it to mpv or VLC, or download the file and play it locally.
-          </p>
+          {!compact && (
+            <p className="max-w-md text-xs leading-relaxed text-white/60">
+              The stream is ready. Retry, or hand it to mpv or VLC and play it locally.
+            </p>
+          )}
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={player.retry}
+              className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+            >
+              Retry
+            </button>
+            {streamUrl && (
+              <a
+                href={streamUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-[2px] border border-white/20 px-3 py-1 text-xs text-white/80 hover:bg-white/10"
+              >
+                Open file
+              </a>
+            )}
+          </div>
         </div>
       )}
 
       {showOverlay && kind !== 'image' && streamUrl && !state.error && (
         <>
-          {state.paused && (
+          {!compact && state.paused && (
             <button
               type="button"
               onClick={() => player.toggle()}
@@ -187,39 +239,97 @@ export function PlayerStage({
               <Play className="ml-0.5 size-8 fill-current text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)] transition-transform duration-150 group-hover/play:scale-110" />
             </button>
           )}
-          <div
-            className={cn(
-              'player-controls transition-opacity duration-200',
-              showOverlay ? 'opacity-100' : 'pointer-events-none opacity-0',
-            )}
-          >
-            <PlayerControls
-              state={state}
-              buffered={state.buffered}
-              hasPrev={hasPrev}
-              hasNext={hasNext}
-              tracks={subtitles.tracks}
-              selectedSubtitle={subtitles.selected}
-              subtitleDelay={subtitles.delay}
-              subtitleSize={subtitles.size}
-              getThumbnail={getThumbnail}
-              getCachedThumbnail={getCachedThumbnail}
-              prefetchThumbnail={prefetchThumbnail}
-              onToggle={player.toggle}
-              onSeek={player.seek}
-              onPrev={onPrev}
-              onNext={onNext}
-              onVolume={player.setVolume}
-              onToggleMute={player.toggleMute}
-              onRate={player.setRate}
-              onToggleFullscreen={toggleFullscreen}
-              onTogglePip={() => void player.togglePiP()}
-              onSelectSubtitle={subtitles.selectTrack}
-              onSubtitleDelay={subtitles.adjustDelay}
-              onResetSubtitleDelay={subtitles.resetDelay}
-              onSubtitleSize={subtitles.setSize}
-            />
-          </div>
+
+          {compact ? (
+            <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-2.5 pb-2 pt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={player.toggle}
+                  aria-label={state.paused ? 'Play' : 'Pause'}
+                  className="grid size-8 shrink-0 place-items-center text-white/90 hover:text-white"
+                >
+                  {state.paused ? (
+                    <Play className="ml-0.5 size-4 fill-current" />
+                  ) : (
+                    <Pause className="size-4 fill-current" />
+                  )}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-semibold text-white">{download.label}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="h-[2px] flex-1 overflow-hidden rounded-[1px] bg-white/20">
+                      <div
+                        className="h-full bg-[var(--accent)]"
+                        style={{
+                          width: `${state.duration > 0 ? Math.min(100, (state.currentTime / state.duration) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-[9px] tabular text-white/60">
+                      {elapsed} / {remaining}
+                    </span>
+                  </div>
+                </div>
+                {onExpand && (
+                  <button
+                    type="button"
+                    onClick={onExpand}
+                    aria-label="Expand player"
+                    title="Expand player"
+                    className="grid size-7 shrink-0 place-items-center rounded-[2px] text-white/75 hover:bg-white/10 hover:text-white"
+                  >
+                    <Maximize2 className="size-3.5" />
+                  </button>
+                )}
+                {onClose && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close player"
+                    title="Close player"
+                    className="grid size-7 shrink-0 place-items-center rounded-[2px] text-white/75 hover:bg-white/10 hover:text-white"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                'player-controls transition-opacity duration-200',
+                showOverlay ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+            >
+              <PlayerControls
+                state={state}
+                buffered={state.buffered}
+                hasPrev={hasPrev}
+                hasNext={hasNext}
+                tracks={subtitles.tracks}
+                selectedSubtitle={subtitles.selected}
+                subtitleDelay={subtitles.delay}
+                subtitleSize={subtitles.size}
+                getThumbnail={getThumbnail}
+                getCachedThumbnail={getCachedThumbnail}
+                prefetchThumbnail={prefetchThumbnail}
+                onToggle={player.toggle}
+                onSeek={player.seek}
+                onPrev={onPrev}
+                onNext={onNext}
+                onVolume={player.setVolume}
+                onToggleMute={player.toggleMute}
+                onRate={player.setRate}
+                onToggleFullscreen={toggleFullscreen}
+                onTogglePip={() => void player.togglePiP()}
+                onSelectSubtitle={subtitles.selectTrack}
+                onSubtitleDelay={subtitles.adjustDelay}
+                onResetSubtitleDelay={subtitles.resetDelay}
+                onSubtitleSize={subtitles.setSize}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

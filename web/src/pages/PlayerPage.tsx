@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -30,17 +30,11 @@ import {
   isImage,
   isVideo,
   kindLabel,
-  mediaKind,
 } from '@/lib/fileIcons'
-import { useCover } from '@/lib/covers'
 import { subtitleLabel } from '@/lib/subtitles'
 import { useAppStore } from '@/store/app'
 import { cn } from '@/lib/cn'
-import { PlayerStage } from '@/features/player/PlayerStage'
-import { useMediaPlayer } from '@/features/player/useMediaPlayer'
-import { usePlayerShortcuts } from '@/features/player/usePlayerShortcuts'
-import { useSubtitleTracks } from '@/features/player/useSubtitleTracks'
-import { useThumbnails } from '@/features/player/useThumbnails'
+import { usePlayback } from '@/features/player/PlaybackProvider'
 import type { SubtitleSize } from '@/features/player/useSubtitleTracks'
 
 export function PlayerPage() {
@@ -51,74 +45,41 @@ export function PlayerPage() {
   const playerState = useAppStore(state => state.player)
   const addToast = useAppStore(state => state.addToast)
   const [busy, setBusy] = useState<string | null>(null)
-  const mediaRef = useRef<HTMLMediaElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const {
+    download: activeDownload,
+    cover,
+    player,
+    subtitles,
+    switchTo,
+    playPrev,
+    playNext,
+    hasPrev,
+    hasNext,
+    activate,
+    registerSlot,
+  } = usePlayback()
 
   const requestedId = Number(params.get('download')) || null
+  const autoDownload =
+    !requestedId && !activeDownload
+      ? (downloads.find(item => item.streamPath) ??
+        downloads.find(item => item.isStreaming) ??
+        null)
+      : null
+  const autoId = autoDownload?.id ?? null
 
-  const download = useMemo(() => {
-    if (requestedId) {
-      const exact = downloads.find(item => item.id === requestedId)
-      if (exact) return exact
-    }
-    if (playerState.downloadId) {
-      const playing = downloads.find(item => item.id === playerState.downloadId)
-      if (playing) return playing
-    }
-    return (
-      downloads.find(item => item.streamPath) ??
-      downloads.find(item => item.isStreaming) ??
-      null
-    )
-  }, [downloads, playerState.downloadId, requestedId])
+  useEffect(() => {
+    if (requestedId) activate(requestedId)
+  }, [activate, requestedId])
 
-  const cover = useCover(
-    download?.torrentName,
-    download ? mediaKind(download.torrentName) : undefined,
-  )
+  useEffect(() => {
+    if (autoId) activate(autoId)
+  }, [activate, autoId])
 
-  const queue = download?.queue ?? []
-  const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
-  const hasPrev = queueIndex > 0
-  const hasNext = queueIndex >= 0 && queueIndex + 1 < queue.length
+  const download = requestedId
+    ? (downloads.find(item => item.id === requestedId) ?? activeDownload)
+    : (activeDownload ?? autoDownload)
 
-  const switchTo = useCallback(
-    async (index: number) => {
-      if (!download || busy) return
-      setBusy('switch')
-      try {
-        const next = await api.watchFile(index)
-        const from = (location.state as { from?: string } | null)?.from
-        navigate(`/player?download=${next.id}`, {
-          replace: true,
-          state: from ? { from } : undefined,
-        })
-      } catch (reason) {
-        addToast('error', reason instanceof Error ? reason.message : 'Could not start playback')
-      } finally {
-        setBusy(null)
-      }
-    },
-    [addToast, busy, download, location.state, navigate],
-  )
-
-  const playPrev = useCallback(() => {
-    if (hasPrev) void switchTo(queue[queueIndex - 1].index)
-  }, [hasPrev, queue, queueIndex, switchTo])
-
-  const playNext = useCallback(() => {
-    if (hasNext) void switchTo(queue[queueIndex + 1].index)
-  }, [hasNext, queue, queueIndex, switchTo])
-
-  const handleEnded = useCallback(() => {
-    if (hasNext) playNext()
-  }, [hasNext, playNext])
-
-  const mediaPlayer = useMediaPlayer(download, mediaRef, {
-    artworkUrl: cover?.url,
-    onEnded: handleEnded,
-  })
-  const subtitles = useSubtitleTracks(download, mediaRef, containerRef)
   const streamUrl = download?.streamPath ?? null
   const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
   const video = isVideo(kind)
@@ -127,48 +88,12 @@ export function PlayerPage() {
   const previewable = canPreview(kind)
   const externalPlayable = video || audio
   const playable = video || audio
-  const { getThumbnail, getCachedThumbnail, prefetchThumbnail } = useThumbnails(
-    video ? streamUrl : null,
-  )
-
-  const cycleSubtitles = useCallback(() => {
-    const tracks = subtitles.tracks
-    if (tracks.length === 0) return
-    if (!subtitles.selected) {
-      subtitles.selectTrack(tracks[0].name)
-      return
-    }
-    const index = tracks.findIndex(track => track.name === subtitles.selected)
-    subtitles.selectTrack(
-      index >= 0 && index + 1 < tracks.length ? tracks[index + 1].name : null,
-    )
-  }, [subtitles])
-
-  usePlayerShortcuts({
-    enabled: Boolean(download && playable && streamUrl),
-    toggle: mediaPlayer.toggle,
-    seek: mediaPlayer.seek,
-    skip: mediaPlayer.skip,
-    setVolume: mediaPlayer.setVolume,
-    volume: () => mediaRef.current?.volume ?? 1,
-    toggleMute: mediaPlayer.toggleMute,
-    toggleFullscreen: () => mediaPlayer.toggleFullscreen(containerRef.current),
-    togglePip: () => void mediaPlayer.togglePiP(),
-    cycleSubtitles,
-    next: playNext,
-    prev: playPrev,
-    setRate: mediaPlayer.setRate,
-    rate: () => mediaRef.current?.playbackRate ?? 1,
-  })
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (document.fullscreenElement) void document.exitFullscreen()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  const queue = download?.queue ?? []
+  const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
+  const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
+  const error = Boolean(download) && (player.state.error || download?.state === 'failed')
+  const dockActive = Boolean(download && streamUrl && playable && !error)
+  const external = Boolean(download && playerState.running && playerState.downloadId === download.id)
 
   const openExternal = () => {
     if (!download) return
@@ -231,10 +156,7 @@ export function PlayerPage() {
     )
   }
 
-  const preparing = !streamUrl && download.state !== 'failed'
-  const external = playerState.running && playerState.downloadId === download.id
   const PreparingIcon = audio ? Music2 : image ? MonitorPlay : Play
-  const error = mediaPlayer.state.error || download.state === 'failed'
 
   return (
     <div className="space-y-4">
@@ -279,138 +201,132 @@ export function PlayerPage() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <div className="panel overflow-hidden">
-          {streamUrl && !error && playable && (
-            <PlayerStage
-              download={download}
-              kind={video ? 'video' : 'audio'}
-              streamUrl={streamUrl}
-              coverUrl={cover?.url}
-              mediaRef={mediaRef}
-              containerRef={containerRef}
-              player={mediaPlayer}
-              subtitles={subtitles}
-              hasPrev={hasPrev}
-              hasNext={hasNext}
-              onPrev={playPrev}
-              onNext={playNext}
-              getThumbnail={getThumbnail}
-              getCachedThumbnail={getCachedThumbnail}
-              prefetchThumbnail={prefetchThumbnail}
-            />
-          )}
+          <div
+            ref={registerSlot}
+            className="relative aspect-video w-full overflow-hidden bg-black"
+            data-player-slot
+          >
+            {dockActive && cover?.url && (
+              <img
+                src={cover.url}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover opacity-20"
+              />
+            )}
 
-          {streamUrl && !error && image && (
-            <PlayerStage
-              download={download}
-              kind="image"
-              streamUrl={streamUrl}
-              coverUrl={cover?.url}
-              mediaRef={mediaRef}
-              containerRef={containerRef}
-              player={mediaPlayer}
-              subtitles={subtitles}
-              hasPrev={false}
-              hasNext={false}
-              onPrev={playPrev}
-              onNext={playNext}
-            />
-          )}
+            {streamUrl && !error && image && (
+              <a
+                href={streamUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-full items-center justify-center p-2"
+                title="Open original image"
+              >
+                <img
+                  src={streamUrl}
+                  alt={download.label}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </a>
+            )}
 
-          {streamUrl && !error && !previewable && (
-            <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
-              <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-10" />
-              <p className="text-sm font-semibold text-[var(--fg)]">
-                {kindLabel(kind)} preview is not available in the browser
-              </p>
-              <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                The stream is ready. Open it directly, copy the URL, or hand it to a native app.
-              </p>
-              <div className="mt-1 flex flex-wrap justify-center gap-2">
-                <a
-                  href={streamUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-primary h-8 px-3 text-xs"
-                >
-                  <Eye className="size-4" />
-                  Open file
-                </a>
-                <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                  <Copy className="size-4" />
-                  Copy stream URL
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {preparing && (
-            <div className="flex aspect-video flex-col items-center justify-center gap-4 text-center">
-              <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
-                <PreparingIcon className="size-8 text-[var(--accent)]" />
-                <span className="absolute inset-0 animate-ping rounded-full border border-[var(--accent)] opacity-30" />
-              </div>
-              <div>
+            {streamUrl && !error && !previewable && !image && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-10" />
                 <p className="text-sm font-semibold text-[var(--fg)]">
-                  Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…
+                  {kindLabel(kind)} preview is not available in the browser
                 </p>
-                <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-                  Waiting for the first pieces from the swarm. The preview starts automatically once
-                  the first bytes are available.
+                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
+                  The stream is ready. Open it directly, copy the URL, or hand it to a native app.
                 </p>
-              </div>
-              <div className="w-56">
-                <ProgressBar progress={download.progress} tone="stream" />
-              </div>
-            </div>
-          )}
-
-          {(error || download.state === 'failed') && (
-            <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
-              <AlertTriangle className="size-7 text-[var(--warning)]" />
-              <p className="text-sm font-semibold text-[var(--fg)]">
-                {image
-                  ? 'Could not load this image'
-                  : audio
-                    ? 'This audio codec cannot play in the browser'
-                    : 'This video container cannot play in the browser'}
-              </p>
-              <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                The stream is ready.{' '}
-                {externalPlayable
-                  ? 'Hand it to mpv or VLC, or download the file and play it locally.'
-                  : 'Open the file directly, or copy the stream URL.'}
-              </p>
-              <div className="mt-1 flex flex-wrap justify-center gap-2">
-                {externalPlayable && (
-                  <Button variant="primary" size="sm" onClick={openExternal}>
-                    <Tv className="size-4" />
-                    Open in mpv / VLC
-                  </Button>
-                )}
-                {streamUrl && (
-                  <Button variant="secondary" size="sm" onClick={mediaPlayer.retry}>
-                    <Play className="size-4" />
-                    Retry
-                  </Button>
-                )}
-                {streamUrl && (
+                <div className="mt-1 flex flex-wrap justify-center gap-2">
                   <a
                     href={streamUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="btn btn-secondary h-8 px-3 text-xs"
+                    className="btn btn-primary h-8 px-3 text-xs"
                   >
                     <Eye className="size-4" />
                     Open file
                   </a>
-                )}
-                <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                  <Copy className="size-4" />
-                  Copy stream URL
-                </Button>
+                  <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
+                    <Copy className="size-4" />
+                    Copy stream URL
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {preparing && (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
+                  <PreparingIcon className="size-8 text-[var(--accent)]" />
+                  <span className="absolute inset-0 animate-ping rounded-full border border-[var(--accent)] opacity-30" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--fg)]">
+                    Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
+                    Waiting for the first pieces from the swarm. The preview starts automatically
+                    once the first bytes are available.
+                  </p>
+                </div>
+                <div className="w-56">
+                  <ProgressBar progress={download.progress} tone="stream" />
+                </div>
+              </div>
+            )}
+
+            {error && !dockActive && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <AlertTriangle className="size-7 text-[var(--warning)]" />
+                <p className="text-sm font-semibold text-[var(--fg)]">
+                  {image
+                    ? 'Could not load this image'
+                    : audio
+                      ? 'This audio codec cannot play in the browser'
+                      : 'This video container cannot play in the browser'}
+                </p>
+                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
+                  The stream is ready.{' '}
+                  {externalPlayable
+                    ? 'Hand it to mpv or VLC, or download the file and play it locally.'
+                    : 'Open the file directly, or copy the stream URL.'}
+                </p>
+                <div className="mt-1 flex flex-wrap justify-center gap-2">
+                  {externalPlayable && (
+                    <Button variant="primary" size="sm" onClick={openExternal}>
+                      <Tv className="size-4" />
+                      Open in mpv / VLC
+                    </Button>
+                  )}
+                  {streamUrl && (
+                    <Button variant="secondary" size="sm" onClick={player.retry}>
+                      <Play className="size-4" />
+                      Retry
+                    </Button>
+                  )}
+                  {streamUrl && (
+                    <a
+                      href={streamUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary h-8 px-3 text-xs"
+                    >
+                      <Eye className="size-4" />
+                      Open file
+                    </a>
+                  )}
+                  <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
+                    <Copy className="size-4" />
+                    Copy stream URL
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-soft)] px-4 py-3">
             <Badge tone={download.state === 'completed' ? 'success' : 'stream'} dot>
@@ -419,7 +335,7 @@ export function PlayerPage() {
             <span className="font-mono text-[11px] tabular text-[var(--muted)]">
               {Math.round(download.progress * 100)}% · {formatSpeed(download.speed)}
             </span>
-            {mediaPlayer.state.resumed && (
+            {player.state.resumed && (
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
                 resumed
               </span>
@@ -503,11 +419,11 @@ export function PlayerPage() {
                 value={`${formatBytes(download.downloaded)} / ${formatBytes(download.totalSize)}`}
               />
               <Metric label="ETA" value={formatEta(download.etaSeconds)} />
-              {playable && mediaPlayer.state.duration > 0 && (
+              {playable && player.state.duration > 0 && (
                 <Metric
                   label="Played"
-                  value={`${formatTime(mediaPlayer.state.currentTime)} / ${formatTime(
-                    mediaPlayer.state.duration,
+                  value={`${formatTime(player.state.currentTime)} / ${formatTime(
+                    player.state.duration,
                   )}`}
                 />
               )}

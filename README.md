@@ -209,6 +209,9 @@ TUI (ratatui) ── in-process ────────────────
   seek-preview thumbnails, keyboard shortcuts, PiP/fullscreen, speed control,
   Media Session metadata, next/previous playback from the torrent's media queue,
   and resume points persisted per file.
+- Playback is owned by a global dock. Leaving `/player` keeps the stream alive
+  as a draggable miniplayer; expanding it restores the full player and its
+  side panels without interrupting playback.
 - In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode and
   attached as native `<track>` elements after on-the-fly WebVTT conversion. The
   player remembers the track, delay and size per torrent, and can apply a

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { PlayerPage } from './PlayerPage'
+import { PlaybackProvider } from '@/features/player/PlaybackProvider'
 import { useAppStore } from '@/store/app'
 import type { DownloadSnapshot } from '@/types/api'
 
@@ -36,7 +37,9 @@ function renderWith(download: DownloadSnapshot) {
   })
   return render(
     <MemoryRouter initialEntries={[`/player?download=${download.id}`]}>
-      <PlayerPage />
+      <PlaybackProvider>
+        <PlayerPage />
+      </PlaybackProvider>
     </MemoryRouter>,
   )
 }
