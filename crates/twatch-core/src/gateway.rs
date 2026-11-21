@@ -4,6 +4,8 @@
 //! player state, and the event stream.  It has no HTTP or terminal types in it;
 //! `twatch-server` turns these snapshots into JSON and WebSocket frames.
 
+use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -295,9 +297,33 @@ struct DownloadEntry {
     subtitles: Vec<SubtitleTrack>,
     error: Option<String>,
     file_index: usize,
+    file_indices: Vec<usize>,
+    output_subfolder: Option<String>,
     queue: Vec<QueueFile>,
     resume_position: Option<f64>,
 }
+
+/// The durable part of a download, restored in a paused state on startup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedDownload {
+    id: u64,
+    url: String,
+    torrent_name: String,
+    label: String,
+    file_names: Vec<String>,
+    total_size: u64,
+    downloaded: u64,
+    progress: f64,
+    is_streaming: bool,
+    state: DownloadState,
+    file_index: usize,
+    file_indices: Vec<usize>,
+    output_subfolder: Option<String>,
+    queue: Vec<QueueFile>,
+    subtitles: Vec<SubtitleTrack>,
+}
+
+const DOWNLOADS_FILENAME: &str = "downloads.json";
 
 impl DownloadEntry {
     fn snapshot(&self) -> DownloadSnapshot {
@@ -333,6 +359,26 @@ impl DownloadEntry {
             resume_position: self.resume_position,
         }
     }
+
+    fn persisted(&self) -> PersistedDownload {
+        PersistedDownload {
+            id: self.id,
+            url: self.url.clone(),
+            torrent_name: self.torrent_name.clone(),
+            label: self.label.clone(),
+            file_names: self.file_names.clone(),
+            total_size: self.total_size,
+            downloaded: self.downloaded,
+            progress: self.progress,
+            is_streaming: self.is_streaming,
+            state: self.state,
+            file_index: self.file_index,
+            file_indices: self.file_indices.clone(),
+            output_subfolder: self.output_subfolder.clone(),
+            queue: self.queue.clone(),
+            subtitles: self.subtitles.clone(),
+        }
+    }
 }
 
 /// Extensions the browser player or a native player can reasonably open.
@@ -354,6 +400,29 @@ fn playable_queue(files: &[TorrentFile]) -> Vec<QueueFile> {
         .filter(|file| is_playable_file(&file.name))
         .map(|file| QueueFile { index: file.index, name: file.name.clone(), size: file.size })
         .collect()
+}
+
+fn write_private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    let json = serde_json::to_string_pretty(value).context("Failed to serialize downloads")?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).context("Failed to create download state directory")?;
+    }
+    let tmp = path.with_extension("tmp");
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&tmp)
+        .context("Failed to open download state file")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600)).ok();
+    }
+    file.write_all(json.as_bytes()).context("Failed to write download state")?;
+    file.flush().context("Failed to flush download state")?;
+    fs::rename(&tmp, path).context("Failed to replace download state")?;
+    Ok(())
 }
 
 #[derive(Default)]
@@ -592,7 +661,103 @@ impl Gateway {
         if !position.is_finite() || !duration.is_finite() || position < 0.0 || duration <= 0.0 {
             return;
         }
-        self.history.set_progress(url, file_name, position.min(duration), duration);
+        let position = position.min(duration);
+        self.history.set_progress(url, file_name, position, duration);
+
+        // Keep the live download snapshot in sync so a page reload can restore
+        // playback without waiting for a new stream registration.
+        let mut changed = false;
+        {
+            let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
+            for entry in downloads.iter_mut() {
+                if entry.url == url
+                    && entry.label == file_name
+                    && entry.resume_position != Some(position)
+                {
+                    entry.resume_position = Some(position);
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.emit(GatewayEvent::DownloadsChanged);
+        }
+    }
+
+    /// Write the durable download list next to the history file.
+    fn persist_downloads(&self) {
+        let config = self.config();
+        let path = config.config_dir.join(DOWNLOADS_FILENAME);
+        let data: Vec<PersistedDownload> = {
+            let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
+            downloads.iter().map(DownloadEntry::persisted).collect()
+        };
+        if let Err(error) = write_private_json(&path, &data) {
+            tracing::error!("Failed to persist downloads: {error:#}");
+        }
+    }
+
+    /// Restore the durable list as paused/completed entries on startup.
+    pub fn restore_downloads(&self) {
+        let config = self.config();
+        let path = config.config_dir.join(DOWNLOADS_FILENAME);
+        let Ok(contents) = fs::read_to_string(&path) else {
+            return;
+        };
+        let Ok(entries) = serde_json::from_str::<Vec<PersistedDownload>>(&contents) else {
+            tracing::warn!("Downloads file is corrupted; starting with an empty list");
+            return;
+        };
+        if entries.is_empty() {
+            return;
+        }
+
+        let history = self.history.history();
+        let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
+        for entry in entries {
+            if downloads.iter().any(|download| download.id == entry.id) {
+                continue;
+            }
+            let resume_position = history
+                .iter()
+                .find(|history| history.url == entry.url)
+                .and_then(|history| history.progress.get(&entry.label))
+                .map(|progress| progress.position);
+            let completed = entry.state == DownloadState::Completed;
+            let id = entry.id;
+            downloads.push(DownloadEntry {
+                id,
+                torrent_id: None,
+                torrent_name: entry.torrent_name,
+                label: entry.label,
+                file_names: entry.file_names,
+                url: entry.url,
+                progress: if completed { 1.0 } else { entry.progress.clamp(0.0, 1.0) },
+                speed: 0,
+                upload_speed: 0,
+                peers: 0,
+                total_size: entry.total_size,
+                downloaded: if completed {
+                    entry.total_size
+                } else {
+                    entry.downloaded.min(entry.total_size)
+                },
+                speed_ema: 0.0,
+                is_streaming: entry.is_streaming,
+                state: if completed { DownloadState::Completed } else { DownloadState::Paused },
+                stream_path: None,
+                subtitles: entry.subtitles,
+                error: None,
+                file_index: entry.file_index,
+                file_indices: entry.file_indices,
+                output_subfolder: entry.output_subfolder,
+                queue: entry.queue,
+                resume_position,
+            });
+            self.next_download_id.fetch_max(id.saturating_add(1), Ordering::SeqCst);
+        }
+        drop(downloads);
+        self.emit(GatewayEvent::DownloadsChanged);
     }
 
     // ── Search ───────────────────────────────────────────────────────
@@ -650,12 +815,15 @@ impl Gateway {
             subtitles,
             error: None,
             file_index: file.index,
+            file_indices: Vec::new(),
+            output_subfolder: None,
             queue,
             resume_position,
         };
         let snapshot = entry.snapshot();
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).push(entry);
         self.emit(GatewayEvent::DownloadsChanged);
+        self.persist_downloads();
 
         let torrent = self.torrent.clone();
         let tx = self.internal_tx.clone();
@@ -686,7 +854,7 @@ impl Gateway {
         }
 
         let download_dir = self.config().download_dir;
-        let (url, torrent_name, output_dir, file_names, total_size, subtitles) = {
+        let (url, torrent_name, output_dir, output_subfolder, file_names, total_size, subtitles) = {
             let guard = self.session.read().unwrap_or_else(|e| e.into_inner());
             let session = guard.as_ref().context("No active torrent session")?;
             let files: Vec<TorrentFile> =
@@ -700,6 +868,7 @@ impl Gateway {
                 session.url.clone(),
                 session.name.clone(),
                 session.download_root_dir(&download_dir),
+                session.download_root().map(ToOwned::to_owned),
                 names,
                 total,
                 collect_subtitles(&session.files),
@@ -732,12 +901,15 @@ impl Gateway {
             subtitles,
             error: None,
             file_index: 0,
+            file_indices: indices.to_vec(),
+            output_subfolder,
             queue: Vec::new(),
             resume_position: None,
         };
         let snapshot = entry.snapshot();
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).push(entry);
         self.emit(GatewayEvent::DownloadsChanged);
+        self.persist_downloads();
 
         {
             let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
@@ -812,6 +984,7 @@ impl Gateway {
             self.emit(GatewayEvent::DownloadsChanged);
         }
 
+        let had_completed = !completed.is_empty();
         for (url, file_names, label) in completed {
             for name in &file_names {
                 self.history.mark_downloaded(&url, name);
@@ -830,6 +1003,9 @@ impl Gateway {
                 message: format!("Download complete: {label}"),
             });
             self.emit(GatewayEvent::DownloadsChanged);
+        }
+        if had_completed {
+            self.persist_downloads();
         }
     }
 
@@ -900,6 +1076,7 @@ impl Gateway {
 
         if dirty {
             self.emit(GatewayEvent::DownloadsChanged);
+            self.persist_downloads();
         }
         if session_dirty {
             self.emit(GatewayEvent::SessionChanged);
@@ -912,11 +1089,11 @@ impl Gateway {
     pub async fn pause_download(&self, id: u64) -> Result<()> {
         let torrent_id = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
-            let entry =
-                downloads.iter().find(|entry| entry.id == id).context("Download not found")?;
-            entry.torrent_id.context("Download is still starting")?
+            downloads.iter().find(|entry| entry.id == id).context("Download not found")?.torrent_id
         };
-        self.torrent.pause(&torrent_id).await?;
+        if let Some(torrent_id) = torrent_id {
+            self.torrent.pause(&torrent_id).await?;
+        }
         {
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
@@ -926,28 +1103,96 @@ impl Gateway {
             }
         }
         self.emit(GatewayEvent::DownloadsChanged);
+        self.persist_downloads();
         Ok(())
     }
 
     pub async fn resume_download(&self, id: u64) -> Result<()> {
-        let torrent_id = {
+        let (torrent_id, is_streaming, url, file_index, file_indices, subtitles, output_subfolder) = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             let entry =
                 downloads.iter().find(|entry| entry.id == id).context("Download not found")?;
-            entry.torrent_id.context("Download is still starting")?
+            (
+                entry.torrent_id,
+                entry.is_streaming,
+                entry.url.clone(),
+                entry.file_index,
+                entry.file_indices.clone(),
+                entry.subtitles.clone(),
+                entry.output_subfolder.clone(),
+            )
         };
-        self.torrent.resume(&torrent_id).await?;
+
+        if let Some(torrent_id) = torrent_id {
+            self.torrent.resume(&torrent_id).await?;
+            {
+                let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
+                if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
+                    entry.state = if entry.is_streaming {
+                        DownloadState::Streaming
+                    } else {
+                        DownloadState::Downloading
+                    };
+                }
+            }
+            self.emit(GatewayEvent::DownloadsChanged);
+            self.persist_downloads();
+            return Ok(());
+        }
+
+        // A restored entry has no live torrent yet. Re-add it on demand.
         {
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
-                entry.state = if entry.is_streaming {
-                    DownloadState::Streaming
-                } else {
-                    DownloadState::Downloading
-                };
+                entry.state = DownloadState::Starting;
+                entry.error = None;
             }
         }
         self.emit(GatewayEvent::DownloadsChanged);
+        self.persist_downloads();
+
+        let config = self.config();
+        let output_dir = match output_subfolder {
+            Some(folder) => config.download_dir.join(folder),
+            None => config.download_dir,
+        };
+        let torrent = self.torrent.clone();
+        let tx = self.internal_tx.clone();
+        self.spawner.spawn(Box::pin(async move {
+            if is_streaming {
+                let subtitle_indices: Vec<usize> =
+                    subtitles.iter().map(|track| track.index).collect();
+                match torrent.download_with_extra(&url, file_index, &subtitle_indices).await {
+                    Ok(torrent_id) => {
+                        let path = format!("/api/stream/{}/{}", torrent_id.raw(), file_index);
+                        let _ = tx.send(InternalEvent::Ready {
+                            id,
+                            torrent_id,
+                            stream_path: Some(path),
+                        });
+                    }
+                    Err(error) => {
+                        let _ = tx.send(InternalEvent::Failed {
+                            id,
+                            message: format!("Stream failed: {error}"),
+                        });
+                    }
+                }
+            } else {
+                match torrent.download_to_folder(&url, &file_indices, &output_dir).await {
+                    Ok(torrent_id) => {
+                        let _ = tx.send(InternalEvent::Ready { id, torrent_id, stream_path: None });
+                    }
+                    Err(error) => {
+                        let _ = tx.send(InternalEvent::Failed {
+                            id,
+                            message: format!("Download failed: {error}"),
+                        });
+                    }
+                }
+            }
+        }));
+
         Ok(())
     }
 
@@ -977,6 +1222,7 @@ impl Gateway {
             self.emit(GatewayEvent::PlayerChanged);
         }
         self.emit(GatewayEvent::DownloadsChanged);
+        self.persist_downloads();
         Ok(())
     }
 

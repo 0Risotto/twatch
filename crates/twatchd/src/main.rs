@@ -262,6 +262,7 @@ async fn run() -> Result<()> {
 
     let gateway =
         Gateway::new(config.clone(), search_config, torrent, history, search, player, spawner);
+    gateway.restore_downloads();
 
     {
         let gateway = gateway.clone();

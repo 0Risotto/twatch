@@ -116,6 +116,7 @@ pub async fn start() -> Result<String> {
     let covers = std::sync::Arc::new(CoverService::new(config.config_dir.join("covers.json")));
     let gateway =
         Gateway::new(config.clone(), search_config, torrent, history, search, player, spawner);
+    gateway.restore_downloads();
 
     let ticker_gateway = gateway.clone();
     tokio::spawn(async move {

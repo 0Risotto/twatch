@@ -50,6 +50,35 @@ interface PlaybackContextValue {
   registerSlot: (node: HTMLDivElement | null) => void
   mode: 'full' | 'mini'
   dockActive: boolean
+  autoPlay: boolean
+}
+
+const ACTIVE_DOWNLOAD_KEY = 'twatch.active-download'
+
+function readActiveDownload(): number | null {
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_DOWNLOAD_KEY)
+    const id = Number(raw)
+    return Number.isFinite(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
+function rememberActiveDownload(id: number): void {
+  try {
+    window.localStorage.setItem(ACTIVE_DOWNLOAD_KEY, String(id))
+  } catch {
+    // Best-effort persistence.
+  }
+}
+
+function forgetActiveDownload(): void {
+  try {
+    window.localStorage.removeItem(ACTIVE_DOWNLOAD_KEY)
+  } catch {
+    // Best-effort persistence.
+  }
 }
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null)
@@ -69,6 +98,7 @@ interface SlotRect {
 
 export function PlaybackProvider({ children }: { children: ReactNode }) {
   const downloads = useAppStore(state => state.downloads)
+  const booted = useAppStore(state => state.booted)
   const addToast = useAppStore(state => state.addToast)
   const location = useLocation()
   const navigate = useNavigate()
@@ -76,7 +106,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<number | null>(null)
   const [fallback, setFallback] = useState<DownloadSnapshot | null>(null)
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
+  const [restoredPause, setRestoredPause] = useState(false)
   const activeRef = useRef<number | null>(null)
+  const restoreId = useRef<number | null>(readActiveDownload())
+  const restoreTried = useRef(false)
 
   const mediaRef = useRef<HTMLMediaElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -103,16 +136,19 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex >= 0 && queueIndex + 1 < queue.length
 
-  const activate = useCallback((id: number | null) => {
+  const activate = useCallback((id: number | null, options?: { restored?: boolean }) => {
     if (id === null) {
       activeRef.current = null
       setActiveId(null)
+      forgetActiveDownload()
       return
     }
+    if (!options?.restored) setRestoredPause(false)
     if (activeRef.current !== id) {
       activeRef.current = id
       setFallback(null)
     }
+    rememberActiveDownload(id)
     setActiveId(id)
     const state = useAppStore.getState()
     if (!state.downloads.some(item => item.id === id)) {
@@ -125,12 +161,35 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Restore the last stream after a reload, but keep it paused. If the daemon
+  // restarted and the stream is gone, leave the saved download in the list
+  // rather than opening an empty miniplayer.
+  useEffect(() => {
+    if (restoreTried.current || !booted) return
+    if (activeId !== null) {
+      restoreTried.current = true
+      return
+    }
+    restoreTried.current = true
+    const id = restoreId.current
+    if (!id) return
+    const candidate = downloads.find(item => item.id === id)
+    if (candidate?.streamPath) {
+      setRestoredPause(true)
+      activate(id, { restored: true })
+    } else {
+      forgetActiveDownload()
+    }
+  }, [activate, activeId, booted, downloads])
+
   const switchTo = useCallback(
     async (index: number) => {
       if (!download) return
       try {
         const next = await api.watchFile(index)
         activeRef.current = next.id
+        setRestoredPause(false)
+        rememberActiveDownload(next.id)
         setFallback(next)
         setActiveId(next.id)
         if (location.pathname === '/player') {
@@ -205,8 +264,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     player.saveProgress(true)
     mediaRef.current?.pause()
     activeRef.current = null
+    setRestoredPause(false)
     setActiveId(null)
     setFallback(null)
+    forgetActiveDownload()
   }, [player])
 
   const registerSlot = useCallback((node: HTMLDivElement | null) => setSlot(node), [])
@@ -235,6 +296,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       registerSlot,
       mode,
       dockActive,
+      autoPlay: !restoredPause,
     }),
     [
       activate,
@@ -254,6 +316,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       player,
       prefetchThumbnail,
       registerSlot,
+      restoredPause,
       subtitles,
       switchTo,
     ],
@@ -320,6 +383,7 @@ function PlayerDock({ slot }: { slot: HTMLDivElement | null }) {
     subtitleCanvasRef,
     player,
     subtitles,
+    autoPlay,
     hasPrev,
     hasNext,
     playPrev,
@@ -492,6 +556,7 @@ function PlayerDock({ slot }: { slot: HTMLDivElement | null }) {
         getCachedThumbnail={getCachedThumbnail}
         prefetchThumbnail={prefetchThumbnail}
         compact={mode === 'mini'}
+        autoPlay={autoPlay}
         onExpand={() => navigate(`/player?download=${download.id}`)}
         onClose={deactivate}
       />

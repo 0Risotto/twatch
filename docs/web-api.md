@@ -33,7 +33,7 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | DELETE | `/api/session/files` | `{indices}` — delete files from disk |
 | GET | `/api/downloads` | Active and recent downloads |
 | POST | `/api/downloads/{id}/pause` | Pause |
-| POST | `/api/downloads/{id}/resume` | Resume |
+| POST | `/api/downloads/{id}/resume` | Resume (or re-add a restored transfer) |
 | DELETE | `/api/downloads/{id}` | Remove torrent from the engine |
 | GET | `/api/search?q=&page=` | Search the configured JSON API |
 | GET/PUT | `/api/search/config` | Read/write the search endpoint and field map |
@@ -113,6 +113,21 @@ playing video by episode tag or base name, then attaches them as native
 `<track kind="subtitles">` elements. The player has an Off / track selector,
 per-torrent track memory, a ±0.1 s / ±1 s delay control, and three cue sizes.
 Delay is applied to the loaded VTT cues, so it works with the native renderer.
+
+## Download persistence
+
+`twatchd` writes active transfer metadata to `downloads.json` in the config
+directory (mode `0600`). On startup entries are restored as **paused**; the
+torrent is not re-added until `POST /api/downloads/{id}/resume`, which spawns
+the stream or folder download again. Completed batch downloads are restored as
+completed. IDs, queues, subtitle tracks and file indices are preserved so the
+Downloads page and player can resume the same item.
+
+The SPA separately stores the active player download in
+`localStorage["twatch.active-download"]`. After a page reload it restores that
+stream as a paused miniplayer at the last persisted position. If the daemon
+restarted and the stream no longer exists, the key is cleared and the restored
+download card is shown instead.
 
 ## Playback progress
 

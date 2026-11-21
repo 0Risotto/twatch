@@ -329,6 +329,7 @@ async fn playback_progress_is_persisted_and_clamped() {
     let dir = temp_dir();
     let gateway = gateway(&dir);
     gateway.preview("magnet:test").await.unwrap();
+    gateway.watch_file(0).unwrap();
 
     gateway.save_progress("magnet:test", "one.bin", 42.5, 100.0);
     gateway.save_progress("magnet:test", "two.bin", 150.0, 100.0);
@@ -344,6 +345,34 @@ async fn playback_progress_is_persisted_and_clamped() {
     assert!((clamped.fraction() - 1.0).abs() < f64::EPSILON);
 
     assert!(!entry.progress.contains_key("zero.bin"));
+
+    let download = &gateway.downloads()[0];
+    assert_eq!(download.resume_position, Some(42.5));
+}
+
+#[tokio::test]
+async fn downloads_are_restored_paused_and_can_resume() {
+    let dir = temp_dir();
+    let first = gateway(&dir);
+    first.preview("magnet:test").await.unwrap();
+    first.watch_file(0).unwrap();
+
+    let restored = gateway(&dir);
+    assert!(restored.downloads().is_empty());
+    restored.restore_downloads();
+
+    let download = &restored.downloads()[0];
+    assert_eq!(download.id, 1);
+    assert_eq!(download.label, "one.bin");
+    assert_eq!(download.state, DownloadState::Paused);
+    assert!(download.stream_path.is_none());
+
+    restored.resume_download(1).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    restored.tick();
+    let download = &restored.downloads()[0];
+    assert_eq!(download.state, DownloadState::Streaming);
+    assert_eq!(download.stream_path.as_deref(), Some("/api/stream/7/0"));
 }
 
 #[tokio::test]

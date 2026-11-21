@@ -211,7 +211,11 @@ TUI (ratatui) ── in-process ────────────────
   and resume points persisted per file.
 - Playback is owned by a global dock. Leaving `/player` keeps the stream alive
   as a draggable miniplayer; expanding it restores the full player and its
-  side panels without interrupting playback.
+  side panels without interrupting playback. After a reload the last stream
+  returns as a paused miniplayer at its saved position.
+- Active transfers are written to `downloads.json` in the config directory.
+  After a daemon restart they return as paused cards; Resume re-adds the torrent
+  on demand instead of silently restarting downloads.
 - In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode.
   SRT/VTT use native `<track>` elements after WebVTT conversion; ASS/SSA is
   rendered by libass through JASSUB for real styles, positioning, fonts and

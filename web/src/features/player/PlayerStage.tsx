@@ -30,6 +30,7 @@ interface PlayerStageProps {
   getCachedThumbnail?: (time: number) => string | null
   prefetchThumbnail?: (time: number) => void
   compact?: boolean
+  autoPlay?: boolean
   onExpand?: () => void
   onClose?: () => void
 }
@@ -52,6 +53,7 @@ export function PlayerStage({
   getCachedThumbnail,
   prefetchThumbnail,
   compact = false,
+  autoPlay = true,
   onExpand,
   onClose,
 }: PlayerStageProps) {
@@ -102,7 +104,7 @@ export function PlayerStage({
           ref={mediaRef as RefObject<HTMLVideoElement | null>}
           src={streamUrl}
           poster={coverUrl ?? undefined}
-          autoPlay
+          autoPlay={autoPlay}
           playsInline
           className="h-full w-full bg-black object-contain"
           onClick={() => player.toggle()}
@@ -169,7 +171,7 @@ export function PlayerStage({
             key={streamUrl}
             ref={mediaRef as RefObject<HTMLAudioElement | null>}
             src={streamUrl}
-            autoPlay
+            autoPlay={autoPlay}
             className="hidden"
           />
         </div>
