@@ -17,13 +17,11 @@
         pkgs:
         let
           twatchd = pkgs.callPackage ./nix/package.nix { };
-          twatchApp = pkgs.callPackage ./nix/tauri.nix { };
           twatchElectron = pkgs.callPackage ./nix/electron.nix { inherit twatchd; };
         in
         {
           default = twatchElectron;
           inherit twatchd;
-          twatch-app = twatchApp;
           twatch-electron = twatchElectron;
         }
       );
@@ -33,7 +31,6 @@
         let
           packages = self.packages.${pkgs.stdenv.hostPlatform.system};
           twatchd = packages.twatchd;
-          twatchApp = packages.twatch-app;
           twatchElectron = packages.twatch-electron;
         in
         {
@@ -46,11 +43,6 @@
             type = "app";
             program = "${twatchd}/bin/twatchd";
             meta = twatchd.meta;
-          };
-          twatch-app = {
-            type = "app";
-            program = "${twatchApp}/bin/twatch-app";
-            meta = twatchApp.meta;
           };
           twatch-electron = {
             type = "app";

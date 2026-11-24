@@ -3,7 +3,7 @@
 ## Rust
 
 - Keep domain logic in `twatch-core`, adapters in `twatch-engine`, transport in
-  `twatch-server`, and process wiring in `twatchd`/`twatch-app`.
+  `twatch-server`, and process wiring in `twatchd`.
 - Production modules should stay focused. Split by feature before a file grows
   past roughly 400 lines.
 - Public gateway operations return user-facing errors. Internal adapters may use

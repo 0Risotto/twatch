@@ -17,8 +17,8 @@ nix develop
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features --workspace --exclude twatch-app -- -D warnings
-cargo test --workspace --exclude twatch-app
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace
 
 cd web
 npm ci
@@ -27,10 +27,17 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npx playwright test
 ```
 
-All checks also run in GitHub Actions. `twatch-app` is checked separately
-because Tauri needs GTK/WebKit development libraries.
+For Playwright on NixOS, point it at the Nix browser bundle:
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=$(nix eval --raw nixpkgs#playwright-driver.browsers) \
+  nix develop -c npx playwright test
+```
+
+All checks also run in GitHub Actions.
 
 ## Web development
 
@@ -98,11 +105,20 @@ home.packages = [
 ];
 ```
 
-Available packages: `twatch-electron` (default), `twatchd`, `twatch-app`.
+Available packages: `twatch-electron` (default) and `twatchd`.
 
 ## Desktop packaging
 
 See [`desktop.md`](desktop.md).
+
+## Coverage
+
+Rust coverage uses `cargo-llvm-cov`; CI enforces the current non-regression
+threshold. Raise the threshold with each batch of tests.
+
+```bash
+cargo llvm-cov --workspace --all-features --summary-only
+```
 
 ## Versions
 
@@ -112,7 +128,6 @@ All manifests must use the same version:
 python3 scripts/check-versions.py
 ```
 
-When bumping, update the five Cargo crates, `electron/package.json`,
-`web/package.json`, `crates/twatch-app/tauri.conf.json`, and the three Nix
-files. Tag releases as `vX.Y.Z`; the Desktop workflow builds the artifacts and
+When bumping, update the four Cargo crates, `electron/package.json`,
+`web/package.json`, and the two Nix files. Tag releases as `vX.Y.Z`; the Desktop workflow builds the artifacts and
 publishes the GitHub release.

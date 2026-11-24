@@ -1,8 +1,7 @@
 # Architecture
 
-twatch is a Rust daemon plus a React SPA. The Electron and Tauri shells wrap the
-same web UI; Electron runs `twatchd` as a sidecar, Tauri runs the gateway
-in-process.
+twatch is a Rust daemon plus a React SPA. The Electron shell runs `twatchd` as
+a sidecar and hosts the web UI.
 
 ## Crates
 
@@ -11,7 +10,6 @@ crates/
 ├── twatch-core/      Pure domain, config, themes, headless Gateway
 ├── twatch-engine/    librqbit, JSON history, search, player, covers, streams
 ├── twatch-server/    axum REST/WebSocket API, auth, static SPA, Range streaming
-├── twatch-app/       Tauri shell
 └── twatchd/          Headless daemon binary
 electron/             Electron shell and packaging
 web/                  React 19 + TypeScript + Vite SPA
@@ -20,7 +18,7 @@ web/                  React 19 + TypeScript + Vite SPA
 ## Request path
 
 ```text
-Browser / Electron / Tauri
+Browser / Electron
         │ HTTP + WebSocket
         ▼
 twatch-server

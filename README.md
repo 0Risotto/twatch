@@ -48,8 +48,8 @@ unless `--allow-remote` is set.
 ```bash
 nix develop
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features --workspace --exclude twatch-app -- -D warnings
-cargo test --workspace --exclude twatch-app
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+cargo test --workspace
 
 cd web
 npm ci

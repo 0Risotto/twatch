@@ -38,12 +38,9 @@ def main() -> int:
         },
         "electron/package.json": json_version(ROOT / "electron/package.json"),
         "web/package.json": json_version(ROOT / "web/package.json"),
-        "crates/twatch-app/tauri.conf.json": json_version(
-            ROOT / "crates/twatch-app/tauri.conf.json"
-        ),
         **{
             f"nix/{name}.nix": nix_version(ROOT / "nix" / f"{name}.nix")
-            for name in ("electron", "package", "tauri")
+            for name in ("electron", "package")
         },
     }
     unique = sorted(set(versions.values()))
