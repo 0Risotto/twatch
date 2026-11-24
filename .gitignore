@@ -11,6 +11,8 @@ cobertura.xml
 /web/dist
 /web/.vite
 /web/coverage
+/web/test-results
+/web/playwright-report
 /crates/twatch-server/web-dist
 
 # Desktop shell
