@@ -65,11 +65,7 @@ fn is_loopback_host(host: &str) -> bool {
 }
 
 fn origin_hostname(origin: &str) -> Option<&str> {
-    let authority = origin
-        .strip_prefix("http://")
-        .or_else(|| origin.strip_prefix("https://"))
-        .or_else(|| origin.strip_prefix("tauri://"))
-        .or_else(|| origin.strip_prefix("http://tauri.localhost"))?;
+    let authority = origin.strip_prefix("http://").or_else(|| origin.strip_prefix("https://"))?;
     Some(hostname(authority))
 }
 

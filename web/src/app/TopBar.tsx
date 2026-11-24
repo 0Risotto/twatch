@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Command, Maximize2, Minus, Plus, Search, X } from 'lucide-react'
+import { Command, Plus, Search } from 'lucide-react'
 import { Button, IconButton } from '@/components/ui/Button'
 import { useAppStore } from '@/store/app'
 import { useUiStore } from '@/store/ui'
@@ -16,66 +16,12 @@ const titles: Record<string, string> = {
   '/settings': 'Settings',
 }
 
-type TauriWindow = Window & {
-  __TAURI_INTERNALS__?: {
-    invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>
-  }
-  __TWATCH_FRAMELESS__?: boolean
-}
-
-function isFramelessDesktop() {
-  return typeof window !== 'undefined' && Boolean((window as TauriWindow).__TWATCH_FRAMELESS__)
-}
-
-function windowCommand(command: string) {
-  const invoke = (window as TauriWindow).__TAURI_INTERNALS__?.invoke
-  if (!invoke) return
-  void invoke(`plugin:window|${command}`).catch(() => {
-    // The controls are best-effort when the remote desktop bridge is absent.
-  })
-}
-
-function DesktopWindowControls() {
-  return (
-    <div className="ml-1 flex items-center gap-0.5 rounded-[3px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] p-0.5">
-      <button
-        type="button"
-        aria-label="Minimize window"
-        title="Minimize"
-        onClick={() => windowCommand('minimize')}
-        className="grid size-7 place-items-center rounded-md text-[var(--muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--fg)]"
-      >
-        <Minus className="size-3.5" />
-      </button>
-      <button
-        type="button"
-        aria-label="Maximize window"
-        title="Maximize"
-        onClick={() => windowCommand('toggle_maximize')}
-        className="grid size-7 place-items-center rounded-md text-[var(--muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--fg)]"
-      >
-        <Maximize2 className="size-3.5" />
-      </button>
-      <button
-        type="button"
-        aria-label="Close window"
-        title="Close"
-        onClick={() => windowCommand('close')}
-        className="grid size-7 place-items-center rounded-md text-[var(--muted)] transition hover:bg-[var(--danger)] hover:text-white"
-      >
-        <X className="size-3.5" />
-      </button>
-    </div>
-  )
-}
-
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
   const downloads = useAppStore(state => state.downloads)
   const session = useAppStore(state => state.session)
   const setCommandOpen = useUiStore(state => state.setCommandOpen)
-  const frameless = isFramelessDesktop()
 
   const title = titles[location.pathname] ?? 'twatch'
   const totalSpeed = useMemo(
@@ -87,10 +33,7 @@ export function TopBar() {
   )
 
   return (
-    <header
-      className="glass sticky top-0 z-30 flex h-[64px] items-center gap-3 border-x-0 border-t-0 px-4 sm:px-6 lg:px-8"
-      data-tauri-drag-region={frameless ? 'deep' : undefined}
-    >
+    <header className="glass sticky top-0 z-30 flex h-[64px] items-center gap-3 border-x-0 border-t-0 px-4 sm:px-6 lg:px-8">
       <button
         type="button"
         aria-label="twatch home"
@@ -150,7 +93,6 @@ export function TopBar() {
           <Plus className="size-4" />
           <span className="hidden sm:inline">Add torrent</span>
         </Button>
-        {frameless && <DesktopWindowControls />}
       </div>
     </header>
   )
