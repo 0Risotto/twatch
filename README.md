@@ -1,268 +1,75 @@
 # twatch
 
-Desktop and web torrent streaming client. Browse, preview, stream, and
-download torrents from the Electron app or a local browser console.
+Desktop and web torrent streaming client. Browse, preview, stream, and download
+torrents from the Electron app or a local browser console.
 
-The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
-`axum` gateway for the web client. There is no Node server at runtime.
+The backend is Rust: `librqbit` for the engine, `tokio` for async work, and
+`axum` for the local web API. No Node server runs at runtime.
 
-The terminal UI was retired in 0.2.0. Use the desktop app, or run the headless
-daemon with `twatchd --open`. Existing config, history, downloads, and session
-data are unchanged.
-
-## Prerequisites
-
-- **Rust** 1.88+ (edition 2024)
-- **Node.js** 22+ only when building the web UI
-- **mpv** or **vlc** for external player hand-off
-- A C compiler (gcc/clang) for `librqbit` native dependencies
-
-## Quick Start
+## Install
 
 ### NixOS / Nix
 
-The default package is the Electron desktop app. It uses Chromium for the
-browser player and bundles the Rust gateway as a local sidecar:
+```bash
+# Run the Electron app
+nix run github:0Risotto/twatch
+
+# Or install it into your profile
+nix profile install github:0Risotto/twatch#twatch-electron
+```
+
+Declarative NixOS and Home Manager examples are in
+[`docs/development.md`](docs/development.md#nixos).
+
+### Releases
+
+Download the latest Windows installer or Linux package from
+[GitHub Releases](https://github.com/0Risotto/twatch/releases/latest).
+
+- Windows: `twatch-*-setup.exe` (recommended) or `twatch-*-portable.exe`
+- Linux: AppImage or deb
+
+The builds are currently unsigned, so Windows SmartScreen may show
+“Windows protected your PC”. Use **More info → Run anyway** if you trust the
+download.
+
+## Headless web console
 
 ```bash
-# Run the desktop app from a checkout
-nix run
-
-# Or build it and run the result
-nix build
-./result/bin/twatch-electron
+nix run github:0Risotto/twatch#twatchd -- --open
 ```
 
-The flake also exposes the headless web daemon and the older Tauri shell:
-
-```bash
-nix run .#twatchd -- --open
-nix run .#twatch-app
-```
-
-On Wayland, the desktop app follows the desktop convention: GNOME-family
-desktops and Niri get the frameless in-app header, while KDE, XFCE, tiling
-window managers, and X11 keep the native window frame.
-
-To add it declaratively to a flake-based NixOS configuration, add the flake as
-an input:
-
-```nix
-{
-  inputs.twatch.url = "github:0Risotto/twatch";
-
-  outputs = { self, nixpkgs, twatch, ... }: {
-    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ({ pkgs, ... }: {
-          environment.systemPackages = [
-            twatch.packages.${pkgs.stdenv.hostPlatform.system}.default
-          ];
-        })
-      ];
-    };
-  };
-}
-```
-
-### Web console
-
-```bash
-cd web
-npm install
-npm run build
-cd ..
-
-# Embeds web/dist into the binary:
-cargo build --release -p twatchd --features embed-web
-./target/release/twatchd --open
-```
-
-Open <http://127.0.0.1:7878> if the browser does not launch. The daemon sets an
-HttpOnly auth cookie on the first page load; `server-token` lives under
-`$XDG_CONFIG_HOME/twatch/`.
-
-`twatchd` is single-instance per config directory. Starting it again opens the
-running console instead of creating a second daemon.
-
-For UI development, run the daemon and Vite separately:
-
-```bash
-# terminal 1
-cargo run -p twatchd -- --port 7878 --web-dir web/dist
-
-# terminal 2
-cd web
-npm run dev
-# http://localhost:5173 — /api and /api/ws proxy to twatchd
-```
-
-`twatchd --help` lists bind/port/token/web-dir options. It is loopback-only by
-default; `--allow-remote` is required to expose it beyond localhost.
-
-### Desktop packaging
-
-The desktop shell bundles the release `twatchd` sidecar with the SPA embedded,
-so the installed app needs neither Node nor a separate daemon.
-
-```bash
-# Linux via Nix (recommended on NixOS)
-nix build .#twatch-electron
-./result/bin/twatch-electron
-
-# AppImage + deb on a generic Linux host / CI
-scripts/build-desktop.sh linux
-
-# Windows portable exe + NSIS installer (run on Windows or use CI)
-scripts/build-desktop.sh win
-```
-
-Artifacts land in `electron/dist/`. The GitHub **Desktop** workflow builds
-Linux and Windows packages on every push and uploads them as artifacts.
-
-For testing the Windows portable exe in Bottles/Wine, launch it with
-`--no-sandbox` if Chromium refuses to start, and add `--disable-gpu` if the
-window renders blank. The daemon log is written to the Electron logs directory
-(`twatchd.log`).
+The daemon listens on `127.0.0.1:7878` by default, opens the browser, and stores
+its auth token in `$XDG_CONFIG_HOME/twatch/server-token`. It is loopback-only
+unless `--allow-remote` is set.
 
 ## Development
 
-### Rust
-
 ```bash
+nix develop
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features --workspace -- -D warnings
-cargo test --workspace
-```
+cargo clippy --all-targets --all-features --workspace --exclude twatch-app -- -D warnings
+cargo test --workspace --exclude twatch-app
 
-### Web
-
-```bash
 cd web
+npm ci
+npm run format:check
+npm run lint
 npm run typecheck
 npm test
 npm run build
 ```
 
-### Run all checks at once
+See [`docs/development.md`](docs/development.md) for prerequisites, desktop
+packaging, releases, and NixOS configuration.
 
-```bash
-cargo fmt --all -- --check
-cargo clippy --all-targets --all-features --workspace -- -D warnings
-cargo test --workspace
-(cd web && npm run typecheck && npm test && npm run build)
-```
+## Docs
 
-## Before Submitting a PR
-
-1. Run `cargo fmt --all` and ensure no diffs.
-2. Run clippy with zero warnings.
-3. Run all workspace tests.
-4. Run the web typecheck, tests, and production build.
-5. Write a [conventional commit](https://www.conventionalcommits.org/) message:
-   `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
-6. Keep PRs small. One concern per PR.
-
-## Architecture
-
-```
-crates/
-├── twatch-core/         Pure domain, config, theme catalogue, headless Gateway
-│   ├── domain/            entities, value objects, ports (no I/O/UI)
-│   ├── gateway.rs         session, downloads, history, search, player, events
-│   └── theme.rs           Built-in theme catalogue names/modes
-├── twatch-engine/       Adapters
-│   ├── service/           librqbit, JSON history, reqwest search, mpv/vlc
-│   └── stream.rs          range-capable FileStream facade
-├── twatch-server/       axum REST + WebSocket + static SPA + range streaming
-├── twatch-app/          Tauri desktop shell with an in-process gateway
-└── twatchd/             Headless daemon binary
-electron/                Electron desktop shell with the daemon sidecar
-web/                     React 19 + TypeScript + Vite + Tailwind + Motion SPA
-docs/web-api.md          Gateway endpoint, WebSocket, auth, and range contracts
-```
-
-The daemon and desktop shells use `twatch-core::gateway::Gateway`, which owns
-the current browse session, the download registry, and the live event stream.
-
-```
-Browser (React + Motion) ── HTTP + WebSocket ──┐
-Electron / Tauri ── in-process or sidecar ────┤
-                                              ▼
-                                   twatchd (Rust)
-                                   ├─ SessionService
-                                   ├─ DownloadService
-                                   ├─ HistoryService
-                                   ├─ SearchService
-                                   ├─ PlayerService
-                                   └─ librqbit + range stream
-```
-
-**Design points**
-
-- **Swappable tools**: `TorrentPort`, `StreamPort`, `HistoryPort`,
-  `PlayerPort`, `SearchPort`, and `TaskSpawner` keep engine/player/storage
-  choices behind one adapter boundary.
-
-**Web design points**
-
-- The gateway is headless: `twatch-core` has no UI or HTTP framework
-  dependency.
-- Progress is coalesced at 4 Hz and the UI interpolates between ticks, instead
-  of pushing 60 updates per second.
-- Streams support `HEAD`, `Range`, `206`, `416`, MIME types, and byte-range
-  seeking for video/audio/image preview.
-- Preview actions are type-aware: video and audio use a custom player, images use
-  `<img>`; PDFs, archives, code and other files are open/download only.
-- The player has an auto-hiding control bar, buffered-range seekbar, lazy
-  seek-preview thumbnails, keyboard shortcuts, PiP/fullscreen, speed control,
-  Media Session metadata, next/previous playback from the torrent's media queue,
-  and resume points persisted per file.
-- Playback is owned by a global dock. Leaving `/player` keeps the stream alive
-  as a draggable miniplayer; expanding it restores the full player and its
-  side panels without interrupting playback. After a reload the last stream
-  returns as a paused miniplayer at its saved position.
-- Active transfers are written to `downloads.json` in the config directory.
-  After a daemon restart they return as paused cards; Resume re-adds the torrent
-  on demand instead of silently restarting downloads.
-- In-torrent subtitles (SRT/ASS/SSA/VTT) are matched to the playing episode.
-  SRT/VTT use native `<track>` elements after WebVTT conversion; ASS/SSA is
-  rendered by libass through JASSUB for real styles, positioning, fonts and
-  karaoke, with the flattened WebVTT track kept as a fallback. The player
-  remembers the track, delay and size per torrent and applies shared
-  ±0.1 s / ±1 s delay. No external subtitle provider is contacted.
-- Movie/TV/anime/book posters are resolved server-side from keyless providers
-  (IMDb, AniList, TVmaze, Open Library) and cached locally; misses fall back to
-  the matching file-type icon.
-- Pasting a title into the home input routes to Search; only a magnet or
-  `.torrent` URL goes through Preview.
-- The built-in catalogue lives in `web/src/styles/themes.css`: 27 base themes,
-  each with dark and light variants, including Tokyo Night, Kanagawa, Nord,
-  Gruvbox, Catppuccin, Purple, Emerald, Ocean, Forest, Sunset, Sakura and Coffee.
-  Default: Emerald dark.
-- Motion uses short durations and springs (120–320 ms), respects
-  `prefers-reduced-motion`, and has a Settings override.
-
-Dependency injection uses [shaku](https://crates.io/crates/shaku).
-
-## Data
-
-- History:    `$XDG_CONFIG_HOME/twatch/history.json`
-- Session:    `$XDG_CACHE_HOME/twatch/session/`
-- Daemon logs: stdout, or `twatchd.log` in the Electron logs directory
-- Downloads:  `$XDG_DOWNLOAD_DIR/twatch/`
-- Web token:  `$XDG_CONFIG_HOME/twatch/server-token`
-- Web theme:  `web_theme` in `$XDG_CONFIG_HOME/twatch/config.json`
-- Covers:     `$XDG_CONFIG_HOME/twatch/covers.json` (30-day cache)
-
-## API
-
-See [`docs/web-api.md`](docs/web-api.md) for:
-- REST endpoints and camelCase DTOs
-- WebSocket snapshot/revision frames
-- cookie/Bearer auth and Host/Origin rules
-- `Range` streaming semantics
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [Desktop packaging](docs/desktop.md)
+- [Conventions](docs/conventions.md)
+- [Web API](docs/web-api.md)
 
 ## License
 
