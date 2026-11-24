@@ -137,11 +137,6 @@ function createWindow(url) {
 
   if (frameless && process.platform === 'linux') {
     options.titleBarStyle = 'hidden';
-    options.titleBarOverlay = {
-      color: '#131722',
-      symbolColor: '#e4e4e7',
-      height: 64,
-    };
   }
 
   const win = new BrowserWindow(options);
@@ -162,12 +157,6 @@ function createWindow(url) {
     mainWindow = null;
   });
   win.loadURL(url);
-  if (frameless) {
-    // Native Window Controls Overlay sits in the top-right of the app header.
-    win.webContents.on('did-finish-load', () => {
-      void win.webContents.insertCSS('header { padding-right: 150px !important; }');
-    });
-  }
 }
 
 function handleDaemonLine(line) {
