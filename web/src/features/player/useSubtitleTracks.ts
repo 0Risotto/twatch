@@ -91,7 +91,7 @@ export function useSubtitleTracks(
   const torrentId = download?.torrentId ?? null
   const fileName = download?.fileNames[0] ?? download?.label ?? ''
   const streamPath = download?.streamPath ?? null
-  const baseTracks = download?.subtitles ?? []
+  const baseTracks = useMemo(() => download?.subtitles ?? [], [download?.subtitles])
   const tracks = useMemo<SubtitleSource[]>(() => {
     if (!externalSubtitle) return baseTracks
     return [
@@ -143,7 +143,7 @@ export function useSubtitleTracks(
           label: track.external ? `${label} (external)` : label,
         }
       }),
-    [externalSubtitle?.content, torrentId, trackKey],
+    [torrentId, tracks],
   )
 
   // Give a newly selected/loaded track a fresh chance to initialize JASSUB.

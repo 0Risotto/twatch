@@ -183,7 +183,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const streamUrl = download?.streamPath ?? null
   const mode: 'full' | 'mini' = location.pathname === '/player' ? 'full' : 'mini'
 
-  const queue = download?.queue ?? []
+  const queue = useMemo(() => download?.queue ?? [], [download?.queue])
   const queueIndex = queue.findIndex(file => file.index === (download?.fileIndex ?? 0))
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex >= 0 && queueIndex + 1 < queue.length

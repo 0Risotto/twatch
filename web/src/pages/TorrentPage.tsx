@@ -100,13 +100,14 @@ export function TorrentPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const sessionUrl = session?.url
 
+  const lastSessionUrl = useRef<string | null>(null)
   useEffect(() => {
-    if (!session) return
+    if (!session || lastSessionUrl.current === session.url) return
+    lastSessionUrl.current = session.url
     setExpanded(new Set(session.files.length <= 60 ? allFolderPaths(session.files) : []))
     setFilter('')
-  }, [sessionUrl])
+  }, [session])
 
   const rows = useMemo(
     () => (session ? buildTreeRows(session.files, expanded, filter) : []),
