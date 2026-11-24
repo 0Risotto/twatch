@@ -42,6 +42,41 @@ mod tick;
 
 pub use error::{GatewayError, GatewayResult};
 
+/// Typed identifier for a live transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DownloadId(u64);
+
+impl DownloadId {
+    #[must_use]
+    pub const fn new(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    #[must_use]
+    pub const fn raw(self) -> u64 {
+        self.0
+    }
+}
+
+impl std::fmt::Display for DownloadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// Whether a transfer is a file download or a stream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TransferKind {
+    Download,
+    Stream,
+}
+
+impl TransferKind {
+    const fn is_streaming(self) -> bool {
+        matches!(self, Self::Stream)
+    }
+}
+
 /// Lifecycle state shown in the downloads UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -210,8 +245,8 @@ pub enum GatewayEvent {
 
 /// Internal completion messages from spawned download tasks.
 enum InternalEvent {
-    Ready { id: u64, torrent_id: TorrentId, stream_path: Option<String> },
-    Failed { id: u64, message: String },
+    Ready { id: DownloadId, torrent_id: TorrentId, stream_path: Option<String> },
+    Failed { id: DownloadId, message: String },
 }
 
 struct SessionState {
@@ -317,7 +352,7 @@ impl SessionState {
 }
 
 struct DownloadEntry {
-    id: u64,
+    id: DownloadId,
     torrent_id: Option<TorrentId>,
     torrent_name: String,
     label: String,
@@ -330,7 +365,7 @@ struct DownloadEntry {
     total_size: u64,
     downloaded: u64,
     speed_ema: f64,
-    is_streaming: bool,
+    kind: TransferKind,
     state: DownloadState,
     stream_path: Option<String>,
     subtitles: Vec<SubtitleTrack>,
@@ -375,7 +410,7 @@ impl DownloadEntry {
         };
 
         DownloadSnapshot {
-            id: self.id,
+            id: self.id.raw(),
             torrent_id: self.torrent_id.map(TorrentId::raw),
             torrent_name: self.torrent_name.clone(),
             label: self.label.clone(),
@@ -388,7 +423,7 @@ impl DownloadEntry {
             total_size: self.total_size,
             downloaded: self.downloaded,
             eta_seconds,
-            is_streaming: self.is_streaming,
+            is_streaming: self.kind.is_streaming(),
             state: self.state,
             stream_path: self.stream_path.clone(),
             subtitles: self.subtitles.clone(),
@@ -399,9 +434,38 @@ impl DownloadEntry {
         }
     }
 
+    fn mark_ready(&mut self, torrent_id: TorrentId, stream_path: Option<String>) {
+        self.torrent_id = Some(torrent_id);
+        self.stream_path = stream_path;
+        self.state = if self.kind.is_streaming() {
+            DownloadState::Streaming
+        } else {
+            DownloadState::Downloading
+        };
+    }
+
+    fn mark_paused(&mut self) {
+        self.state = DownloadState::Paused;
+        self.speed = 0;
+        self.speed_ema = 0.0;
+    }
+
+    fn mark_completed(&mut self) {
+        self.state = DownloadState::Completed;
+        self.speed = 0;
+        self.speed_ema = 0.0;
+    }
+
+    fn mark_failed(&mut self, message: String) {
+        self.state = DownloadState::Failed;
+        self.error = Some(message);
+        self.speed = 0;
+        self.speed_ema = 0.0;
+    }
+
     fn persisted(&self) -> PersistedDownload {
         PersistedDownload {
-            id: self.id,
+            id: self.id.raw(),
             url: self.url.clone(),
             torrent_name: self.torrent_name.clone(),
             label: self.label.clone(),
@@ -409,7 +473,7 @@ impl DownloadEntry {
             total_size: self.total_size,
             downloaded: self.downloaded,
             progress: self.progress,
-            is_streaming: self.is_streaming,
+            is_streaming: self.kind.is_streaming(),
             state: self.state,
             file_index: self.file_index,
             file_indices: self.file_indices.clone(),
@@ -483,7 +547,7 @@ pub struct Gateway {
     events: broadcast::Sender<GatewayEvent>,
     internal_tx: mpsc::UnboundedSender<InternalEvent>,
     internal_rx: Mutex<mpsc::UnboundedReceiver<InternalEvent>>,
-    cancelled: Mutex<HashSet<u64>>,
+    cancelled: Mutex<HashSet<DownloadId>>,
     torrent: Arc<dyn TorrentPort>,
     history: Arc<dyn HistoryPort>,
     search: Arc<dyn SearchPort>,

@@ -26,13 +26,11 @@ impl Gateway {
                     changed = true;
                 }
 
-                if !entry.is_streaming
+                if !entry.kind.is_streaming()
                     && entry.progress >= 1.0
                     && entry.state != DownloadState::Completed
                 {
-                    entry.state = DownloadState::Completed;
-                    entry.speed = 0;
-                    entry.speed_ema = 0.0;
+                    entry.mark_completed();
                     completed.push((
                         entry.url.clone(),
                         entry.file_names.clone(),
@@ -72,8 +70,8 @@ impl Gateway {
     }
 
     fn drain_internal(&self) {
-        let mut ready: Vec<(u64, TorrentId, Option<String>)> = Vec::new();
-        let mut failed: Vec<(u64, String)> = Vec::new();
+        let mut ready: Vec<(DownloadId, TorrentId, Option<String>)> = Vec::new();
+        let mut failed: Vec<(DownloadId, String)> = Vec::new();
         {
             let mut rx = self.internal_rx.lock().unwrap_or_else(|e| e.into_inner());
             while let Ok(event) = rx.try_recv() {
@@ -101,14 +99,8 @@ impl Gateway {
                 }
                 continue;
             };
-            entry.torrent_id = Some(torrent_id);
-            entry.stream_path = stream_path;
-            entry.state = if entry.is_streaming {
-                DownloadState::Streaming
-            } else {
-                DownloadState::Downloading
-            };
-            let is_streaming = entry.is_streaming;
+            entry.mark_ready(torrent_id, stream_path);
+            let is_streaming = entry.kind.is_streaming();
             let file_names = entry.file_names.clone();
             let url = entry.url.clone();
             let label = entry.label.clone();
@@ -134,10 +126,7 @@ impl Gateway {
             self.cancelled.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
-                entry.state = DownloadState::Failed;
-                entry.error = Some(message.clone());
-                entry.speed = 0;
-                entry.speed_ema = 0.0;
+                entry.mark_failed(message.clone());
                 dirty = true;
             }
             toasts.push((ToastLevel::Error, message));

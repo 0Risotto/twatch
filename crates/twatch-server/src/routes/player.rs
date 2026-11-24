@@ -2,7 +2,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::HeaderMap;
 
-use twatch_core::gateway::PlayerSnapshot;
+use twatch_core::gateway::{DownloadId, PlayerSnapshot};
 
 use super::dto::{OkResponse, PlayerOpenRequest};
 use crate::error::ApiError;
@@ -24,7 +24,7 @@ pub async fn open_player(
     let scheme =
         headers.get("x-forwarded-proto").and_then(|value| value.to_str().ok()).unwrap_or("http");
     let base_url = format!("{scheme}://{host}");
-    Ok(Json(state.gateway.open_player(request.download_id, &base_url)?))
+    Ok(Json(state.gateway.open_player(DownloadId::new(request.download_id), &base_url)?))
 }
 
 pub async fn stop_player(State(state): State<AppState>) -> Json<OkResponse> {

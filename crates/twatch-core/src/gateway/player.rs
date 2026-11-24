@@ -3,7 +3,11 @@ use super::*;
 impl Gateway {
     // ── Player ───────────────────────────────────────────────────────
 
-    pub fn open_player(&self, download_id: u64, base_url: &str) -> GatewayResult<PlayerSnapshot> {
+    pub fn open_player(
+        &self,
+        download_id: DownloadId,
+        base_url: &str,
+    ) -> GatewayResult<PlayerSnapshot> {
         let download = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             downloads
@@ -20,7 +24,7 @@ impl Gateway {
             let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
             state.title = Some(download.label);
             state.stream_path = Some(stream_path);
-            state.download_id = Some(download_id);
+            state.download_id = Some(download_id.raw());
         }
         self.emit(GatewayEvent::PlayerChanged);
         Ok(self.player())

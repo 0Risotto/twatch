@@ -22,7 +22,7 @@ impl Gateway {
             .map(|progress| progress.position);
 
         let subtitle_indices: Vec<usize> = subtitles.iter().map(|track| track.index).collect();
-        let id = self.next_download_id.fetch_add(1, Ordering::SeqCst);
+        let id = DownloadId::new(self.next_download_id.fetch_add(1, Ordering::SeqCst));
         let entry = DownloadEntry {
             id,
             torrent_id: None,
@@ -37,7 +37,7 @@ impl Gateway {
             total_size: file.size,
             downloaded: 0,
             speed_ema: 0.0,
-            is_streaming: true,
+            kind: TransferKind::Stream,
             state: DownloadState::Starting,
             stream_path: None,
             subtitles,
@@ -108,7 +108,7 @@ impl Gateway {
         } else {
             format!("{} files", file_names.len())
         };
-        let id = self.next_download_id.fetch_add(1, Ordering::SeqCst);
+        let id = DownloadId::new(self.next_download_id.fetch_add(1, Ordering::SeqCst));
         let entry = DownloadEntry {
             id,
             torrent_id: None,
@@ -123,7 +123,7 @@ impl Gateway {
             total_size,
             downloaded: 0,
             speed_ema: 0.0,
-            is_streaming: false,
+            kind: TransferKind::Download,
             state: DownloadState::Starting,
             stream_path: None,
             subtitles,

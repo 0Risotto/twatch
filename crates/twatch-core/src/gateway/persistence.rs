@@ -32,7 +32,7 @@ impl Gateway {
         let history = self.history.history();
         let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
         for entry in entries {
-            if downloads.iter().any(|download| download.id == entry.id) {
+            if downloads.iter().any(|download| download.id == DownloadId::new(entry.id)) {
                 continue;
             }
             let resume_position = history
@@ -41,7 +41,7 @@ impl Gateway {
                 .and_then(|history| history.progress.get(&entry.label))
                 .map(|progress| progress.position);
             let completed = entry.state == DownloadState::Completed;
-            let id = entry.id;
+            let id = DownloadId::new(entry.id);
             downloads.push(DownloadEntry {
                 id,
                 torrent_id: None,
@@ -60,7 +60,11 @@ impl Gateway {
                     entry.downloaded.min(entry.total_size)
                 },
                 speed_ema: 0.0,
-                is_streaming: entry.is_streaming,
+                kind: if entry.is_streaming {
+                    TransferKind::Stream
+                } else {
+                    TransferKind::Download
+                },
                 state: if completed { DownloadState::Completed } else { DownloadState::Paused },
                 stream_path: None,
                 subtitles: entry.subtitles,
@@ -71,7 +75,7 @@ impl Gateway {
                 queue: entry.queue,
                 resume_position,
             });
-            self.next_download_id.fetch_max(id.saturating_add(1), Ordering::SeqCst);
+            self.next_download_id.fetch_max(id.raw().saturating_add(1), Ordering::SeqCst);
         }
         drop(downloads);
         self.emit(GatewayEvent::DownloadsChanged);

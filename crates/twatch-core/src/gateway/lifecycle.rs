@@ -1,7 +1,7 @@
 use super::*;
 
 impl Gateway {
-    pub async fn pause_download(&self, id: u64) -> GatewayResult<()> {
+    pub async fn pause_download(&self, id: DownloadId) -> GatewayResult<()> {
         let torrent_id = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             downloads
@@ -16,9 +16,7 @@ impl Gateway {
         {
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
-                entry.state = DownloadState::Paused;
-                entry.speed = 0;
-                entry.speed_ema = 0.0;
+                entry.mark_paused();
             }
         }
         self.emit(GatewayEvent::DownloadsChanged);
@@ -26,8 +24,8 @@ impl Gateway {
         Ok(())
     }
 
-    pub async fn resume_download(&self, id: u64) -> GatewayResult<()> {
-        let (torrent_id, is_streaming, url, file_index, file_indices, subtitles, output_subfolder) = {
+    pub async fn resume_download(&self, id: DownloadId) -> GatewayResult<()> {
+        let (torrent_id, kind, url, file_index, file_indices, subtitles, output_subfolder) = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             let entry = downloads
                 .iter()
@@ -35,7 +33,7 @@ impl Gateway {
                 .ok_or(GatewayError::DownloadNotFound)?;
             (
                 entry.torrent_id,
-                entry.is_streaming,
+                entry.kind,
                 entry.url.clone(),
                 entry.file_index,
                 entry.file_indices.clone(),
@@ -49,7 +47,7 @@ impl Gateway {
             {
                 let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
                 if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
-                    entry.state = if entry.is_streaming {
+                    entry.state = if kind.is_streaming() {
                         DownloadState::Streaming
                     } else {
                         DownloadState::Downloading
@@ -80,7 +78,7 @@ impl Gateway {
         let torrent = self.torrent.clone();
         let tx = self.internal_tx.clone();
         self.spawner.spawn(Box::pin(async move {
-            if is_streaming {
+            if kind.is_streaming() {
                 let subtitle_indices: Vec<usize> =
                     subtitles.iter().map(|track| track.index).collect();
                 match torrent.download_with_extra(&url, file_index, &subtitle_indices).await {
@@ -117,7 +115,7 @@ impl Gateway {
         Ok(())
     }
 
-    pub async fn remove_download(&self, id: u64) -> GatewayResult<()> {
+    pub async fn remove_download(&self, id: DownloadId) -> GatewayResult<()> {
         let entry = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             downloads
@@ -154,7 +152,7 @@ impl Gateway {
 
         let should_stop = {
             let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
-            if state.download_id == Some(id) {
+            if state.download_id == Some(id.raw()) {
                 state.title = None;
                 state.stream_path = None;
                 state.download_id = None;

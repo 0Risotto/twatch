@@ -20,7 +20,7 @@ use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::search::{SearchConfig, SearchResult};
 use twatch_core::domain::torrent::ports::TorrentPort;
 use twatch_core::domain::torrent::{TorrentFile, TorrentId, TorrentInfo, TorrentStats};
-use twatch_core::gateway::{DownloadState, Gateway};
+use twatch_core::gateway::{DownloadId, DownloadState, Gateway};
 
 struct MockTorrent {
     stats: Mutex<TorrentStats>,
@@ -465,7 +465,7 @@ async fn downloads_are_restored_paused_and_can_resume() {
     assert_eq!(download.state, DownloadState::Paused);
     assert!(download.stream_path.is_none());
 
-    restored.resume_download(1).await.unwrap();
+    restored.resume_download(DownloadId::new(1)).await.unwrap();
     tokio::time::sleep(Duration::from_millis(50)).await;
     restored.tick();
     let download = &restored.downloads()[0];
@@ -482,7 +482,7 @@ async fn remove_download_calls_engine() {
     tokio::time::sleep(Duration::from_millis(50)).await;
     gateway.tick();
 
-    gateway.remove_download(1).await.unwrap();
+    gateway.remove_download(DownloadId::new(1)).await.unwrap();
     assert!(gateway.downloads().is_empty());
 }
 
@@ -498,7 +498,7 @@ async fn removing_download_clears_session_activity() {
     let session = gateway.session().unwrap();
     assert!(session.files[0].downloading);
 
-    gateway.remove_download(1).await.unwrap();
+    gateway.remove_download(DownloadId::new(1)).await.unwrap();
 
     let session = gateway.session().unwrap();
     assert!(!session.files[0].downloading);
@@ -514,7 +514,7 @@ async fn removing_before_ready_removes_the_engine_torrent() {
     gateway.download_files(&[0]).unwrap();
     tokio::time::sleep(Duration::from_millis(20)).await;
 
-    gateway.remove_download(1).await.unwrap();
+    gateway.remove_download(DownloadId::new(1)).await.unwrap();
     torrent.release.notify_one();
     tokio::time::sleep(Duration::from_millis(20)).await;
     gateway.tick();
@@ -598,7 +598,7 @@ async fn player_can_open_and_stop_a_ready_stream() {
     tokio::time::sleep(Duration::from_millis(20)).await;
     gateway.tick();
 
-    let player = gateway.open_player(1, "http://127.0.0.1:7878").unwrap();
+    let player = gateway.open_player(DownloadId::new(1), "http://127.0.0.1:7878").unwrap();
     assert!(player.running);
     assert_eq!(player.download_id, Some(1));
     assert_eq!(player.stream_path.as_deref(), Some("/api/stream/7/0"));
