@@ -56,3 +56,26 @@ test('renders the mobile navigation', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'mobile project only')
   await expect(page.getByRole('navigation', { name: 'Main navigation' }).last()).toBeVisible()
 })
+
+test('opens search and shows the configure state', async ({ page }) => {
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .first()
+    .getByRole('link', { name: 'Search' })
+    .click()
+  await expect(page).toHaveURL(/\/search$/)
+  await expect(page.getByRole('heading', { name: 'Find something worth watching' })).toBeVisible()
+  await expect(page.getByText('Connect a search API').first()).toBeVisible()
+})
+
+test('persists the selected theme', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'theme persistence is covered in the desktop project')
+  await page.goto('/settings')
+  await page.getByRole('button', { name: /^Appearance/ }).click()
+  const card = page.locator('[data-theme="gruvbox-dark"]').first()
+  await card.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'gruvbox-dark')
+
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'gruvbox-dark')
+})
