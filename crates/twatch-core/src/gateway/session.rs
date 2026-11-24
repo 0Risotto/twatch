@@ -2,7 +2,7 @@ use super::*;
 
 impl Gateway {
     /// Fetch metadata, remember it, and make it the current session.
-    pub async fn preview(&self, url: &str) -> Result<SessionSnapshot> {
+    pub async fn preview(&self, url: &str) -> GatewayResult<SessionSnapshot> {
         let info = self.torrent.preview(url).await?;
         self.history.add_entry(url, &info.name);
 
@@ -37,7 +37,7 @@ impl Gateway {
     }
 
     /// Open a history entry by fetching its metadata again.
-    pub async fn open_history(&self, url: &str) -> Result<SessionSnapshot> {
+    pub async fn open_history(&self, url: &str) -> GatewayResult<SessionSnapshot> {
         self.preview(url).await
     }
 
@@ -48,10 +48,10 @@ impl Gateway {
     }
 
     /// Select or deselect files by index.
-    pub fn select_files(&self, indices: &[usize], selected: bool) -> Result<()> {
+    pub fn select_files(&self, indices: &[usize], selected: bool) -> GatewayResult<()> {
         {
             let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_mut().context("No active torrent session")?;
+            let session = guard.as_mut().ok_or(GatewayError::NoSession)?;
             for &index in indices {
                 if let Some(slot) = session.selected.get_mut(index) {
                     *slot = selected;
@@ -63,10 +63,10 @@ impl Gateway {
     }
 
     /// Select every file (or clear the selection).
-    pub fn select_all(&self, selected: bool) -> Result<()> {
+    pub fn select_all(&self, selected: bool) -> GatewayResult<()> {
         {
             let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_mut().context("No active torrent session")?;
+            let session = guard.as_mut().ok_or(GatewayError::NoSession)?;
             session.selected.fill(selected);
         }
         self.emit(GatewayEvent::SessionChanged);

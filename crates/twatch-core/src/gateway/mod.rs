@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc};
 
@@ -29,6 +29,7 @@ use crate::theme::{self, ThemeSpec};
 
 mod config;
 mod downloads;
+mod error;
 mod files;
 mod history;
 mod lifecycle;
@@ -37,6 +38,8 @@ mod player;
 mod search;
 mod session;
 mod tick;
+
+pub use error::{GatewayError, GatewayResult};
 
 /// Lifecycle state shown in the downloads UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

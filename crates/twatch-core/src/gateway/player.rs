@@ -3,16 +3,16 @@ use super::*;
 impl Gateway {
     // ── Player ───────────────────────────────────────────────────────
 
-    pub fn open_player(&self, download_id: u64, base_url: &str) -> Result<PlayerSnapshot> {
+    pub fn open_player(&self, download_id: u64, base_url: &str) -> GatewayResult<PlayerSnapshot> {
         let download = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             downloads
                 .iter()
                 .find(|entry| entry.id == download_id)
                 .map(DownloadEntry::snapshot)
-                .context("Download not found")?
+                .ok_or(GatewayError::DownloadNotFound)?
         };
-        let stream_path = download.stream_path.clone().context("Stream is not ready yet")?;
+        let stream_path = download.stream_path.clone().ok_or(GatewayError::StreamNotReady)?;
         let url = format!("{}{}", base_url.trim_end_matches('/'), stream_path);
 
         self.player.play(&url, &download.label);

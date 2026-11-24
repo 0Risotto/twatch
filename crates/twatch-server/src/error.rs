@@ -4,6 +4,7 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
+use twatch_core::gateway::GatewayError;
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -38,27 +39,31 @@ impl ApiError {
     }
 }
 
+impl From<GatewayError> for ApiError {
+    fn from(error: GatewayError) -> Self {
+        let status = match &error {
+            GatewayError::NoSession
+            | GatewayError::NoFilesSelected
+            | GatewayError::NoMatchingFiles
+            | GatewayError::UnknownTheme(_)
+            | GatewayError::UnknownPlayer(_)
+            | GatewayError::InvalidFileNameLength
+            | GatewayError::InvalidFileNameCharacters
+            | GatewayError::InvalidFileName => StatusCode::BAD_REQUEST,
+            GatewayError::FileNotFound
+            | GatewayError::DownloadNotFound
+            | GatewayError::HistoryNotFound => StatusCode::NOT_FOUND,
+            GatewayError::StreamNotReady => StatusCode::CONFLICT,
+            GatewayError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        Self { status, message: error.to_string() }
+    }
+}
+
 impl From<anyhow::Error> for ApiError {
     fn from(error: anyhow::Error) -> Self {
         tracing::warn!("API error: {error:#}");
-        let message = error.to_string();
-        let status = if message.contains("not found") || message.contains("Not found") {
-            StatusCode::NOT_FOUND
-        } else if message.contains("No active torrent session")
-            || message.contains("No files selected")
-            || message.contains("File not found")
-            || message.contains("Download not found")
-            || message.contains("History entry not found")
-            || message.contains("Unknown theme")
-            || message.contains("Unknown player")
-            || message.contains("File name must be")
-            || message.contains("Invalid file name")
-        {
-            StatusCode::BAD_REQUEST
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR
-        };
-        Self { status, message }
+        Self { status: StatusCode::INTERNAL_SERVER_ERROR, message: error.to_string() }
     }
 }
 

@@ -4,11 +4,11 @@ impl Gateway {
     // ── Downloads ────────────────────────────────────────────────────
 
     /// Start downloading one file for streaming.
-    pub fn watch_file(&self, index: usize) -> Result<DownloadSnapshot> {
+    pub fn watch_file(&self, index: usize) -> GatewayResult<DownloadSnapshot> {
         let (url, torrent_name, file, subtitles, queue) = {
             let guard = self.session.read().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_ref().context("No active torrent session")?;
-            let file = session.files.get(index).context("File not found")?.clone();
+            let session = guard.as_ref().ok_or(GatewayError::NoSession)?;
+            let file = session.files.get(index).ok_or(GatewayError::FileNotFound)?.clone();
             let subtitles = collect_subtitles(&session.files);
             let queue = playable_queue(&session.files);
             (session.url.clone(), session.name.clone(), file, subtitles, queue)
@@ -76,19 +76,19 @@ impl Gateway {
     }
 
     /// Start a batch download of the selected files.
-    pub fn download_files(&self, indices: &[usize]) -> Result<DownloadSnapshot> {
+    pub fn download_files(&self, indices: &[usize]) -> GatewayResult<DownloadSnapshot> {
         if indices.is_empty() {
-            bail!("No files selected");
+            return Err(GatewayError::NoFilesSelected);
         }
 
         let download_dir = self.config().download_dir;
         let (url, torrent_name, output_dir, output_subfolder, file_names, total_size, subtitles) = {
             let guard = self.session.read().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_ref().context("No active torrent session")?;
+            let session = guard.as_ref().ok_or(GatewayError::NoSession)?;
             let files: Vec<TorrentFile> =
                 indices.iter().filter_map(|index| session.files.get(*index).cloned()).collect();
             if files.is_empty() {
-                bail!("No matching files");
+                return Err(GatewayError::NoMatchingFiles);
             }
             let names: Vec<String> = files.iter().map(|f| f.name.clone()).collect();
             let total: u64 = files.iter().map(|f| f.size).sum();

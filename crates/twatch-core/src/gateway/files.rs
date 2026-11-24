@@ -58,19 +58,19 @@ impl Gateway {
     }
 
     /// Rename one file on disk and in the session/history.
-    pub fn rename_file(&self, index: usize, new_name: &str) -> Result<String> {
+    pub fn rename_file(&self, index: usize, new_name: &str) -> GatewayResult<String> {
         if new_name.is_empty() || new_name.len() > 256 {
-            bail!("File name must be between 1 and 256 characters");
+            return Err(GatewayError::InvalidFileNameLength);
         }
         if new_name.contains('/') || new_name.contains('\\') || new_name.contains('\0') {
-            bail!("File name cannot contain path separators");
+            return Err(GatewayError::InvalidFileNameCharacters);
         }
 
         let download_dir = self.config().download_dir;
         let (url, old_name, old_path, new_path, root) = {
             let guard = self.session.read().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_ref().context("No active torrent session")?;
-            let old = session.files.get(index).context("File not found")?.clone();
+            let session = guard.as_ref().ok_or(GatewayError::NoSession)?;
+            let old = session.files.get(index).ok_or(GatewayError::FileNotFound)?.clone();
             let root = session.download_root_dir(&download_dir);
             let old_path = root.join(&old.name);
             let new_path = root.join(new_name);
@@ -78,19 +78,19 @@ impl Gateway {
         };
 
         if !new_path.starts_with(&root) {
-            bail!("Invalid file name");
+            return Err(GatewayError::InvalidFileName);
         }
 
         if old_path.exists() {
             if let Some(parent) = new_path.parent() {
-                std::fs::create_dir_all(parent)?;
+                std::fs::create_dir_all(parent).map_err(anyhow::Error::from)?;
             }
-            std::fs::rename(&old_path, &new_path)?;
+            std::fs::rename(&old_path, &new_path).map_err(anyhow::Error::from)?;
         }
 
         {
             let mut guard = self.session.write().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_mut().context("No active torrent session")?;
+            let session = guard.as_mut().ok_or(GatewayError::NoSession)?;
             if let Some(file) = session.files.iter_mut().find(|file| file.index == index) {
                 file.name = new_name.to_owned();
             }

@@ -6,24 +6,24 @@ impl Gateway {
         self.history.history()
     }
 
-    pub fn rename_history(&self, url: &str, name: &str) -> Result<()> {
+    pub fn rename_history(&self, url: &str, name: &str) -> GatewayResult<()> {
         let index = self
             .history
             .history()
             .iter()
             .position(|entry| entry.url == url)
-            .context("History entry not found")?;
-        self.history.rename_entry(index, name)
+            .ok_or(GatewayError::HistoryNotFound)?;
+        Ok(self.history.rename_entry(index, name)?)
     }
 
-    pub fn delete_history(&self, url: &str) -> Result<()> {
+    pub fn delete_history(&self, url: &str) -> GatewayResult<()> {
         let index = self
             .history
             .history()
             .iter()
             .position(|entry| entry.url == url)
-            .context("History entry not found")?;
-        self.history.remove_entry(index)
+            .ok_or(GatewayError::HistoryNotFound)?;
+        Ok(self.history.remove_entry(index)?)
     }
 
     /// Persist the resume position for one file in the history entry.

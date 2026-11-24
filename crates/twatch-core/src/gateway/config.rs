@@ -3,9 +3,9 @@ use super::*;
 impl Gateway {
     // ── Config ───────────────────────────────────────────────────────
 
-    pub fn update_theme(&self, name: &str) -> Result<()> {
+    pub fn update_theme(&self, name: &str) -> GatewayResult<()> {
         if theme::find(name).is_none() {
-            bail!("Unknown theme: {name}");
+            return Err(GatewayError::UnknownTheme(name.to_owned()));
         }
         let config = {
             let mut guard = self.config.write().unwrap_or_else(|e| e.into_inner());
@@ -16,9 +16,9 @@ impl Gateway {
         Ok(())
     }
 
-    pub fn update_player(&self, player: &str) -> Result<()> {
+    pub fn update_player(&self, player: &str) -> GatewayResult<()> {
         if !matches!(player, "auto" | "mpv" | "vlc" | "none") {
-            bail!("Unknown player preference: {player}");
+            return Err(GatewayError::UnknownPlayer(player.to_owned()));
         }
         let config = {
             let mut guard = self.config.write().unwrap_or_else(|e| e.into_inner());

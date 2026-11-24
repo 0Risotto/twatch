@@ -1,10 +1,14 @@
 use super::*;
 
 impl Gateway {
-    pub async fn pause_download(&self, id: u64) -> Result<()> {
+    pub async fn pause_download(&self, id: u64) -> GatewayResult<()> {
         let torrent_id = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
-            downloads.iter().find(|entry| entry.id == id).context("Download not found")?.torrent_id
+            downloads
+                .iter()
+                .find(|entry| entry.id == id)
+                .ok_or(GatewayError::DownloadNotFound)?
+                .torrent_id
         };
         if let Some(torrent_id) = torrent_id {
             self.torrent.pause(&torrent_id).await?;
@@ -22,11 +26,13 @@ impl Gateway {
         Ok(())
     }
 
-    pub async fn resume_download(&self, id: u64) -> Result<()> {
+    pub async fn resume_download(&self, id: u64) -> GatewayResult<()> {
         let (torrent_id, is_streaming, url, file_index, file_indices, subtitles, output_subfolder) = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
-            let entry =
-                downloads.iter().find(|entry| entry.id == id).context("Download not found")?;
+            let entry = downloads
+                .iter()
+                .find(|entry| entry.id == id)
+                .ok_or(GatewayError::DownloadNotFound)?;
             (
                 entry.torrent_id,
                 entry.is_streaming,
@@ -111,7 +117,7 @@ impl Gateway {
         Ok(())
     }
 
-    pub async fn remove_download(&self, id: u64) -> Result<()> {
+    pub async fn remove_download(&self, id: u64) -> GatewayResult<()> {
         let entry = {
             let downloads = self.downloads.read().unwrap_or_else(|e| e.into_inner());
             downloads
