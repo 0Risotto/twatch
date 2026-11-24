@@ -101,7 +101,7 @@ jobs:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - run: cargo llvm-cov --workspace --exclude twatch-app --all-features --lcov --output-path lcov.info --fail-under-lines 43
+      - run: cargo llvm-cov --workspace --exclude twatch-app --all-features --lcov --output-path lcov.info --fail-under-lines 51
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
