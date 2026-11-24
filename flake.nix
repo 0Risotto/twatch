@@ -1,5 +1,5 @@
 {
-  description = "twatch — terminal and web torrent streaming client";
+  description = "twatch — desktop and web torrent streaming client";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -16,13 +16,13 @@
       packages = forAllSystems (
         pkgs:
         let
-          twatch = pkgs.callPackage ./nix/package.nix { };
+          twatchd = pkgs.callPackage ./nix/package.nix { };
           twatchApp = pkgs.callPackage ./nix/tauri.nix { };
-          twatchElectron = pkgs.callPackage ./nix/electron.nix { inherit twatch; };
+          twatchElectron = pkgs.callPackage ./nix/electron.nix { inherit twatchd; };
         in
         {
           default = twatchElectron;
-          inherit twatch;
+          inherit twatchd;
           twatch-app = twatchApp;
           twatch-electron = twatchElectron;
         }
@@ -32,7 +32,7 @@
         pkgs:
         let
           packages = self.packages.${pkgs.stdenv.hostPlatform.system};
-          twatch = packages.twatch;
+          twatchd = packages.twatchd;
           twatchApp = packages.twatch-app;
           twatchElectron = packages.twatch-electron;
         in
@@ -42,15 +42,10 @@
             program = "${twatchElectron}/bin/twatch-electron";
             meta = twatchElectron.meta;
           };
-          twatch = {
-            type = "app";
-            program = "${twatch}/bin/twatch";
-            meta = twatch.meta;
-          };
           twatchd = {
             type = "app";
-            program = "${twatch}/bin/twatchd";
-            meta = twatch.meta;
+            program = "${twatchd}/bin/twatchd";
+            meta = twatchd.meta;
           };
           twatch-app = {
             type = "app";

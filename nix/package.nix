@@ -11,7 +11,7 @@
   go,
 }:
 let
-  version = "0.1.0";
+  version = "0.2.0";
 
   sourceFilter =
     path: type:
@@ -47,7 +47,7 @@ let
 
 in
 rustPlatform.buildRustPackage {
-  pname = "twatch";
+  pname = "twatchd";
   inherit version;
 
   src = lib.cleanSourceWith {
@@ -72,8 +72,6 @@ rustPlatform.buildRustPackage {
 
   cargoBuildFlags = [
     "-p"
-    "twatch"
-    "-p"
     "twatchd"
     "--features"
     "twatchd/embed-web"
@@ -82,12 +80,6 @@ rustPlatform.buildRustPackage {
   doCheck = false;
 
   postInstall = ''
-    wrapProgram $out/bin/twatch --prefix PATH : ${
-      lib.makeBinPath [
-        mpv
-        xdg-utils
-      ]
-    }
     wrapProgram $out/bin/twatchd --prefix PATH : ${
       lib.makeBinPath [
         mpv
@@ -97,7 +89,7 @@ rustPlatform.buildRustPackage {
   '';
 
   meta = {
-    description = "Terminal and web torrent streaming client";
+    description = "twatch daemon with the embedded web console";
     homepage = "https://github.com/0Risotto/twatch";
     license = lib.licenses.asl20;
     mainProgram = "twatchd";

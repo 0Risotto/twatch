@@ -1,11 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
 use std::sync::Mutex;
-use twatch::domain::history::ports::HistoryPort;
-use twatch::model::display_name;
-use twatch::service::storage::{RealStorage, StorageState};
-
-mod common;
+use twatch_core::domain::history::ports::HistoryPort;
+use twatch_core::model::display_name;
+use twatch_engine::service::storage::{RealStorage, StorageState};
 
 fn test_storage(tmp: &std::path::Path, file: &str) -> RealStorage {
     let state = StorageState::new(tmp.to_path_buf(), file).unwrap();
@@ -70,20 +68,4 @@ fn remove_entry_shrinks_list() {
     assert_eq!(s.history()[0].url, "magnet:b");
 
     let _ = std::fs::remove_dir_all(&tmp);
-}
-
-#[test]
-fn mock_storage_crud() {
-    let s = common::storage::MockStorageService::new();
-    assert!(s.history().is_empty());
-
-    s.add_entry("magnet:a", "Alpha");
-    s.add_entry("magnet:b", "Beta");
-    assert_eq!(s.history().len(), 2);
-
-    s.rename_entry(0, "Renamed").unwrap();
-    assert_eq!(display_name(&s.history()[0]), "Renamed");
-
-    s.remove_entry(1).unwrap();
-    assert_eq!(s.history().len(), 1);
 }

@@ -1,8 +1,8 @@
 //! `FileTree` tests: folder projection, expansion, and fuzzy matching.
 
-use twatch::domain::torrent::DisplayEntry;
-use twatch::domain::torrent::TorrentFile;
-use twatch::domain::torrent::file_tree::{FileTree, entry_matches};
+use twatch_core::domain::torrent::DisplayEntry;
+use twatch_core::domain::torrent::TorrentFile;
+use twatch_core::domain::torrent::file_tree::{FileTree, entry_matches};
 
 fn file(index: usize, name: &str) -> TorrentFile {
     TorrentFile { index, name: name.to_string(), size: 10 }

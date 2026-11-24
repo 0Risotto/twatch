@@ -52,8 +52,8 @@ default is Emerald dark (`emerald-dark`).
 
 `src/lib/themes.ts` owns the base list and the id splitting. The server also
 exposes the catalogue at `GET /api/themes` and stores the selected variant in
-`web_theme` in `config.json`; the terminal client's own `theme` field is
-separate.
+`web_theme` in `config.json`. The legacy `theme` field is ignored by the
+daemon and is kept only for old config compatibility.
 
 ## Cover art
 

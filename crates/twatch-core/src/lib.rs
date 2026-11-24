@@ -1,7 +1,7 @@
 //! Pure domain and application services for twatch.
 //!
-//! This crate has no dependency on terminal or HTTP presentation.  The TUI,
-//! the web gateway, and tests all share it.
+//! This crate has no dependency on HTTP or desktop presentation.  The daemon,
+//! the desktop shells, and tests all share it.
 
 pub mod config;
 pub mod domain;

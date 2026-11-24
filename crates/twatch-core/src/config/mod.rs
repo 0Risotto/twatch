@@ -15,11 +15,10 @@ fn default_theme() -> String {
 }
 
 /// Constructed via [`Config::load()`], which merges a JSON config file
-/// with these defaults.  Set fields before calling [`crate::app::run`]
-/// to further customise behaviour.
+/// with these defaults.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Path to the tracing log file (default: `$XDG_STATE_HOME/twatch/twatch.log`).
+    /// Legacy TUI log path, kept so older config files still deserialize.
     #[serde(default)]
     pub log_path: PathBuf,
     /// Tracing filter level (default: `"info"`).
@@ -37,12 +36,10 @@ pub struct Config {
     /// Base filename for the history JSON file inside `config_dir` (default: `"history.json"`).
     #[serde(default = "default_history_filename")]
     pub history_filename: String,
-    /// Theme name for the terminal client (default: `"tokyonight-dark"`).
+    /// Legacy TUI theme name, kept so older config files still deserialize.
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Theme name for the web UI (default: `"mono-dark"`). Kept separate
-    /// from the TUI theme so the browser can use the built-in palette catalogue
-    /// without forcing the terminal palette to change.
+    /// Theme name for the web UI (default: `"mono-dark"`).
     #[serde(default = "default_web_theme")]
     pub web_theme: String,
     /// External player preference: `auto`, `mpv`, `vlc`, or `none`.

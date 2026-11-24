@@ -4,14 +4,14 @@
   makeWrapper,
   makeDesktopItem,
   electron,
-  twatch,
+  twatchd,
 }:
 let
-  version = "0.1.0";
+  version = "0.2.0";
   desktopItem = makeDesktopItem {
     name = "twatch";
     desktopName = "twatch";
-    comment = "Terminal and web torrent streaming client";
+    comment = "Desktop torrent streaming client";
     exec = "twatch-electron";
     icon = "twatch";
     terminal = false;
@@ -50,7 +50,7 @@ stdenv.mkDerivation {
     makeWrapper ${electron}/bin/electron $out/bin/twatch-electron \
       --add-flags "--no-sandbox" \
       --add-flags "$out/share/twatch-electron/main.js" \
-      --set TWATCHD_BIN ${twatch}/bin/twatchd
+      --set TWATCHD_BIN ${twatchd}/bin/twatchd
     install -Dm644 ${../electron/build/icons/512x512.png} $out/share/icons/hicolor/512x512/apps/twatch.png
     install -Dm644 ${desktopItem}/share/applications/twatch.desktop $out/share/applications/twatch.desktop
     runHook postInstall

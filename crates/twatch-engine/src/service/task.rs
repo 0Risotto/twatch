@@ -7,8 +7,8 @@ use std::pin::Pin;
 use shaku::{Component, Module, ModuleBuildContext};
 use twatch_core::domain::common::spawner::TaskSpawner;
 
-/// Spawns background futures onto either an owned runtime (the TUI) or the
-/// current runtime handle (the daemon, which already runs inside tokio).
+/// Spawns background futures onto either an owned runtime or the current
+/// runtime handle (the daemon already runs inside tokio).
 pub struct TokioTaskSpawner {
     pub rt: Option<tokio::runtime::Runtime>,
     pub handle: Option<tokio::runtime::Handle>,

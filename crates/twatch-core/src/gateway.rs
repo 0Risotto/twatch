@@ -1,7 +1,8 @@
-//! Headless application gateway shared by `twatchd` and, eventually, the TUI.
+//! Headless application gateway shared by `twatchd`, the desktop shells, and
+//! tests.
 //!
 //! The gateway owns the current browse session, the live download registry, the
-//! player state, and the event stream.  It has no HTTP or terminal types in it;
+//! player state, and the event stream.  It has no HTTP or UI types in it;
 //! `twatch-server` turns these snapshots into JSON and WebSocket frames.
 
 use std::fs;

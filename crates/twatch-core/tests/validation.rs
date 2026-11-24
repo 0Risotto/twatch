@@ -1,4 +1,4 @@
-use twatch::model::{fuzzy_match, validate_torrent_input};
+use twatch_core::model::{fuzzy_match, validate_torrent_input};
 
 #[test]
 fn magnet_link_passes() {

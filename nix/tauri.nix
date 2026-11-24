@@ -26,7 +26,7 @@
   runtimeShell,
 }:
 let
-  version = "0.1.0";
+  version = "0.2.0";
 
   sourceFilter =
     path: type:
@@ -63,7 +63,7 @@ let
   desktopItem = makeDesktopItem {
     name = "twatch";
     desktopName = "twatch";
-    comment = "Terminal and web torrent streaming client";
+    comment = "Desktop torrent streaming client";
     exec = "twatch-app";
     icon = "twatch";
     terminal = false;

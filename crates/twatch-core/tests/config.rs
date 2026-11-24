@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used)]
 
 use std::fs;
-use twatch::config::Config;
+use twatch_core::config::Config;
 
 fn tmp_dir() -> std::path::PathBuf {
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);

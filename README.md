@@ -1,10 +1,14 @@
 # twatch
 
-Terminal and web torrent streaming client. Browse, preview, stream, and
-download torrents from your terminal or a local browser console.
+Desktop and web torrent streaming client. Browse, preview, stream, and
+download torrents from the Electron app or a local browser console.
 
 The backend is Rust: `librqbit` for the engine, `tokio` for async work, and an
 `axum` gateway for the web client. There is no Node server at runtime.
+
+The terminal UI was retired in 0.2.0. Use the desktop app, or run the headless
+daemon with `twatchd --open`. Existing config, history, downloads, and session
+data are unchanged.
 
 ## Prerequisites
 
@@ -29,11 +33,9 @@ nix build
 ./result/bin/twatch-electron
 ```
 
-The flake also exposes the terminal client, the headless web daemon, and the
-older Tauri shell:
+The flake also exposes the headless web daemon and the older Tauri shell:
 
 ```bash
-nix run .#twatch
 nix run .#twatchd -- --open
 nix run .#twatch-app
 ```
@@ -62,15 +64,6 @@ an input:
     };
   };
 }
-```
-
-### Terminal client
-
-```bash
-git clone https://github.com/0Risotto/twatch.git
-cd twatch
-cargo build --release
-./target/release/twatch
 ```
 
 ### Web console
@@ -174,7 +167,6 @@ cargo test --workspace
 ## Architecture
 
 ```
-src/                     TUI client (ratatui) + facade re-exports
 crates/
 ├── twatch-core/         Pure domain, config, theme catalogue, headless Gateway
 │   ├── domain/            entities, value objects, ports (no I/O/UI)
@@ -185,18 +177,18 @@ crates/
 │   └── stream.rs          range-capable FileStream facade
 ├── twatch-server/       axum REST + WebSocket + static SPA + range streaming
 ├── twatch-app/          Tauri desktop shell with an in-process gateway
-└── twatchd/             Web daemon binary
+└── twatchd/             Headless daemon binary
+electron/                Electron desktop shell with the daemon sidecar
 web/                     React 19 + TypeScript + Vite + Tailwind + Motion SPA
 docs/web-api.md          Gateway endpoint, WebSocket, auth, and range contracts
 ```
 
-The TUI still uses the layered domain/application/screen stack documented
-below. The web daemon uses `twatch-core::gateway::Gateway`, which owns the
-current browse session, the download registry, and the live event stream.
+The daemon and desktop shells use `twatch-core::gateway::Gateway`, which owns
+the current browse session, the download registry, and the live event stream.
 
 ```
 Browser (React + Motion) ── HTTP + WebSocket ──┐
-TUI (ratatui) ── in-process ──────────────────┤
+Electron / Tauri ── in-process or sidecar ────┤
                                               ▼
                                    twatchd (Rust)
                                    ├─ SessionService
@@ -207,22 +199,15 @@ TUI (ratatui) ── in-process ────────────────
                                    └─ librqbit + range stream
 ```
 
-**TUI design points**
+**Design points**
 
-- **Navigation stack**: every screen (including popups) is a `Screen` pushed
-  on a stack. Esc/q pops back to where you came from.
-- **Open/Closed**: adding a screen = one new module (state machine + view model)
-  plus one row in `screens/registry.rs`. Each screen implements
-  `Screen::render`, which delegates to a pure renderer in `ui/`.
-- **Separation of concerns**: UI files render pure view models produced by the
-  screens; services live behind ports.
 - **Swappable tools**: `TorrentPort`, `StreamPort`, `HistoryPort`,
   `PlayerPort`, `SearchPort`, and `TaskSpawner` keep engine/player/storage
   choices behind one adapter boundary.
 
 **Web design points**
 
-- The gateway is headless: `twatch-core` has no `ratatui`, `axum`, or screen
+- The gateway is headless: `twatch-core` has no UI or HTTP framework
   dependency.
 - Progress is coalesced at 4 Hz and the UI interpolates between ticks, instead
   of pushing 60 updates per second.
@@ -255,17 +240,17 @@ TUI (ratatui) ── in-process ────────────────
 - The built-in catalogue lives in `web/src/styles/themes.css`: 27 base themes,
   each with dark and light variants, including Tokyo Night, Kanagawa, Nord,
   Gruvbox, Catppuccin, Purple, Emerald, Ocean, Forest, Sunset, Sakura and Coffee.
-  Default: Emerald dark. The TUI keeps its own palette in `src/ui/theme.rs`.
+  Default: Emerald dark.
 - Motion uses short durations and springs (120–320 ms), respects
   `prefers-reduced-motion`, and has a Settings override.
 
-Dependency injection for the TUI uses [shaku](https://crates.io/crates/shaku).
+Dependency injection uses [shaku](https://crates.io/crates/shaku).
 
 ## Data
 
 - History:    `$XDG_CONFIG_HOME/twatch/history.json`
 - Session:    `$XDG_CACHE_HOME/twatch/session/`
-- Logs:       `$XDG_STATE_HOME/twatch/twatch.log`
+- Daemon logs: stdout, or `twatchd.log` in the Electron logs directory
 - Downloads:  `$XDG_DOWNLOAD_DIR/twatch/`
 - Web token:  `$XDG_CONFIG_HOME/twatch/server-token`
 - Web theme:  `web_theme` in `$XDG_CONFIG_HOME/twatch/config.json`
