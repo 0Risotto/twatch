@@ -81,8 +81,3 @@ pub const fn all() -> &'static [ThemeSpec] {
 pub fn find(name: &str) -> Option<&'static ThemeSpec> {
     THEMES.iter().find(|theme| theme.name == name)
 }
-
-#[must_use]
-pub const fn default_theme() -> &'static str {
-    "mono-dark"
-}

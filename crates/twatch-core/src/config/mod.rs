@@ -10,20 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::PathBuf;
 
-fn default_theme() -> String {
-    "tokyonight-dark".into()
-}
-
 /// Constructed via [`Config::load()`], which merges a JSON config file
 /// with these defaults.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// Legacy TUI log path, kept so older config files still deserialize.
-    #[serde(default)]
-    pub log_path: PathBuf,
-    /// Tracing filter level (default: `"info"`).
-    #[serde(default = "default_log_level")]
-    pub log_level: String,
     /// Directory for the librqbit session state (default: `$XDG_CACHE_HOME/twatch/session`).
     #[serde(default)]
     pub session_path: PathBuf,
@@ -36,19 +26,12 @@ pub struct Config {
     /// Base filename for the history JSON file inside `config_dir` (default: `"history.json"`).
     #[serde(default = "default_history_filename")]
     pub history_filename: String,
-    /// Legacy TUI theme name, kept so older config files still deserialize.
-    #[serde(default = "default_theme")]
-    pub theme: String,
     /// Theme name for the web UI (default: `"mono-dark"`).
     #[serde(default = "default_web_theme")]
     pub web_theme: String,
     /// External player preference: `auto`, `mpv`, `vlc`, or `none`.
     #[serde(default = "default_player")]
     pub player: String,
-}
-
-fn default_log_level() -> String {
-    "info".into()
 }
 
 fn default_history_filename() -> String {
@@ -69,17 +52,13 @@ impl Default for Config {
         let config_dir = dirs::config_dir().unwrap_or_else(|| default_pb.clone()).join("twatch");
         let download_dir =
             dirs::download_dir().unwrap_or_else(|| default_pb.clone()).join("twatch");
-        let state_dir = dirs::state_dir().unwrap_or_else(|| default_pb.clone()).join("twatch");
         let cache_dir = dirs::cache_dir().unwrap_or_else(|| default_pb.clone()).join("twatch");
 
         Self {
-            log_path: state_dir.join("twatch.log"),
-            log_level: "info".to_string(),
             session_path: cache_dir.join("session"),
             config_dir,
             download_dir,
             history_filename: "history.json".to_string(),
-            theme: "tokyonight-dark".to_string(),
             web_theme: "mono-dark".to_string(),
             player: "auto".to_string(),
         }
@@ -152,13 +131,10 @@ impl Config {
 /// path or string means "not set" and keeps the default.
 fn merge_config(default: Config, user: Config) -> Config {
     Config {
-        log_path: or_default_path(&user.log_path, &default.log_path),
-        log_level: or_default_str(&user.log_level, &default.log_level),
         session_path: or_default_path(&user.session_path, &default.session_path),
         config_dir: or_default_path(&user.config_dir, &default.config_dir),
         download_dir: or_default_path(&user.download_dir, &default.download_dir),
         history_filename: or_default_str(&user.history_filename, &default.history_filename),
-        theme: or_default_str(&user.theme, &default.theme),
         web_theme: or_default_str(&user.web_theme, &default.web_theme),
         player: or_default_str(&user.player, &default.player),
     }

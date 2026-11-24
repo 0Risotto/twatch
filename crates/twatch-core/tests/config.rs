@@ -20,7 +20,6 @@ fn missing_file_yields_defaults() {
     let config = Config::load_from(&dir);
     let defaults = Config::default();
     assert_eq!(config.download_dir, defaults.download_dir);
-    assert_eq!(config.log_level, defaults.log_level);
     assert_eq!(config.history_filename, defaults.history_filename);
 }
 
@@ -41,8 +40,6 @@ fn user_fields_are_honored() {
     let config = Config::load_from(&dir);
     assert_eq!(config.download_dir, std::path::PathBuf::from("/custom/downloads"));
     assert_eq!(config.history_filename, "custom.json");
-    assert_eq!(config.theme, "nord-dark");
-    assert_eq!(config.log_level, "debug");
     // Unset path fields keep the built-in defaults.
     assert_eq!(config.session_path, Config::default().session_path);
 }
@@ -64,7 +61,6 @@ fn empty_fields_fall_back_to_defaults() {
     let config = Config::load_from(&dir);
     assert_eq!(config.download_dir, defaults.download_dir);
     assert_eq!(config.history_filename, defaults.history_filename);
-    assert_eq!(config.theme, defaults.theme);
 }
 
 #[test]
