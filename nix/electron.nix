@@ -7,7 +7,7 @@
   twatchd,
 }:
 let
-  version = "0.2.0";
+  version = "0.2.1";
   desktopItem = makeDesktopItem {
     name = "twatch";
     desktopName = "twatch";
