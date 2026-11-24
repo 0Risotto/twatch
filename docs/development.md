@@ -120,6 +120,17 @@ threshold. Raise the threshold with each batch of tests.
 cargo llvm-cov --workspace --all-features --summary-only
 ```
 
+## API types
+
+The web DTOs are generated from Rust:
+
+```bash
+TS_RS_EXPORT_DIR="$PWD/web/src/types/generated" \
+  cargo test -p twatch-core -p twatch-engine -p twatch-server export_bindings
+```
+
+CI fails if the generated files are stale. Do not edit them by hand.
+
 ## Versions
 
 All manifests must use the same version:

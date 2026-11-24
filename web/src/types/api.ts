@@ -1,163 +1,26 @@
-export type ThemeMode = 'dark' | 'light'
+import type { DownloadSnapshot } from './generated/DownloadSnapshot'
+import type { PlayerSnapshot } from './generated/PlayerSnapshot'
+import type { SessionSnapshot } from './generated/SessionSnapshot'
+import type { ToastLevel } from './generated/ToastLevel'
 
-export interface Palette {
-  bg: string
-  fg: string
-  surface: string
-  accent: string
-  textPrimary: string
-  textDimmed: string
-  inputCursor: string
-  success: string
-  warning: string
-  error: string
-  folder: string
-  gauge: string
-  border: string
-  hover: string
-  badgeDl: string
-  badgeStream: string
-}
-
-export interface ThemeSpec {
-  name: string
-  displayName: string
-  mode: ThemeMode
-}
-
-export interface FileSnapshot {
-  index: number
-  name: string
-  size: number
-  selected: boolean
-  watched: boolean
-  downloaded: boolean
-  downloading: boolean
-}
-
-export interface SessionSnapshot {
-  url: string
-  name: string
-  files: FileSnapshot[]
-  selectedCount: number
-  selectedSize: number
-  totalSize: number
-  downloadRoot: string | null
-}
-
-export interface SubtitleTrack {
-  index: number
-  name: string
-}
-
-export type DownloadState =
-  'starting' | 'downloading' | 'streaming' | 'paused' | 'completed' | 'failed'
-
-export interface QueueFile {
-  index: number
-  name: string
-  size: number
-}
-
-export interface DownloadSnapshot {
-  id: number
-  torrentId: number | null
-  torrentName: string
-  label: string
-  fileNames: string[]
-  url: string
-  progress: number
-  speed: number
-  uploadSpeed: number
-  peers: number
-  totalSize: number
-  downloaded: number
-  etaSeconds: number | null
-  isStreaming: boolean
-  state: DownloadState
-  streamPath: string | null
-  subtitles: SubtitleTrack[]
-  error: string | null
-  fileIndex: number
-  queue: QueueFile[]
-  resumePosition: number | null
-}
-
-export interface PlayerSnapshot {
-  running: boolean
-  title: string | null
-  streamPath: string | null
-  downloadId: number | null
-}
-
-export interface ConfigView {
-  theme: string
-  downloadDir: string
-  player: string
-}
-
-export interface BootstrapSnapshot {
-  version: string
-  config: ConfigView
-  session: SessionSnapshot | null
-  downloads: DownloadSnapshot[]
-  player: PlayerSnapshot
-  themes: ThemeSpec[]
-  searchConfigured: boolean
-}
-
-export interface PlaybackProgress {
-  position: number
-  duration: number
-  updatedAt: number
-}
-
-export interface HistoryEntry {
-  url: string
-  customName: string | null
-  torrentName: string
-  addedAt: number
-  watched: boolean
-  watchedFiles: string[]
-  downloaded: boolean
-  downloadedFiles: string[]
-  progress: Record<string, PlaybackProgress>
-}
-
-export interface SearchResult {
-  name: string
-  infoHash: string
-  seeders: number
-  leechers: number
-  size: number
-  username: string
-}
-
-export interface FieldMap {
-  name: string
-  infoHash: string
-  seeders: string
-  leechers: string
-  size: string
-  username: string
-}
-
-export interface SearchConfig {
-  url: string
-  headers: Record<string, string>
-  fieldMap: FieldMap
-}
-
-export interface CoverInfo {
-  query: string
-  title: string
-  url: string | null
-  provider: string
-  year: number | null
-  kind: string
-}
-
-export type ToastLevel = 'info' | 'success' | 'warning' | 'error'
+export type { BootstrapSnapshot } from './generated/BootstrapSnapshot'
+export type { ConfigView } from './generated/ConfigView'
+export type { Cover as CoverInfo } from './generated/Cover'
+export type { DownloadSnapshot } from './generated/DownloadSnapshot'
+export type { DownloadState } from './generated/DownloadState'
+export type { FieldMapDto as FieldMap } from './generated/FieldMapDto'
+export type { FileSnapshot } from './generated/FileSnapshot'
+export type { HistoryEntryDto as HistoryEntry } from './generated/HistoryEntryDto'
+export type { PlaybackProgress } from './generated/PlaybackProgress'
+export type { PlayerSnapshot } from './generated/PlayerSnapshot'
+export type { QueueFile } from './generated/QueueFile'
+export type { SearchConfigDto as SearchConfig } from './generated/SearchConfigDto'
+export type { SearchResult } from './generated/SearchResult'
+export type { SessionSnapshot } from './generated/SessionSnapshot'
+export type { SubtitleTrack } from './generated/SubtitleTrack'
+export type { ThemeMode } from './generated/ThemeMode'
+export type { ThemeSpec } from './generated/ThemeSpec'
+export type { ToastLevel } from './generated/ToastLevel'
 
 export interface ToastItem {
   id: number

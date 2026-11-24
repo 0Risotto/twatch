@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc};
+use ts_rs::TS;
 
 use crate::config::Config;
 use crate::domain::common::spawner::TaskSpawner;
@@ -42,8 +43,9 @@ mod tick;
 pub use error::{GatewayError, GatewayResult};
 
 /// Lifecycle state shown in the downloads UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub enum DownloadState {
     Starting,
     Downloading,
@@ -54,11 +56,13 @@ pub enum DownloadState {
 }
 
 /// A single file in the current torrent session.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct FileSnapshot {
     pub index: usize,
     pub name: String,
+    #[ts(type = "number")]
     pub size: u64,
     pub selected: bool,
     pub watched: bool,
@@ -67,39 +71,47 @@ pub struct FileSnapshot {
 }
 
 /// The currently browsed torrent.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct SessionSnapshot {
     pub url: String,
     pub name: String,
     pub files: Vec<FileSnapshot>,
     pub selected_count: usize,
+    #[ts(type = "number")]
     pub selected_size: u64,
+    #[ts(type = "number")]
     pub total_size: u64,
     pub download_root: Option<String>,
 }
 
 /// One subtitle file inside the torrent, addressable by its file index.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct SubtitleTrack {
     pub index: usize,
     pub name: String,
 }
 
 /// One playable file in the current torrent, used to build a next/previous queue.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct QueueFile {
     pub index: usize,
     pub name: String,
+    #[ts(type = "number")]
     pub size: u64,
 }
 
 /// A live or recently completed download.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct DownloadSnapshot {
+    #[ts(type = "number")]
     pub id: u64,
     pub torrent_id: Option<usize>,
     pub torrent_name: String,
@@ -107,11 +119,16 @@ pub struct DownloadSnapshot {
     pub file_names: Vec<String>,
     pub url: String,
     pub progress: f64,
+    #[ts(type = "number")]
     pub speed: u64,
+    #[ts(type = "number")]
     pub upload_speed: u64,
     pub peers: usize,
+    #[ts(type = "number")]
     pub total_size: u64,
+    #[ts(type = "number")]
     pub downloaded: u64,
+    #[ts(type = "number | null")]
     pub eta_seconds: Option<u64>,
     pub is_streaming: bool,
     pub state: DownloadState,
@@ -127,18 +144,21 @@ pub struct DownloadSnapshot {
 }
 
 /// What the external player is doing.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct PlayerSnapshot {
     pub running: bool,
     pub title: Option<String>,
     pub stream_path: Option<String>,
+    #[ts(type = "number | null")]
     pub download_id: Option<u64>,
 }
 
 /// Config fields that are safe to send to the browser.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct ConfigView {
     pub theme: String,
     pub download_dir: String,
@@ -146,8 +166,9 @@ pub struct ConfigView {
 }
 
 /// Everything the SPA needs for its first paint.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct BootstrapSnapshot {
     pub version: String,
     pub config: ConfigView,
@@ -159,16 +180,18 @@ pub struct BootstrapSnapshot {
 }
 
 /// A result of the safe delete operation.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct DeleteReport {
     pub deleted: usize,
     pub failed: Vec<String>,
 }
 
 /// Severity for a toast.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub enum ToastLevel {
     Info,
     Success,

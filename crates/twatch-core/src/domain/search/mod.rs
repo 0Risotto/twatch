@@ -4,18 +4,23 @@ pub mod ports;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use ts_rs::TS;
 
 /// Number of results shown per page in the search popup.
 pub const SEARCH_PAGE_SIZE: usize = 21;
 
 /// A search result from the user-configured JSON API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct SearchResult {
     pub name: String,
     pub info_hash: String,
+    #[ts(type = "number")]
     pub seeders: u64,
+    #[ts(type = "number")]
     pub leechers: u64,
+    #[ts(type = "number")]
     pub size: u64,
     pub username: String,
 }

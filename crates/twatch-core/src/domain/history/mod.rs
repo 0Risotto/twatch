@@ -5,13 +5,16 @@ pub mod ports;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Resume position for one file inside a torrent.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct PlaybackProgress {
     pub position: f64,
     pub duration: f64,
+    #[ts(type = "number")]
     pub updated_at: u64,
 }
 

@@ -25,6 +25,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --all-features --workspace
+      - name: Check generated API types
+        run: |
+          TS_RS_EXPORT_DIR="$PWD/web/src/types/generated" cargo test -p twatch-core -p twatch-engine -p twatch-server export_bindings
+          git diff --exit-code -- web/src/types/generated
 
   msrv:
     name: MSRV (1.88)

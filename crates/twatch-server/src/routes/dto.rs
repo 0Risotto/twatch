@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use twatch_core::domain::history::{HistoryEntry, PlaybackProgress};
 use twatch_core::domain::search::{FieldMap, SearchConfig};
@@ -73,12 +74,14 @@ pub struct ConfigPatch {
     pub player: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct HistoryEntryDto {
     pub url: String,
     pub custom_name: Option<String>,
     pub torrent_name: String,
+    #[ts(type = "number")]
     pub added_at: u64,
     pub watched: bool,
     pub watched_files: Vec<String>,
@@ -103,8 +106,9 @@ impl From<HistoryEntry> for HistoryEntryDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct FieldMapDto {
     pub name: String,
     pub info_hash: String,
@@ -140,8 +144,9 @@ impl From<FieldMapDto> for FieldMap {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct SearchConfigDto {
     pub url: String,
     pub headers: std::collections::HashMap<String, String>,

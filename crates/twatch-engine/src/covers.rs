@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures_util::stream::{self, StreamExt};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 const CACHE_TTL_SECS: u64 = 60 * 60 * 24 * 30;
 const NEGATIVE_TTL_SECS: u64 = 60 * 60;
@@ -32,8 +33,9 @@ pub struct CoverQuery {
     pub kind: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct Cover {
     /// The original request title, so a batch client can map responses back.
     pub query: String,

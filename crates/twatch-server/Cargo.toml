@@ -7,6 +7,7 @@ rust-version = "1.88"
 description = "Rust HTTP/WebSocket gateway for twatch"
 
 [dependencies]
+ts-rs = "12"
 twatch-core = { path = "../twatch-core" }
 twatch-engine = { path = "../twatch-engine" }
 anyhow = "1"
