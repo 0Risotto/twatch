@@ -89,9 +89,21 @@
     margin: 0;
     min-width: 320px;
     background:
-      radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--accent) 2.5%, transparent) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 80%, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 50%),
+      radial-gradient(
+        ellipse at 20% 50%,
+        color-mix(in srgb, var(--accent) 4%, transparent) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at 80% 20%,
+        color-mix(in srgb, var(--accent) 2.5%, transparent) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at 50% 80%,
+        color-mix(in srgb, var(--accent) 2%, transparent) 0%,
+        transparent 50%
+      ),
       var(--bg);
     color: var(--text);
     font: 400 0.875rem/1.55 var(--font-sans);
@@ -99,7 +111,9 @@
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
-    transition: background-color 220ms var(--ease-out), color 220ms var(--ease-out);
+    transition:
+      background-color 220ms var(--ease-out),
+      color 220ms var(--ease-out);
   }
 
   ::selection {
@@ -328,7 +342,13 @@
   }
 
   .scroll-fade {
-    mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black 14px,
+      black calc(100% - 14px),
+      transparent 100%
+    );
   }
 }
 

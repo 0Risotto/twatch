@@ -166,7 +166,9 @@ export function SearchPage() {
         <EmptyState
           icon={<Search className="size-6" />}
           title="Search failed"
-          description={search.error instanceof Error ? search.error.message : 'The search API did not respond.'}
+          description={
+            search.error instanceof Error ? search.error.message : 'The search API did not respond.'
+          }
           action={
             <Button variant="secondary" onClick={() => void search.refetch()}>
               Try again

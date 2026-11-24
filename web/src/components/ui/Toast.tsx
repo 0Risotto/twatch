@@ -24,7 +24,10 @@ function Toast({ toast }: { toast: ToastItem }) {
   const Icon = icons[toast.level]
 
   useEffect(() => {
-    const timer = window.setTimeout(() => dismissToast(toast.id), toast.level === 'error' ? 6500 : 4200)
+    const timer = window.setTimeout(
+      () => dismissToast(toast.id),
+      toast.level === 'error' ? 6500 : 4200,
+    )
     return () => window.clearTimeout(timer)
   }, [dismissToast, toast.id, toast.level])
 
@@ -38,7 +41,11 @@ function Toast({ toast }: { toast: ToastItem }) {
       className="glass-strong pointer-events-auto flex w-[min(360px,calc(100vw-2rem))] items-start gap-3 rounded-[var(--radius-lg)] border-l-2 p-3.5"
       style={{ borderLeftColor: accents[toast.level] }}
     >
-      <Icon className="mt-0.5 size-4 shrink-0" style={{ color: accents[toast.level] }} aria-hidden />
+      <Icon
+        className="mt-0.5 size-4 shrink-0"
+        style={{ color: accents[toast.level] }}
+        aria-hidden
+      />
       <p className="min-w-0 flex-1 text-[13px] leading-snug text-[var(--fg)]">{toast.message}</p>
       <button
         type="button"

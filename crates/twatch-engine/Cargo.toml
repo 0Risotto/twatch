@@ -19,3 +19,6 @@ serde_json = "1"
 shaku = { version = "0.6", features = ["thread_safe"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
+
+[lints]
+workspace = true

@@ -30,3 +30,6 @@ embed-web = ["dep:rust-embed"]
 
 [dev-dependencies]
 async-trait = "0.1"
+
+[lints]
+workspace = true

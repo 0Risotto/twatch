@@ -2,15 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import {
-  ArrowUpRight,
-  Clock3,
-  Download,
-  Pencil,
-  Play,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import { ArrowUpRight, Clock3, Download, Pencil, Play, Search, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -33,9 +25,7 @@ interface ResumePoint {
 function resumePoint(entry: HistoryEntry): ResumePoint | null {
   const points = Object.entries(entry.progress ?? {})
   if (points.length === 0) return null
-  const [name, progress] = points.sort(
-    ([, left], [, right]) => right.updatedAt - left.updatedAt,
-  )[0]
+  const [name, progress] = points.sort(([, left], [, right]) => right.updatedAt - left.updatedAt)[0]
   return { name, progress }
 }
 
@@ -179,78 +169,86 @@ export function HistoryPage() {
               ? Math.min(1, point.progress.position / point.progress.duration)
               : 0
             return (
-            <motion.div
-              key={entry.url}
-              variants={riseItem}
-              className="group flex flex-wrap items-center gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]"
-            >
-              <CoverArt title={displayName(entry)} className="h-16 w-11 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-[13px] font-medium text-[var(--fg)]">{displayName(entry)}</p>
-                  {entry.watchedFiles.length > 0 && (
-                    <Badge tone="stream">{entry.watchedFiles.length} watched</Badge>
-                  )}
-                  {entry.downloadedFiles.length > 0 && (
-                    <Badge tone="success">{entry.downloadedFiles.length} saved</Badge>
+              <motion.div
+                key={entry.url}
+                variants={riseItem}
+                className="group flex flex-wrap items-center gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]"
+              >
+                <CoverArt title={displayName(entry)} className="h-16 w-11 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-[13px] font-medium text-[var(--fg)]">
+                      {displayName(entry)}
+                    </p>
+                    {entry.watchedFiles.length > 0 && (
+                      <Badge tone="stream">{entry.watchedFiles.length} watched</Badge>
+                    )}
+                    {entry.downloadedFiles.length > 0 && (
+                      <Badge tone="success">{entry.downloadedFiles.length} saved</Badge>
+                    )}
+                  </div>
+                  <p className="mt-1 truncate font-mono text-[10px] text-[var(--faint)]">
+                    {entry.url}
+                  </p>
+                  {point && (
+                    <div className="mt-2 max-w-sm">
+                      <div className="flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
+                        <span className="truncate">{point.name}</span>
+                        <span className="shrink-0 font-mono tabular">
+                          {formatTime(point.progress.position)} /{' '}
+                          {formatTime(point.progress.duration)}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        <ProgressBar progress={fraction} tone="stream" height={4} />
+                      </div>
+                    </div>
                   )}
                 </div>
-                <p className="mt-1 truncate font-mono text-[10px] text-[var(--faint)]">{entry.url}</p>
-                {point && (
-                  <div className="mt-2 max-w-sm">
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
-                      <span className="truncate">{point.name}</span>
-                      <span className="shrink-0 font-mono tabular">
-                        {formatTime(point.progress.position)} /{' '}
-                        {formatTime(point.progress.duration)}
-                      </span>
-                    </div>
-                    <div className="mt-1">
-                      <ProgressBar progress={fraction} tone="stream" height={4} />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="hidden shrink-0 text-right sm:block">
-                <p className="text-[11px] text-[var(--muted)]">{formatRelative(entry.addedAt)}</p>
-                <p className="text-[10px] text-[var(--faint)]">{formatDate(entry.addedAt)}</p>
-              </div>
-              <div className="flex items-center gap-1">
-                {point && (
+                <div className="hidden shrink-0 text-right sm:block">
+                  <p className="text-[11px] text-[var(--muted)]">{formatRelative(entry.addedAt)}</p>
+                  <p className="text-[10px] text-[var(--faint)]">{formatDate(entry.addedAt)}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {point && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={busy === `resume:${entry.url}`}
+                      onClick={() => void resume(entry)}
+                    >
+                      <Play className="size-3.5" />
+                      Resume
+                    </Button>
+                  )}
                   <Button
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
-                    loading={busy === `resume:${entry.url}`}
-                    onClick={() => void resume(entry)}
+                    loading={busy === `open:${entry.url}`}
+                    onClick={() => void open(entry)}
                   >
-                    <Play className="size-3.5" />
-                    Resume
+                    Reopen
+                    <ArrowUpRight className="size-3.5" />
                   </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={busy === `open:${entry.url}`}
-                  onClick={() => void open(entry)}
-                >
-                  Reopen
-                  <ArrowUpRight className="size-3.5" />
-                </Button>
-                <IconButton
-                  label="Rename history entry"
-                  size="sm"
-                  onClick={() => {
-                    setRenameTarget(entry)
-                    setRenameValue(displayName(entry))
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                </IconButton>
-                <IconButton label="Delete history entry" size="sm" onClick={() => setDeleteTarget(entry)}>
-                  <Trash2 className="size-3.5" />
-                </IconButton>
-              </div>
-            </motion.div>
+                  <IconButton
+                    label="Rename history entry"
+                    size="sm"
+                    onClick={() => {
+                      setRenameTarget(entry)
+                      setRenameValue(displayName(entry))
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                  </IconButton>
+                  <IconButton
+                    label="Delete history entry"
+                    size="sm"
+                    onClick={() => setDeleteTarget(entry)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </IconButton>
+                </div>
+              </motion.div>
             )
           })}
         </motion.div>
@@ -305,7 +303,9 @@ export function HistoryPage() {
           </>
         }
       >
-        <p className="truncate text-sm text-[var(--fg)]">{deleteTarget ? displayName(deleteTarget) : ''}</p>
+        <p className="truncate text-sm text-[var(--fg)]">
+          {deleteTarget ? displayName(deleteTarget) : ''}
+        </p>
       </Modal>
     </div>
   )

@@ -99,7 +99,9 @@ export function PlayerPage() {
   const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
   const error = Boolean(download) && (player.state.error || download?.state === 'failed')
   const dockActive = Boolean(download && streamUrl && playable && !error)
-  const external = Boolean(download && playerState.running && playerState.downloadId === download.id)
+  const external = Boolean(
+    download && playerState.running && playerState.downloadId === download.id,
+  )
 
   const openExternal = () => {
     if (!download) return
@@ -495,11 +497,7 @@ export function PlayerPage() {
                   Load subtitle file
                 </Button>
                 {externalSubtitle && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setExternalSubtitle(null)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setExternalSubtitle(null)}>
                     <X className="size-3.5" />
                     Remove external
                   </Button>
@@ -604,7 +602,9 @@ export function PlayerPage() {
               <span>{download.fileNames.join(', ')}</span>
             </p>
             {streamUrl && (
-              <p className="mt-3 break-all font-mono text-[10px] text-[var(--faint)]">{streamUrl}</p>
+              <p className="mt-3 break-all font-mono text-[10px] text-[var(--faint)]">
+                {streamUrl}
+              </p>
             )}
           </section>
 

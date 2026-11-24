@@ -35,7 +35,9 @@ const mockState = vi.hoisted(() => {
 vi.mock('jassub', () => ({ default: mockState.MockJassub }))
 vi.mock('jassub/dist/jassub-worker.js?url', () => ({ default: '/assets/jassub-worker.js' }))
 vi.mock('jassub/dist/jassub-worker.wasm?url', () => ({ default: '/assets/jassub-worker.wasm' }))
-vi.mock('jassub/dist/jassub-worker.wasm.js?url', () => ({ default: '/assets/jassub-worker.wasm.js' }))
+vi.mock('jassub/dist/jassub-worker.wasm.js?url', () => ({
+  default: '/assets/jassub-worker.wasm.js',
+}))
 vi.mock('jassub/dist/jassub-worker-modern.wasm?url', () => ({
   default: '/assets/jassub-worker-modern.wasm',
 }))

@@ -40,32 +40,136 @@ export type FileKind =
   | 'other'
 
 const EXTENSIONS: Record<string, FileKind> = {
-  mp4: 'movie', m4v: 'movie', mkv: 'movie', avi: 'movie', mov: 'movie', webm: 'movie',
-  wmv: 'movie', flv: 'movie', mpg: 'movie', mpeg: 'movie', m2ts: 'movie', ts: 'movie',
-  vob: 'movie', ogv: 'movie', rmvb: 'movie',
-  mp3: 'audio', flac: 'audio', wav: 'audio', aac: 'audio', m4a: 'audio', mka: 'audio',
-  ogg: 'audio', opus: 'audio', wma: 'audio', aiff: 'audio', alac: 'audio', ape: 'audio',
-  jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image', bmp: 'image',
-  svg: 'image', avif: 'image', heic: 'image', tiff: 'image', tif: 'image',
-  srt: 'subtitle', ass: 'subtitle', ssa: 'subtitle', vtt: 'subtitle', sub: 'subtitle',
-  sup: 'subtitle', mks: 'subtitle', idx: 'subtitle',
-  zip: 'archive', rar: 'archive', '7z': 'archive', tar: 'archive', gz: 'archive',
-  bz2: 'archive', xz: 'archive', zst: 'archive', tgz: 'archive',
-  iso: 'disc', img: 'disc', bin: 'disc', cue: 'disc', nrg: 'disc',
-  pdf: 'pdf', epub: 'ebook', mobi: 'ebook', azw: 'ebook', azw3: 'ebook', fb2: 'ebook',
-  djvu: 'ebook', cbz: 'ebook', cbr: 'ebook',
-  doc: 'document', docx: 'document', txt: 'document', md: 'document', rtf: 'document',
-  odt: 'document', log: 'document',
-  xls: 'spreadsheet', xlsx: 'spreadsheet', csv: 'spreadsheet', ods: 'spreadsheet',
-  ppt: 'presentation', pptx: 'presentation', odp: 'presentation', key: 'presentation',
-  rs: 'code', tsx: 'code', js: 'code', jsx: 'code', mjs: 'code', cjs: 'code', py: 'code',
-  go: 'code', java: 'code', c: 'code', cpp: 'code', h: 'code', hpp: 'code', css: 'code',
-  scss: 'code', html: 'code', json: 'code', yaml: 'code', yml: 'code', toml: 'code',
-  sh: 'code', bash: 'code', zsh: 'code', lua: 'code', php: 'code', rb: 'code', sql: 'code',
-  exe: 'app', msi: 'app', dmg: 'app', appimage: 'app', deb: 'app', rpm: 'app', apk: 'app',
-  nes: 'game', sfc: 'game', gba: 'game', nds: 'game', '3ds': 'game', wad: 'game',
-  n64: 'game', iso_game: 'game',
-  ttf: 'font', otf: 'font', woff: 'font', woff2: 'font',
+  mp4: 'movie',
+  m4v: 'movie',
+  mkv: 'movie',
+  avi: 'movie',
+  mov: 'movie',
+  webm: 'movie',
+  wmv: 'movie',
+  flv: 'movie',
+  mpg: 'movie',
+  mpeg: 'movie',
+  m2ts: 'movie',
+  ts: 'movie',
+  vob: 'movie',
+  ogv: 'movie',
+  rmvb: 'movie',
+  mp3: 'audio',
+  flac: 'audio',
+  wav: 'audio',
+  aac: 'audio',
+  m4a: 'audio',
+  mka: 'audio',
+  ogg: 'audio',
+  opus: 'audio',
+  wma: 'audio',
+  aiff: 'audio',
+  alac: 'audio',
+  ape: 'audio',
+  jpg: 'image',
+  jpeg: 'image',
+  png: 'image',
+  gif: 'image',
+  webp: 'image',
+  bmp: 'image',
+  svg: 'image',
+  avif: 'image',
+  heic: 'image',
+  tiff: 'image',
+  tif: 'image',
+  srt: 'subtitle',
+  ass: 'subtitle',
+  ssa: 'subtitle',
+  vtt: 'subtitle',
+  sub: 'subtitle',
+  sup: 'subtitle',
+  mks: 'subtitle',
+  idx: 'subtitle',
+  zip: 'archive',
+  rar: 'archive',
+  '7z': 'archive',
+  tar: 'archive',
+  gz: 'archive',
+  bz2: 'archive',
+  xz: 'archive',
+  zst: 'archive',
+  tgz: 'archive',
+  iso: 'disc',
+  img: 'disc',
+  bin: 'disc',
+  cue: 'disc',
+  nrg: 'disc',
+  pdf: 'pdf',
+  epub: 'ebook',
+  mobi: 'ebook',
+  azw: 'ebook',
+  azw3: 'ebook',
+  fb2: 'ebook',
+  djvu: 'ebook',
+  cbz: 'ebook',
+  cbr: 'ebook',
+  doc: 'document',
+  docx: 'document',
+  txt: 'document',
+  md: 'document',
+  rtf: 'document',
+  odt: 'document',
+  log: 'document',
+  xls: 'spreadsheet',
+  xlsx: 'spreadsheet',
+  csv: 'spreadsheet',
+  ods: 'spreadsheet',
+  ppt: 'presentation',
+  pptx: 'presentation',
+  odp: 'presentation',
+  key: 'presentation',
+  rs: 'code',
+  tsx: 'code',
+  js: 'code',
+  jsx: 'code',
+  mjs: 'code',
+  cjs: 'code',
+  py: 'code',
+  go: 'code',
+  java: 'code',
+  c: 'code',
+  cpp: 'code',
+  h: 'code',
+  hpp: 'code',
+  css: 'code',
+  scss: 'code',
+  html: 'code',
+  json: 'code',
+  yaml: 'code',
+  yml: 'code',
+  toml: 'code',
+  sh: 'code',
+  bash: 'code',
+  zsh: 'code',
+  lua: 'code',
+  php: 'code',
+  rb: 'code',
+  sql: 'code',
+  exe: 'app',
+  msi: 'app',
+  dmg: 'app',
+  appimage: 'app',
+  deb: 'app',
+  rpm: 'app',
+  apk: 'app',
+  nes: 'game',
+  sfc: 'game',
+  gba: 'game',
+  nds: 'game',
+  '3ds': 'game',
+  wad: 'game',
+  n64: 'game',
+  iso_game: 'game',
+  ttf: 'font',
+  otf: 'font',
+  woff: 'font',
+  woff2: 'font',
 }
 
 const ICONS: Record<FileKind, LucideIcon> = {
@@ -114,7 +218,8 @@ export function extensionOf(name: string): string {
   return dot > 0 ? base.slice(dot + 1).toLowerCase() : ''
 }
 
-const TV_PATTERN = /\b(s\d{1,2}(?:\s*e\d{1,3})?(?:\s*-\s*s?\d{1,2})?|season\s*\d+|complete series|episode\s*\d+)\b/i
+const TV_PATTERN =
+  /\b(s\d{1,2}(?:\s*e\d{1,3})?(?:\s*-\s*s?\d{1,2})?|season\s*\d+|complete series|episode\s*\d+)\b/i
 
 export function fileKind(name: string): FileKind {
   const kind = EXTENSIONS[extensionOf(name)]
@@ -136,7 +241,8 @@ export function mediaKind(name: string): FileKind {
     return 'movie'
   }
   if (/\b(flac|mp3|ost|soundtrack|album|discography|aac|vinyl)\b/.test(lower)) return 'audio'
-  if (/\b(epub|mobi|azw3?|pdf|book|novel|bible|handbook|magazine|comic)\b/.test(lower)) return 'ebook'
+  if (/\b(epub|mobi|azw3?|pdf|book|novel|bible|handbook|magazine|comic)\b/.test(lower))
+    return 'ebook'
   if (/\b(game|repack|fitgirl|codex|skidrow|empress|gog|switch|rom)\b/.test(lower)) return 'game'
   if (/\b(iso|disc image)\b/.test(lower)) return 'disc'
   return 'other'
@@ -183,23 +289,40 @@ export function previewLabel(kind: FileKind): string {
 
 export function kindLabel(kind: FileKind): string {
   switch (kind) {
-    case 'movie': return 'Movie'
-    case 'tv': return 'TV'
-    case 'audio': return 'Audio'
-    case 'image': return 'Image'
-    case 'subtitle': return 'Subtitle'
-    case 'archive': return 'Archive'
-    case 'disc': return 'Disc'
-    case 'pdf': return 'PDF'
-    case 'ebook': return 'Book'
-    case 'document': return 'Document'
-    case 'spreadsheet': return 'Spreadsheet'
-    case 'presentation': return 'Slides'
-    case 'code': return 'Code'
-    case 'app': return 'App'
-    case 'game': return 'Game'
-    case 'font': return 'Font'
-    default: return 'File'
+    case 'movie':
+      return 'Movie'
+    case 'tv':
+      return 'TV'
+    case 'audio':
+      return 'Audio'
+    case 'image':
+      return 'Image'
+    case 'subtitle':
+      return 'Subtitle'
+    case 'archive':
+      return 'Archive'
+    case 'disc':
+      return 'Disc'
+    case 'pdf':
+      return 'PDF'
+    case 'ebook':
+      return 'Book'
+    case 'document':
+      return 'Document'
+    case 'spreadsheet':
+      return 'Spreadsheet'
+    case 'presentation':
+      return 'Slides'
+    case 'code':
+      return 'Code'
+    case 'app':
+      return 'App'
+    case 'game':
+      return 'Game'
+    case 'font':
+      return 'Font'
+    default:
+      return 'File'
   }
 }
 
@@ -235,4 +358,3 @@ export function MediaIcon({ name, className, ...props }: FileIconProps) {
     />
   )
 }
-

@@ -110,7 +110,8 @@ export function PlayerControls({
 
   const selectedTrack = tracks.find(track => track.name === selectedSubtitle) ?? null
   const currentSpeed = state.rate
-  const volumeIcon = state.muted || state.volume === 0 ? VolumeX : state.volume < 0.5 ? Volume1 : Volume2
+  const volumeIcon =
+    state.muted || state.volume === 0 ? VolumeX : state.volume < 0.5 ? Volume1 : Volume2
   const { elapsed, remaining } = formatPlaybackTimes(state.currentTime, state.duration)
 
   const cycleSubtitles = () => {
@@ -263,7 +264,9 @@ export function PlayerControls({
                   ))}
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-1 border-t border-white/10 px-1 pt-2">
-                  <span className="text-[10px] uppercase tracking-[0.1em] text-white/45">Delay</span>
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-white/45">
+                    Delay
+                  </span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -302,7 +305,9 @@ export function PlayerControls({
                         onClick={() => onSubtitleSize(value)}
                         className={cn(
                           'rounded-[1px] px-1.5 py-0.5 text-[11px] uppercase hover:bg-white/10',
-                          subtitleSize === value ? 'bg-[var(--accent)] text-[var(--accent-fg)]' : 'text-white/55',
+                          subtitleSize === value
+                            ? 'bg-[var(--accent)] text-[var(--accent-fg)]'
+                            : 'text-white/55',
                         )}
                       >
                         {value === 'sm' ? 'S' : value === 'md' ? 'M' : 'L'}

@@ -13,3 +13,11 @@ default-members = [
     "crates/twatch-server",
     "crates/twatchd",
 ]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"

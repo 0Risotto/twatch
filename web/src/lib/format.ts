@@ -10,7 +10,9 @@ export function formatBytes(bytes: number): string {
     value /= 1024
     unit += 1
   }
-  return unit === 0 ? `${Math.round(value)} B` : `${value.toFixed(value >= 100 ? 0 : 1)} ${UNITS[unit]}`
+  return unit === 0
+    ? `${Math.round(value)} B`
+    : `${value.toFixed(value >= 100 ? 0 : 1)} ${UNITS[unit]}`
 }
 
 export function formatSpeed(bytesPerSecond: number): string {

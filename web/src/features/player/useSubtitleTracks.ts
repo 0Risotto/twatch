@@ -272,10 +272,7 @@ export function useSubtitleTracks(
       }
     }
     resize()
-    const retryTimers = [
-      window.setTimeout(resize, 250),
-      window.setTimeout(resize, 1_000),
-    ]
+    const retryTimers = [window.setTimeout(resize, 250), window.setTimeout(resize, 1_000)]
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize)
     observer?.observe(canvas)
     video.addEventListener('loadedmetadata', resize)

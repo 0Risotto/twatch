@@ -34,7 +34,10 @@ export function CoverBackdrop({ title, direction = 'left', className }: CoverBac
     <div
       ref={ref}
       aria-hidden
-      className={cn('pointer-events-none absolute inset-0 overflow-hidden bg-[var(--surface-2)]', className)}
+      className={cn(
+        'pointer-events-none absolute inset-0 overflow-hidden bg-[var(--surface-2)]',
+        className,
+      )}
     >
       {cover?.url && !failed ? (
         <img

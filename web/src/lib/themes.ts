@@ -49,7 +49,9 @@ export function themeLabel(base: string): string {
 }
 
 export function isKnownTheme(name: string): boolean {
-  return THEME_BASES.some(theme => name === `${theme.value}-dark` || name === `${theme.value}-light`)
+  return THEME_BASES.some(
+    theme => name === `${theme.value}-dark` || name === `${theme.value}-light`,
+  )
 }
 
 export function applyTheme(name: string): void {

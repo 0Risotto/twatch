@@ -11,12 +11,18 @@ interface ProgressBarProps {
 
 const toneColors = {
   accent: 'linear-gradient(90deg, var(--accent), var(--badge-stream))',
-  success: 'linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 60%, var(--accent)))',
+  success:
+    'linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 60%, var(--accent)))',
   warning: 'linear-gradient(90deg, var(--warning), var(--badge-dl))',
   stream: 'linear-gradient(90deg, var(--badge-stream), var(--accent))',
 }
 
-export function ProgressBar({ progress, className, tone = 'accent', height = 6 }: ProgressBarProps) {
+export function ProgressBar({
+  progress,
+  className,
+  tone = 'accent',
+  height = 6,
+}: ProgressBarProps) {
   const value = useSpring(0, { stiffness: 120, damping: 24, mass: 0.9 })
   const scaleX = useTransform(value, latest => Math.max(0, Math.min(1, latest)))
 
@@ -26,7 +32,10 @@ export function ProgressBar({ progress, className, tone = 'accent', height = 6 }
 
   return (
     <div
-      className={cn('relative w-full overflow-hidden rounded-full bg-[var(--surface-3)]', className)}
+      className={cn(
+        'relative w-full overflow-hidden rounded-full bg-[var(--surface-3)]',
+        className,
+      )}
       style={{ height }}
       role="progressbar"
       aria-valuemin={0}
@@ -50,7 +59,13 @@ interface ProgressRingProps {
   children?: React.ReactNode
 }
 
-export function ProgressRing({ progress, size = 56, stroke = 5, className, children }: ProgressRingProps) {
+export function ProgressRing({
+  progress,
+  size = 56,
+  stroke = 5,
+  className,
+  children,
+}: ProgressRingProps) {
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
   const value = useSpring(0, { stiffness: 110, damping: 22, mass: 0.9 })
@@ -61,7 +76,10 @@ export function ProgressRing({ progress, size = 56, stroke = 5, className, child
   }, [progress, value])
 
   return (
-    <div className={cn('relative inline-grid place-items-center', className)} style={{ width: size, height: size }}>
+    <div
+      className={cn('relative inline-grid place-items-center', className)}
+      style={{ width: size, height: size }}
+    >
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <circle
           cx={size / 2}
@@ -108,7 +126,13 @@ export function Sparkline({ values, width = 120, height = 32, className }: Spark
     : `0,${height - 2} ${width},${height - 2}`
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className={className} aria-hidden>
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className={className}
+      aria-hidden
+    >
       <polyline
         points={`0,${height} ${points} ${width},${height}`}
         fill="color-mix(in srgb, var(--accent) 10%, transparent)"

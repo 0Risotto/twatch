@@ -22,7 +22,9 @@ export function ActivityPanel() {
         <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
           <div className="flex items-center gap-2">
             <Radio className="size-3.5 text-[var(--accent)]" />
-            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">Activity</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+              Activity
+            </h2>
           </div>
           <Link
             to="/downloads"
@@ -38,7 +40,10 @@ export function ActivityPanel() {
             <div className="px-2 py-7 text-center">
               <ArrowDownToLine className="mx-auto mb-2 size-5 text-[var(--faint)]" />
               <p className="text-xs text-[var(--muted)]">Nothing downloading</p>
-              <Link to="/search" className="mt-1 inline-block text-[11px] font-semibold text-[var(--accent)] hover:underline">
+              <Link
+                to="/search"
+                className="mt-1 inline-block text-[11px] font-semibold text-[var(--accent)] hover:underline"
+              >
                 Find something to watch
               </Link>
             </div>
@@ -51,7 +56,10 @@ export function ActivityPanel() {
             >
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium text-[var(--fg)]">
-                  <CoverArt title={download.torrentName} className="h-8 w-[22px] shrink-0 rounded-[1px]" />
+                  <CoverArt
+                    title={download.torrentName}
+                    className="h-8 w-[22px] shrink-0 rounded-[1px]"
+                  />
                   <span className="truncate">{download.label}</span>
                 </span>
                 <span className="shrink-0 font-mono text-[10px] tabular text-[var(--muted)]">
@@ -61,7 +69,13 @@ export function ActivityPanel() {
               <ProgressBar
                 progress={download.progress}
                 height={4}
-                tone={download.isStreaming ? 'stream' : download.state === 'completed' ? 'success' : 'accent'}
+                tone={
+                  download.isStreaming
+                    ? 'stream'
+                    : download.state === 'completed'
+                      ? 'success'
+                      : 'accent'
+                }
               />
               <div className="mt-1 flex items-center justify-between font-mono text-[9px] tabular text-[var(--faint)]">
                 <span>{formatSpeed(download.speed)}</span>
@@ -77,12 +91,16 @@ export function ActivityPanel() {
           <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
             <div className="flex items-center gap-2">
               <Play className="size-3.5 text-[var(--badge-stream)]" />
-              <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">Playing</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+                Playing
+              </h2>
             </div>
             <StatusDot tone="stream" pulse />
           </header>
           <div className="px-4 py-3">
-            <p className="truncate text-xs font-medium text-[var(--fg)]">{player.title ?? 'Untitled stream'}</p>
+            <p className="truncate text-xs font-medium text-[var(--fg)]">
+              {player.title ?? 'Untitled stream'}
+            </p>
             <p className="mt-1 text-[10px] text-[var(--muted)]">External player session</p>
             <Link
               to="/player"
@@ -98,7 +116,9 @@ export function ActivityPanel() {
       <section className="panel overflow-hidden">
         <header className="flex items-center gap-2 border-b border-[var(--border-soft)] px-4 py-3">
           <Server className="size-3.5 text-[var(--muted)]" />
-          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">Engine</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+            Engine
+          </h2>
         </header>
         <dl className="space-y-2 px-4 py-3 text-[11px]">
           <div className="flex items-center justify-between">

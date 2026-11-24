@@ -21,7 +21,9 @@ export function useLive(): void {
         useAppStore.getState().applyBootstrap(data)
       } catch (error) {
         if (cancelled) return
-        useAppStore.getState().addToast('error', error instanceof Error ? error.message : 'Could not reach twatchd')
+        useAppStore
+          .getState()
+          .addToast('error', error instanceof Error ? error.message : 'Could not reach twatchd')
       }
       if (cancelled) return
 
@@ -65,7 +67,10 @@ export function useThemeSync(): void {
   const config = useAppStore(state => state.config)
 
   useEffect(() => {
-    const stored = typeof localStorage === 'undefined' ? undefined : localStorage.getItem('twatch.theme') ?? undefined
+    const stored =
+      typeof localStorage === 'undefined'
+        ? undefined
+        : (localStorage.getItem('twatch.theme') ?? undefined)
     const candidate = config?.theme ?? stored ?? 'mono-dark'
     applyTheme(isKnownTheme(candidate) ? candidate : 'mono-dark')
   }, [config?.theme])

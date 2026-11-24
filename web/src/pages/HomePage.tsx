@@ -77,7 +77,6 @@ export function HomePage() {
         animate="animate"
         className="relative overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface)_68%,transparent)] p-5 shadow-[var(--shadow-md)] sm:p-7"
       >
-
         <div className="relative">
           <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             <Sparkles className="size-3.5 text-[var(--accent)]" />
@@ -149,7 +148,10 @@ export function HomePage() {
           title="Recent history"
           hint="Reopen a torrent without pasting the link again"
           action={
-            <Link to="/history" className="text-[11px] font-semibold text-[var(--accent)] hover:underline">
+            <Link
+              to="/history"
+              className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
+            >
               Full history
             </Link>
           }
@@ -182,12 +184,16 @@ export function HomePage() {
                       {displayName(entry)}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[var(--muted)]">
-                  <span>{formatRelative(entry.addedAt)}</span>
-                  {entry.watchedFiles.length > 0 && (
-                    <span className="text-[var(--badge-stream)]">{entry.watchedFiles.length} watched</span>
-                  )}
+                      <span>{formatRelative(entry.addedAt)}</span>
+                      {entry.watchedFiles.length > 0 && (
+                        <span className="text-[var(--badge-stream)]">
+                          {entry.watchedFiles.length} watched
+                        </span>
+                      )}
                       {entry.downloadedFiles.length > 0 && (
-                        <span className="text-[var(--success)]">{entry.downloadedFiles.length} saved</span>
+                        <span className="text-[var(--success)]">
+                          {entry.downloadedFiles.length} saved
+                        </span>
                       )}
                     </div>
                   </div>

@@ -139,11 +139,16 @@ function ThemeCard({
         )}
       </div>
       <div className="mt-3 flex gap-1.5">
-        {['var(--card)', 'var(--accent)', 'var(--ok)', 'var(--warn)', 'var(--danger)', 'var(--info)'].map(
-          (color, index) => (
-            <span key={index} className="h-5 flex-1 rounded-[1px]" style={{ background: color }} />
-          ),
-        )}
+        {[
+          'var(--card)',
+          'var(--accent)',
+          'var(--ok)',
+          'var(--warn)',
+          'var(--danger)',
+          'var(--info)',
+        ].map((color, index) => (
+          <span key={index} className="h-5 flex-1 rounded-[1px]" style={{ background: color }} />
+        ))}
       </div>
       <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-wider text-[var(--muted)]">
         <span>{mode}</span>
@@ -242,7 +247,10 @@ export function SettingsPage() {
           throw new Error('Headers must be a JSON object')
         }
         headers = Object.fromEntries(
-          Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [key, String(value)]),
+          Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+            key,
+            String(value),
+          ]),
         )
       }
       const next: SearchConfig = { url: searchUrl.trim(), headers, fieldMap }
@@ -263,7 +271,9 @@ export function SettingsPage() {
       const results = await api.search('ubuntu', 0)
       addToast(
         results.length ? 'success' : 'warning',
-        results.length ? `Search API returned ${results.length} results` : 'Search API responded with no results',
+        results.length
+          ? `Search API returned ${results.length} results`
+          : 'Search API responded with no results',
       )
     } catch (error) {
       addToast('error', error instanceof Error ? error.message : 'Search request failed')
@@ -294,15 +304,20 @@ export function SettingsPage() {
               aria-hidden
               title={config?.theme ?? 'mono-dark'}
             >
-              {['var(--card)', 'var(--accent)', 'var(--ok)', 'var(--warn)', 'var(--danger)', 'var(--info)'].map(
-                color => (
-                  <span
-                    key={color}
-                    className="size-2.5 rounded-[1px] border border-[color-mix(in_srgb,var(--border)_65%,transparent)]"
-                    style={{ background: color }}
-                  />
-                ),
-              )}
+              {[
+                'var(--card)',
+                'var(--accent)',
+                'var(--ok)',
+                'var(--warn)',
+                'var(--danger)',
+                'var(--info)',
+              ].map(color => (
+                <span
+                  key={color}
+                  className="size-2.5 rounded-[1px] border border-[color-mix(in_srgb,var(--border)_65%,transparent)]"
+                  style={{ background: color }}
+                />
+              ))}
             </div>
             <span className="text-[11px] text-[var(--muted)]">
               {savingTheme ? 'Saving…' : `${themeLabel(currentBase)} · ${mode}`}
@@ -358,8 +373,8 @@ export function SettingsPage() {
             onChange={value => setMotion(value as MotionPreference)}
           />
           <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)]">
-            Motion is intentionally short: 120–320 ms, springs for panels and selection, fades for pages.
-            Active transfers pulse ambiently only while the tab is visible.
+            Motion is intentionally short: 120–320 ms, springs for panels and selection, fades for
+            pages. Active transfers pulse ambiently only while the tab is visible.
           </p>
         </SettingsSection>
 
@@ -369,7 +384,10 @@ export function SettingsPage() {
           description="Inline video handles browser-friendly codecs. Everything else can go to mpv or VLC."
           action={<Play className="size-4 text-[var(--badge-stream)]" />}
         >
-          <Field label="External player" hint="The engine hands the local stream URL to the player process.">
+          <Field
+            label="External player"
+            hint="The engine hands the local stream URL to the player process."
+          >
             <Select
               aria-label="External player"
               value={config?.player ?? 'auto'}
@@ -382,8 +400,8 @@ export function SettingsPage() {
             </Select>
           </Field>
           <div className="mt-3 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
-            MP4/H.264 and WebM play inline. MKV/HEVC, DTS, and complex subtitles are better in a native
-            player; use the player page's hand-off button.
+            MP4/H.264 and WebM play inline. MKV/HEVC, DTS, and complex subtitles are better in a
+            native player; use the player page's hand-off button.
           </div>
         </SettingsSection>
       </div>
@@ -405,7 +423,12 @@ export function SettingsPage() {
               <RefreshCw className="size-3.5" />
               Test saved
             </Button>
-            <Button variant="primary" size="sm" loading={savingSearch} onClick={() => void saveSearch()}>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={savingSearch}
+              onClick={() => void saveSearch()}
+            >
               Save
             </Button>
           </div>
@@ -427,7 +450,10 @@ export function SettingsPage() {
                 icon={<ExternalLink className="size-4" />}
               />
             </Field>
-            <Field label="Headers (JSON)" hint="Optional. API keys are stored in search.json with 0600 permissions.">
+            <Field
+              label="Headers (JSON)"
+              hint="Optional. API keys are stored in search.json with 0600 permissions."
+            >
               <textarea
                 aria-label="Headers JSON"
                 value={headersText}
@@ -445,7 +471,9 @@ export function SettingsPage() {
                     <TextInput
                       aria-label={`Field map: ${key}`}
                       value={fieldMap[key]}
-                      onChange={event => setFieldMap(current => ({ ...current, [key]: event.target.value }))}
+                      onChange={event =>
+                        setFieldMap(current => ({ ...current, [key]: event.target.value }))
+                      }
                       className="font-mono text-xs"
                     />
                   </Field>
@@ -473,7 +501,9 @@ export function SettingsPage() {
             </div>
             <div className="flex items-start justify-between gap-3">
               <dt className="shrink-0 text-[var(--muted)]">Download dir</dt>
-              <dd className="break-all text-right font-mono text-[var(--fg)]">{config?.downloadDir ?? '—'}</dd>
+              <dd className="break-all text-right font-mono text-[var(--fg)]">
+                {config?.downloadDir ?? '—'}
+              </dd>
             </div>
           </dl>
         </SettingsSection>

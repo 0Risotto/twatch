@@ -8,12 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type {
-  CSSProperties,
-  PointerEvent as ReactPointerEvent,
-  ReactNode,
-  RefObject,
-} from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { mediaKind, fileKind, isAudio, isVideo } from '@/lib/fileIcons'
@@ -178,7 +173,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     setExternalSubtitleState(readExternalSubtitle(download))
   }, [download])
 
-  const cover = useCover(download?.torrentName, download ? mediaKind(download.torrentName) : undefined)
+  const cover = useCover(
+    download?.torrentName,
+    download ? mediaKind(download.torrentName) : undefined,
+  )
   const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
   const video = isVideo(kind)
   const audio = isAudio(kind)
@@ -427,10 +425,7 @@ function defaultMiniPosition() {
   const width = miniWidth()
   const height = (width * 9) / 16
   const bottom = window.innerWidth < 640 ? 80 : 16
-  return clampMiniPosition(
-    window.innerWidth - width - 16,
-    window.innerHeight - height - bottom,
-  )
+  return clampMiniPosition(window.innerWidth - width - 16, window.innerHeight - height - bottom)
 }
 
 function readMiniPosition() {

@@ -1,12 +1,5 @@
 import { motion } from 'motion/react'
-import {
-  ArrowDownToLine,
-  Clock3,
-  Home,
-  Play,
-  Search,
-  Settings,
-} from 'lucide-react'
+import { ArrowDownToLine, Clock3, Home, Play, Search, Settings } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { springs } from '@/lib/motion'
@@ -15,11 +8,36 @@ import { useAppStore } from '@/store/app'
 
 export const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, match: (path: string) => path === '/' },
-  { to: '/search', label: 'Search', icon: Search, match: (path: string) => path.startsWith('/search') },
-  { to: '/downloads', label: 'Downloads', icon: ArrowDownToLine, match: (path: string) => path.startsWith('/downloads') },
-  { to: '/player', label: 'Player', icon: Play, match: (path: string) => path.startsWith('/player') },
-  { to: '/history', label: 'History', icon: Clock3, match: (path: string) => path.startsWith('/history') },
-  { to: '/settings', label: 'Settings', icon: Settings, match: (path: string) => path.startsWith('/settings') },
+  {
+    to: '/search',
+    label: 'Search',
+    icon: Search,
+    match: (path: string) => path.startsWith('/search'),
+  },
+  {
+    to: '/downloads',
+    label: 'Downloads',
+    icon: ArrowDownToLine,
+    match: (path: string) => path.startsWith('/downloads'),
+  },
+  {
+    to: '/player',
+    label: 'Player',
+    icon: Play,
+    match: (path: string) => path.startsWith('/player'),
+  },
+  {
+    to: '/history',
+    label: 'History',
+    icon: Clock3,
+    match: (path: string) => path.startsWith('/history'),
+  },
+  {
+    to: '/settings',
+    label: 'Settings',
+    icon: Settings,
+    match: (path: string) => path.startsWith('/settings'),
+  },
 ] as const
 
 function Brand() {
@@ -30,7 +48,10 @@ function Brand() {
 export function NavRail() {
   const location = useLocation()
   const activeDownloads = useAppStore(
-    state => state.downloads.filter(download => download.state !== 'completed' && download.state !== 'failed').length,
+    state =>
+      state.downloads.filter(
+        download => download.state !== 'completed' && download.state !== 'failed',
+      ).length,
   )
 
   return (
@@ -85,7 +106,10 @@ export function NavRail() {
 export function MobileNav() {
   const location = useLocation()
   const activeDownloads = useAppStore(
-    state => state.downloads.filter(download => download.state !== 'completed' && download.state !== 'failed').length,
+    state =>
+      state.downloads.filter(
+        download => download.state !== 'completed' && download.state !== 'failed',
+      ).length,
   )
   return (
     <nav

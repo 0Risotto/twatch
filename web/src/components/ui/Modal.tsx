@@ -40,7 +40,11 @@ export function Modal({
                 className="fixed inset-0 z-50 bg-[color-mix(in_srgb,var(--bg)_62%,transparent)] backdrop-blur-[3px]"
               />
             </Dialog.Overlay>
-            <Dialog.Content asChild forceMount aria-describedby={description ? undefined : undefined}>
+            <Dialog.Content
+              asChild
+              forceMount
+              aria-describedby={description ? undefined : undefined}
+            >
               <motion.div
                 variants={modalPanel}
                 initial="initial"

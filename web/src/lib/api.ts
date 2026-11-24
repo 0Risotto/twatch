@@ -45,7 +45,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 function post<T>(path: string, body?: unknown): Promise<T> {
-  return request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
+  return request<T>(path, {
+    method: 'POST',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
 }
 
 function patch<T>(path: string, body: unknown): Promise<T> {
@@ -98,8 +101,7 @@ export const api = {
     put<{ ok: boolean }>('/api/history/progress', { url, file, position, duration }),
 
   player: () => request<PlayerSnapshot>('/api/player'),
-  openPlayer: (downloadId: number) =>
-    post<PlayerSnapshot>('/api/player/open', { downloadId }),
+  openPlayer: (downloadId: number) => post<PlayerSnapshot>('/api/player/open', { downloadId }),
   stopPlayer: () => post<{ ok: boolean }>('/api/player/stop'),
 
   covers: (items: Array<{ title: string; kind?: string }>) =>

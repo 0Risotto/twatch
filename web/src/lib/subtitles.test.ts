@@ -21,7 +21,10 @@ describe('subtitles', () => {
 
   it('detects languages and labels', () => {
     expect(subtitleLanguage('episode.en.srt')).toEqual({ code: 'en', label: 'English' })
-    expect(subtitleLanguage('episode.ptbr.srt')).toEqual({ code: 'pt-BR', label: 'Portuguese (BR)' })
+    expect(subtitleLanguage('episode.ptbr.srt')).toEqual({
+      code: 'pt-BR',
+      label: 'Portuguese (BR)',
+    })
     expect(subtitleLanguage('episode.srt')).toEqual({ code: 'und', label: 'Subtitles' })
     expect(subtitleLabel({ index: 2, name: 'episode.en.forced.srt' })).toBe('English (Forced)')
     expect(subtitleLabel({ index: 2, name: 'episode.en.sdh.srt' })).toBe('English (SDH)')

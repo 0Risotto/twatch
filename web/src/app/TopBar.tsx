@@ -102,9 +102,13 @@ export function TopBar() {
       </button>
 
       <div className="hidden min-w-0 items-baseline gap-2 sm:flex">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--faint)]">twatch</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--faint)]">
+          twatch
+        </span>
         <span className="text-[var(--faint)]">/</span>
-        <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--fg)]">{title}</h1>
+        <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--fg)]">
+          {title}
+        </h1>
         {session && location.pathname === '/torrent' && (
           <span className="hidden max-w-[260px] truncate text-xs text-[var(--muted)] lg:inline">
             {session.name}
@@ -129,7 +133,11 @@ export function TopBar() {
           </span>
         )}
 
-        <IconButton label="Open command palette" onClick={() => setCommandOpen(true)} className="sm:hidden">
+        <IconButton
+          label="Open command palette"
+          onClick={() => setCommandOpen(true)}
+          className="sm:hidden"
+        >
           <Command className="size-4" />
         </IconButton>
         <Button

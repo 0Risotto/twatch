@@ -30,7 +30,9 @@ export function PageHeader({ eyebrow, title, description, actions, media }: Page
             {title}
           </h1>
           {description && (
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">{description}</p>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+              {description}
+            </p>
           )}
         </div>
       </div>

@@ -48,11 +48,13 @@ const emptyPlayer: PlayerSnapshot = {
   downloadId: null,
 }
 
-function recomputeSelection(session: SessionSnapshot, indices: number[], selected: boolean): SessionSnapshot {
+function recomputeSelection(
+  session: SessionSnapshot,
+  indices: number[],
+  selected: boolean,
+): SessionSnapshot {
   const wanted = new Set(indices)
-  const files = session.files.map(file =>
-    wanted.has(file.index) ? { ...file, selected } : file,
-  )
+  const files = session.files.map(file => (wanted.has(file.index) ? { ...file, selected } : file))
   const selectedFiles = files.filter(file => file.selected)
   return {
     ...session,
@@ -114,10 +116,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       case 'toast':
         set({
           revision: frame.revision,
-          toasts: [
-            ...state.toasts,
-            { id: ++toastSeq, level: frame.level, message: frame.message },
-          ],
+          toasts: [...state.toasts, { id: ++toastSeq, level: frame.level, message: frame.message }],
         })
         break
       case 'resync':
@@ -145,9 +144,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       session: {
         ...session,
-        files: session.files.map(file =>
-          file.index === index ? { ...file, name } : file,
-        ),
+        files: session.files.map(file => (file.index === index ? { ...file, name } : file)),
       },
     })
   },
@@ -156,6 +153,5 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({ toasts: [...state.toasts, { id, level, message }] }))
     return id
   },
-  dismissToast: id =>
-    set(state => ({ toasts: state.toasts.filter(toast => toast.id !== id) })),
+  dismissToast: id => set(state => ({ toasts: state.toasts.filter(toast => toast.id !== id) })),
 }))

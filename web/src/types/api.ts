@@ -51,12 +51,7 @@ export interface SubtitleTrack {
 }
 
 export type DownloadState =
-  | 'starting'
-  | 'downloading'
-  | 'streaming'
-  | 'paused'
-  | 'completed'
-  | 'failed'
+  'starting' | 'downloading' | 'streaming' | 'paused' | 'completed' | 'failed'
 
 export interface QueueFile {
   index: number

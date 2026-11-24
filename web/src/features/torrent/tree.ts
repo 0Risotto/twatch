@@ -62,13 +62,7 @@ function folderInfo(node: Node): FolderInfo {
   return { path: node.path, fileIndices, size, selected }
 }
 
-function walk(
-  node: Node,
-  depth: number,
-  expanded: Set<string>,
-  needle: string,
-  rows: TreeRow[],
-) {
+function walk(node: Node, depth: number, expanded: Set<string>, needle: string, rows: TreeRow[]) {
   const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name))
   for (const folder of folders) {
     if (needle && !hasMatch(folder, needle)) continue

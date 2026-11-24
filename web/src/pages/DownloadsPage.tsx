@@ -91,7 +91,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
 
   const pause = () =>
     void call(download.state === 'paused' ? 'resume' : 'pause', () =>
-      download.state === 'paused' ? api.resumeDownload(download.id) : api.pauseDownload(download.id),
+      download.state === 'paused'
+        ? api.resumeDownload(download.id)
+        : api.pauseDownload(download.id),
     )
 
   const remove = () =>
@@ -125,7 +127,10 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
       data-download-id={download.id}
     >
       <div className="flex items-start gap-4 p-4">
-        <CoverArt title={download.torrentName} className="hidden h-[68px] w-[46px] shrink-0 sm:block" />
+        <CoverArt
+          title={download.torrentName}
+          className="hidden h-[68px] w-[46px] shrink-0 sm:block"
+        />
         <ProgressRing progress={download.progress} size={64} stroke={5}>
           <span className="font-mono text-[13px] font-semibold tabular text-[var(--fg)]">
             {formatPercent(download.progress)}
@@ -139,7 +144,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
                 <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-4" />
                 <span className="truncate">{download.label}</span>
               </h3>
-              <p className="mt-0.5 truncate text-[11px] text-[var(--muted)]">{download.torrentName}</p>
+              <p className="mt-0.5 truncate text-[11px] text-[var(--muted)]">
+                {download.torrentName}
+              </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {(download.subtitles?.length ?? 0) > 0 && (
@@ -170,7 +177,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] sm:grid-cols-4">
             <div>
               <p className="text-[9px] uppercase tracking-wider text-[var(--faint)]">Speed</p>
-              <p className="mt-0.5 font-mono tabular text-[var(--fg)]">{formatSpeed(download.speed)}</p>
+              <p className="mt-0.5 font-mono tabular text-[var(--fg)]">
+                {formatSpeed(download.speed)}
+              </p>
             </div>
             <div>
               <p className="text-[9px] uppercase tracking-wider text-[var(--faint)]">Peers</p>
@@ -206,7 +215,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate(`/player?download=${download.id}`, { state: { from: '/downloads' } })}
+                onClick={() =>
+                  navigate(`/player?download=${download.id}`, { state: { from: '/downloads' } })
+                }
               >
                 <PreviewIcon className="size-3.5" />
                 {previewLabel(kind)}
@@ -233,14 +244,30 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
             </IconButton>
           </>
         )}
-        {(download.state === 'downloading' || download.state === 'streaming' || download.state === 'paused') && (
-          <Button variant="ghost" size="sm" loading={busy === 'pause' || busy === 'resume'} onClick={pause}>
-            {download.state === 'paused' ? <RotateCcw className="size-3.5" /> : <Pause className="size-3.5" />}
+        {(download.state === 'downloading' ||
+          download.state === 'streaming' ||
+          download.state === 'paused') && (
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={busy === 'pause' || busy === 'resume'}
+            onClick={pause}
+          >
+            {download.state === 'paused' ? (
+              <RotateCcw className="size-3.5" />
+            ) : (
+              <Pause className="size-3.5" />
+            )}
             {download.state === 'paused' ? 'Resume' : 'Pause'}
           </Button>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <Sparkline values={samples} width={90} height={24} className="hidden opacity-70 sm:block" />
+          <Sparkline
+            values={samples}
+            width={90}
+            height={24}
+            className="hidden opacity-70 sm:block"
+          />
           <IconButton label="Remove from activity" size="sm" onClick={remove}>
             <Trash2 className="size-3.5" />
           </IconButton>
@@ -295,15 +322,23 @@ export function DownloadsPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="panel px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Down speed</p>
-          <p className="mt-1 font-mono text-sm tabular text-[var(--success)]">{formatSpeed(totalSpeed)}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+            Down speed
+          </p>
+          <p className="mt-1 font-mono text-sm tabular text-[var(--success)]">
+            {formatSpeed(totalSpeed)}
+          </p>
         </div>
         <div className="panel px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Active</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+            Active
+          </p>
           <p className="mt-1 font-mono text-sm tabular text-[var(--accent)]">{active.length}</p>
         </div>
         <div className="panel px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Completed</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+            Completed
+          </p>
           <p className="mt-1 font-mono text-sm tabular text-[var(--fg)]">{completed.length}</p>
         </div>
       </div>
@@ -337,7 +372,13 @@ export function DownloadsPage() {
       {visible.length === 0 ? (
         <EmptyState
           icon={<ArrowDownToLine className="size-6" />}
-          title={tab === 'active' ? 'No active transfers' : tab === 'completed' ? 'Nothing completed yet' : 'No failures'}
+          title={
+            tab === 'active'
+              ? 'No active transfers'
+              : tab === 'completed'
+                ? 'Nothing completed yet'
+                : 'No failures'
+          }
           description={
             tab === 'active'
               ? 'Start a download from a torrent page, or stream a single file while it downloads.'

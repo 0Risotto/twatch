@@ -23,3 +23,6 @@ uuid = { version = "1", features = ["v4"] }
 [features]
 default = []
 embed-web = ["twatch-server/embed-web"]
+
+[lints]
+workspace = true

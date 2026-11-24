@@ -4,7 +4,12 @@ import { cn } from '@/lib/cn'
 
 export function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn('text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]', className)}>
+    <span
+      className={cn(
+        'text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--muted)]',
+        className,
+      )}
+    >
       {children}
     </span>
   )
@@ -59,7 +64,9 @@ export function Switch({ checked, onChange, label, description, disabled }: Swit
     <label className="flex cursor-pointer items-center justify-between gap-4">
       <span>
         <span className="block text-sm font-medium text-[var(--fg)]">{label}</span>
-        {description && <span className="mt-0.5 block text-xs text-[var(--muted)]">{description}</span>}
+        {description && (
+          <span className="mt-0.5 block text-xs text-[var(--muted)]">{description}</span>
+        )}
       </span>
       <SwitchPrimitive.Root
         checked={checked}

@@ -202,7 +202,10 @@ export function PreviewDialog({ target, onClose, onOpen }: PreviewDialogProps) {
                 return (
                   <li key={file.index} className="flex items-center gap-2.5 px-3 py-2.5">
                     <FileTypeIcon name={file.name} className="size-4" />
-                    <span title={file.name} className="min-w-0 flex-1 truncate text-xs text-[var(--fg)]">
+                    <span
+                      title={file.name}
+                      className="min-w-0 flex-1 truncate text-xs text-[var(--fg)]"
+                    >
                       {file.name}
                     </span>
                     <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted)]">
@@ -228,7 +231,8 @@ export function PreviewDialog({ target, onClose, onOpen }: PreviewDialogProps) {
             </ul>
             {files.length > visibleFiles.length && (
               <p className="mt-2 text-[10px] text-[var(--faint)]">
-                Showing {visibleFiles.length} of {files.length} files. Open the torrent to see the full tree.
+                Showing {visibleFiles.length} of {files.length} files. Open the torrent to see the
+                full tree.
               </p>
             )}
           </>

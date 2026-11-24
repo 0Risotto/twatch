@@ -154,7 +154,11 @@ export function PlayerStage({
               )}
             >
               <div className="absolute inset-3 rounded-full border border-white/10" />
-              <Play className={compact ? 'size-7 text-[var(--warning)]' : 'size-10 text-[var(--warning)]'} />
+              <Play
+                className={
+                  compact ? 'size-7 text-[var(--warning)]' : 'size-10 text-[var(--warning)]'
+                }
+              />
             </div>
           )}
           <div className={cn('text-center', compact ? 'max-w-[14rem]' : 'max-w-lg')}>
@@ -183,7 +187,11 @@ export function PlayerStage({
           className="flex h-full items-center justify-center p-2"
           title="Open original image"
         >
-          <img src={streamUrl} alt={download.label} className="max-h-full max-w-full object-contain" />
+          <img
+            src={streamUrl}
+            alt={download.label}
+            className="max-h-full max-w-full object-contain"
+          />
         </a>
       )}
 
@@ -202,7 +210,9 @@ export function PlayerStage({
             compact ? 'gap-2 px-4' : 'gap-3 px-6',
           )}
         >
-          <TriangleAlert className={compact ? 'size-5 text-[var(--warning)]' : 'size-8 text-[var(--warning)]'} />
+          <TriangleAlert
+            className={compact ? 'size-5 text-[var(--warning)]' : 'size-8 text-[var(--warning)]'}
+          />
           <p className={cn('font-semibold', compact ? 'text-xs' : 'text-sm')}>
             {kind === 'audio'
               ? 'Audio codec unsupported'

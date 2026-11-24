@@ -27,7 +27,12 @@ import { formatBytes, pluralize } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/store/app'
 import type { DownloadSnapshot, FileSnapshot } from '@/types/api'
-import { allFolderPaths, buildTreeRows, type FolderInfo, type TreeRow } from '@/features/torrent/tree'
+import {
+  allFolderPaths,
+  buildTreeRows,
+  type FolderInfo,
+  type TreeRow,
+} from '@/features/torrent/tree'
 import { canPreview, fileKind, previewLabel, FileTypeIcon } from '@/lib/fileIcons'
 import { CoverArt } from '@/components/CoverArt'
 
@@ -59,7 +64,11 @@ function Checkbox({
           : 'border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--surface)_60%,transparent)] hover:border-[var(--accent)]',
       )}
     >
-      {indeterminate ? <Minus className="size-3" strokeWidth={3} /> : checked ? <Check className="size-3" strokeWidth={3} /> : null}
+      {indeterminate ? (
+        <Minus className="size-3" strokeWidth={3} />
+      ) : checked ? (
+        <Check className="size-3" strokeWidth={3} />
+      ) : null}
     </button>
   )
 }
@@ -67,7 +76,11 @@ function Checkbox({
 function FileBadges({ file }: { file: FileSnapshot }) {
   return (
     <span className="flex shrink-0 items-center gap-1">
-      {file.downloading && <Badge tone="download" dot>downloading</Badge>}
+      {file.downloading && (
+        <Badge tone="download" dot>
+          downloading
+        </Badge>
+      )}
       {file.watched && <Badge tone="stream">watched</Badge>}
       {file.downloaded && <Badge tone="success">saved</Badge>}
     </span>
@@ -113,10 +126,14 @@ export function TorrentPage() {
 
   const selectedIndices = session.files.filter(file => file.selected).map(file => file.index)
   const selectedFiles = session.files.filter(file => file.selected)
-  const selectedFile = selectedIndices.length === 1 ? session.files.find(file => file.index === selectedIndices[0]) ?? null : null
+  const selectedFile =
+    selectedIndices.length === 1
+      ? (session.files.find(file => file.index === selectedIndices[0]) ?? null)
+      : null
   const selectedKind = selectedFile ? fileKind(selectedFile.name) : null
   const canOpenSelected = selectedKind ? canPreview(selectedKind) : false
-  const selectedLabel = selectedKind && canPreview(selectedKind) ? previewLabel(selectedKind) : 'Watch'
+  const selectedLabel =
+    selectedKind && canPreview(selectedKind) ? previewLabel(selectedKind) : 'Watch'
   const OpenIcon = selectedKind === 'image' ? Eye : Play
   const selectedSize = selectedFiles.reduce((sum, file) => sum + file.size, 0)
   const allSelected = selectedIndices.length === session.files.length && session.files.length > 0
@@ -141,7 +158,11 @@ export function TorrentPage() {
     void patchSelection(folder.fileIndices, !all)
   }
 
-  const toggleAll = () => void patchSelection(session.files.map(file => file.index), !allSelected)
+  const toggleAll = () =>
+    void patchSelection(
+      session.files.map(file => file.index),
+      !allSelected,
+    )
 
   const expandAll = () => setExpanded(new Set(allFolderPaths(session.files)))
   const collapseAll = () => setExpanded(new Set())
@@ -231,7 +252,12 @@ export function TorrentPage() {
     <div className="space-y-4">
       <PageHeader
         eyebrow="Torrent session"
-        media={<CoverArt title={session.name} className="h-[112px] w-[74px] shrink-0 sm:h-[126px] sm:w-[84px]" />}
+        media={
+          <CoverArt
+            title={session.name}
+            className="h-[112px] w-[74px] shrink-0 sm:h-[126px] sm:w-[84px]"
+          />
+        }
         title={session.name}
         description={`${pluralize(session.files.length, 'file')} · ${formatBytes(session.totalSize)}${session.downloadRoot ? ` · downloads into ${session.downloadRoot}/` : ''}`}
         actions={
@@ -267,11 +293,17 @@ export function TorrentPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           ['Files', pluralize(session.files.length, 'file'), 'text-[var(--accent)]'],
-          ['Selected', `${selectedIndices.length} · ${formatBytes(selectedSize)}`, 'text-[var(--success)]'],
+          [
+            'Selected',
+            `${selectedIndices.length} · ${formatBytes(selectedSize)}`,
+            'text-[var(--success)]',
+          ],
           ['Total', formatBytes(session.totalSize), 'text-[var(--fg)]'],
         ].map(([label, value, tone]) => (
           <div key={label} className="panel px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">{label}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+              {label}
+            </p>
             <p className={cn('mt-1 font-mono text-sm tabular', tone)}>{value}</p>
           </div>
         ))}
@@ -313,7 +345,10 @@ export function TorrentPage() {
           </div>
         </div>
 
-        <div ref={scrollRef} className="relative max-h-[calc(100vh-360px)] min-h-[340px] overflow-auto">
+        <div
+          ref={scrollRef}
+          className="relative max-h-[calc(100vh-360px)] min-h-[340px] overflow-auto"
+        >
           {rows.length === 0 ? (
             <EmptyState
               icon={<Search className="size-6" />}
@@ -367,11 +402,15 @@ export function TorrentPage() {
               className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2.5"
             >
               <p className="text-xs text-[var(--muted)]">
-                <span className="font-semibold text-[var(--fg)]">{selectedIndices.length}</span> selected ·{' '}
-                {formatBytes(selectedSize)}
+                <span className="font-semibold text-[var(--fg)]">{selectedIndices.length}</span>{' '}
+                selected · {formatBytes(selectedSize)}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => void patchSelection(selectedIndices, false)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void patchSelection(selectedIndices, false)}
+                >
                   <X className="size-3.5" />
                   Clear
                 </Button>
@@ -386,7 +425,12 @@ export function TorrentPage() {
                     {selectedLabel}
                   </Button>
                 )}
-                <Button variant="primary" size="sm" loading={busy === 'download'} onClick={() => void download()}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={busy === 'download'}
+                  onClick={() => void download()}
+                >
                   <Download className="size-3.5" />
                   Download
                 </Button>
@@ -500,7 +544,9 @@ function TreeRowView({
         <span className="grid size-6 place-items-center text-[var(--folder)]">
           {isOpen ? <FolderOpen className="size-4" /> : <Folder className="size-4" />}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--fg)]">{row.name}/</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--fg)]">
+          {row.name}/
+        </span>
         <span className="font-mono text-[10px] tabular text-[var(--faint)]">
           {folder.selected}/{folder.fileIndices.length} · {formatBytes(folder.size)}
         </span>
@@ -523,7 +569,11 @@ function TreeRowView({
       role="treeitem"
       tabIndex={0}
     >
-      <Checkbox checked={file.selected} onChange={() => onToggleFile(file)} label={`Select ${file.name}`} />
+      <Checkbox
+        checked={file.selected}
+        onChange={() => onToggleFile(file)}
+        label={`Select ${file.name}`}
+      />
       <span className="grid size-6 place-items-center text-[var(--muted)]">
         <FileTypeIcon name={file.name} className="size-4" />
       </span>

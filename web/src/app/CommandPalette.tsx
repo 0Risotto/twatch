@@ -41,12 +41,54 @@ export function CommandPalette() {
       setOpen(false)
     }
     return [
-      { id: 'home', label: 'Go home', hint: 'Add a torrent', icon: Home, keywords: 'home add magnet start', run: go('/') },
-      { id: 'search', label: 'Search torrents', hint: 'Find a release', icon: Search, keywords: 'search find torrent', run: go('/search') },
-      { id: 'downloads', label: 'Open downloads', hint: 'Live transfer activity', icon: ArrowDownToLine, keywords: 'downloads transfers progress', run: go('/downloads') },
-      { id: 'player', label: 'Open player', hint: 'Now playing', icon: Play, keywords: 'player watch stream video', run: go('/player') },
-      { id: 'history', label: 'Open history', hint: 'Revisit a torrent', icon: Clock3, keywords: 'history recent watched', run: go('/history') },
-      { id: 'settings', label: 'Open settings', hint: 'Theme, search, playback', icon: Settings, keywords: 'settings theme config preferences', run: go('/settings') },
+      {
+        id: 'home',
+        label: 'Go home',
+        hint: 'Add a torrent',
+        icon: Home,
+        keywords: 'home add magnet start',
+        run: go('/'),
+      },
+      {
+        id: 'search',
+        label: 'Search torrents',
+        hint: 'Find a release',
+        icon: Search,
+        keywords: 'search find torrent',
+        run: go('/search'),
+      },
+      {
+        id: 'downloads',
+        label: 'Open downloads',
+        hint: 'Live transfer activity',
+        icon: ArrowDownToLine,
+        keywords: 'downloads transfers progress',
+        run: go('/downloads'),
+      },
+      {
+        id: 'player',
+        label: 'Open player',
+        hint: 'Now playing',
+        icon: Play,
+        keywords: 'player watch stream video',
+        run: go('/player'),
+      },
+      {
+        id: 'history',
+        label: 'Open history',
+        hint: 'Revisit a torrent',
+        icon: Clock3,
+        keywords: 'history recent watched',
+        run: go('/history'),
+      },
+      {
+        id: 'settings',
+        label: 'Open settings',
+        hint: 'Theme, search, playback',
+        icon: Settings,
+        keywords: 'settings theme config preferences',
+        run: go('/settings'),
+      },
       {
         id: 'shortcuts',
         label: 'Keyboard shortcuts',
@@ -64,7 +106,9 @@ export function CommandPalette() {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return actions
-    return actions.filter(action => `${action.label} ${action.hint} ${action.keywords}`.toLowerCase().includes(needle))
+    return actions.filter(action =>
+      `${action.label} ${action.hint} ${action.keywords}`.toLowerCase().includes(needle),
+    )
   }, [actions, query])
 
   useEffect(() => {
@@ -129,7 +173,9 @@ export function CommandPalette() {
                 </div>
                 <div className="max-h-[min(52vh,420px)] overflow-y-auto p-2">
                   {filtered.length === 0 && (
-                    <p className="px-3 py-8 text-center text-xs text-[var(--muted)]">No commands match “{query}”.</p>
+                    <p className="px-3 py-8 text-center text-xs text-[var(--muted)]">
+                      No commands match “{query}”.
+                    </p>
                   )}
                   {filtered.map((action, index) => {
                     const Icon = action.icon
@@ -148,8 +194,12 @@ export function CommandPalette() {
                           <Icon className="size-4" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-[var(--fg)]">{action.label}</span>
-                          <span className="block text-[11px] text-[var(--muted)]">{action.hint}</span>
+                          <span className="block text-sm font-medium text-[var(--fg)]">
+                            {action.label}
+                          </span>
+                          <span className="block text-[11px] text-[var(--muted)]">
+                            {action.hint}
+                          </span>
                         </span>
                         {index === active && <span className="kbd">↵</span>}
                       </button>
@@ -157,9 +207,15 @@ export function CommandPalette() {
                   })}
                 </div>
                 <div className="flex items-center gap-4 border-t border-[var(--border-soft)] px-4 py-2 text-[10px] text-[var(--faint)]">
-                  <span className="flex items-center gap-1"><span className="kbd">↑↓</span> navigate</span>
-                  <span className="flex items-center gap-1"><span className="kbd">↵</span> open</span>
-                  <span className="ml-auto flex items-center gap-1"><span className="kbd">{commandKeyLabel}</span> toggle</span>
+                  <span className="flex items-center gap-1">
+                    <span className="kbd">↑↓</span> navigate
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="kbd">↵</span> open
+                  </span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <span className="kbd">{commandKeyLabel}</span> toggle
+                  </span>
                 </div>
               </motion.div>
             </Dialog.Content>
