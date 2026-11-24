@@ -5,6 +5,7 @@
 lcov.info
 tarpaulin-report.html
 cobertura.xml
+/crates/*/bindings
 
 # Web client
 /web/node_modules
