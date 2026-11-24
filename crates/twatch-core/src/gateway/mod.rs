@@ -5,17 +5,8 @@
 //! player state, and the event stream.  It has no HTTP or UI types in it;
 //! `twatch-server` turns these snapshots into JSON and WebSocket frames.
 
+use std::collections::HashSet;
 use std::fs;
-mod config;
-mod downloads;
-mod files;
-mod history;
-mod lifecycle;
-mod persistence;
-mod player;
-mod search;
-mod session;
-mod tick;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -35,6 +26,17 @@ use crate::domain::search::{SearchConfig, SearchResult};
 use crate::domain::torrent::ports::TorrentPort;
 use crate::domain::torrent::{TorrentFile, TorrentId, TorrentStats};
 use crate::theme::{self, ThemeSpec};
+
+mod config;
+mod downloads;
+mod files;
+mod history;
+mod lifecycle;
+mod persistence;
+mod player;
+mod search;
+mod session;
+mod tick;
 
 /// Lifecycle state shown in the downloads UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -455,6 +457,7 @@ pub struct Gateway {
     events: broadcast::Sender<GatewayEvent>,
     internal_tx: mpsc::UnboundedSender<InternalEvent>,
     internal_rx: Mutex<mpsc::UnboundedReceiver<InternalEvent>>,
+    cancelled: Mutex<HashSet<u64>>,
     torrent: Arc<dyn TorrentPort>,
     history: Arc<dyn HistoryPort>,
     search: Arc<dyn SearchPort>,
@@ -486,6 +489,7 @@ impl Gateway {
             events,
             internal_tx,
             internal_rx: Mutex::new(internal_rx),
+            cancelled: Mutex::new(HashSet::new()),
             torrent,
             history,
             search,

@@ -124,6 +124,10 @@ impl Gateway {
         };
         if let Some(torrent_id) = torrent_id {
             self.torrent.remove(&torrent_id, false).await?;
+        } else {
+            // The add task may still be running. Remember the id so the
+            // eventual Ready event can remove the engine torrent.
+            self.cancelled.lock().unwrap_or_else(|e| e.into_inner()).insert(id);
         }
         self.downloads.write().unwrap_or_else(|e| e.into_inner()).retain(|entry| entry.id != id);
 

@@ -3,12 +3,14 @@
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 
+use tokio::sync::Notify;
 use twatch_core::config::Config;
 use twatch_core::domain::common::spawner::TaskSpawner;
 use twatch_core::domain::history::ports::HistoryPort;
@@ -73,6 +75,98 @@ impl TorrentPort for MockTorrent {
     async fn remove(&self, _id: &TorrentId, _delete_files: bool) -> Result<()> {
         *self.removed.lock().unwrap() = true;
         Ok(())
+    }
+}
+
+#[derive(Default)]
+struct DelayedTorrent {
+    removed: AtomicBool,
+    started: Notify,
+    release: Notify,
+}
+
+#[async_trait]
+impl TorrentPort for DelayedTorrent {
+    async fn preview(&self, _url: &str) -> Result<TorrentInfo> {
+        MockTorrent::new().preview("").await
+    }
+
+    async fn download(&self, _url: &str, _file_idx: usize) -> Result<TorrentId> {
+        Ok(TorrentId::new(7))
+    }
+
+    async fn download_to_folder(
+        &self,
+        _url: &str,
+        _indices: &[usize],
+        _dir: &Path,
+    ) -> Result<TorrentId> {
+        self.started.notify_one();
+        self.release.notified().await;
+        Ok(TorrentId::new(7))
+    }
+
+    fn get_stats(&self, _id: &TorrentId) -> Result<TorrentStats> {
+        Ok(TorrentStats {
+            progress: 0.0,
+            download_speed: 0,
+            upload_speed: 0,
+            peers: 0,
+            total_size: 1_000,
+            downloaded: 0,
+        })
+    }
+
+    async fn remove(&self, _id: &TorrentId, _delete_files: bool) -> Result<()> {
+        self.removed.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct RecheckTorrent {
+    rechecks: Mutex<Vec<bool>>,
+}
+
+#[async_trait]
+impl TorrentPort for RecheckTorrent {
+    async fn preview(&self, _url: &str) -> Result<TorrentInfo> {
+        MockTorrent::new().preview("").await
+    }
+
+    async fn download(&self, _url: &str, _file_idx: usize) -> Result<TorrentId> {
+        Ok(TorrentId::new(7))
+    }
+
+    async fn download_to_folder(
+        &self,
+        _url: &str,
+        _indices: &[usize],
+        _dir: &Path,
+    ) -> Result<TorrentId> {
+        Ok(TorrentId::new(7))
+    }
+
+    async fn download_to_folder_rechecked(
+        &self,
+        url: &str,
+        indices: &[usize],
+        dir: &Path,
+        recheck: bool,
+    ) -> Result<TorrentId> {
+        self.rechecks.lock().unwrap().push(recheck);
+        self.download_to_folder(url, indices, dir).await
+    }
+
+    fn get_stats(&self, _id: &TorrentId) -> Result<TorrentStats> {
+        Ok(TorrentStats {
+            progress: 0.0,
+            download_speed: 0,
+            upload_speed: 0,
+            peers: 0,
+            total_size: 1_000,
+            downloaded: 0,
+        })
     }
 }
 
@@ -227,6 +321,10 @@ fn temp_dir() -> PathBuf {
 }
 
 fn gateway(dir: &Path) -> Arc<Gateway> {
+    gateway_with_torrent(dir, Arc::new(MockTorrent::new()))
+}
+
+fn gateway_with_torrent(dir: &Path, torrent: Arc<dyn TorrentPort>) -> Arc<Gateway> {
     let config = Config {
         config_dir: dir.join("config"),
         download_dir: dir.join("downloads"),
@@ -237,7 +335,7 @@ fn gateway(dir: &Path) -> Arc<Gateway> {
     Gateway::new(
         config,
         SearchConfig::default(),
-        Arc::new(MockTorrent::new()),
+        torrent,
         Arc::new(MockHistory::new()),
         Arc::new(MockSearch),
         Arc::new(MockPlayer::new()),
@@ -405,4 +503,44 @@ async fn removing_download_clears_session_activity() {
     let session = gateway.session().unwrap();
     assert!(!session.files[0].downloading);
     assert_eq!(gateway.downloads().len(), 0);
+}
+
+#[tokio::test]
+async fn removing_before_ready_removes_the_engine_torrent() {
+    let dir = temp_dir();
+    let torrent = Arc::new(DelayedTorrent::default());
+    let gateway = gateway_with_torrent(&dir, torrent.clone());
+    gateway.preview("magnet:test").await.unwrap();
+    gateway.download_files(&[0]).unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    gateway.remove_download(1).await.unwrap();
+    torrent.release.notify_one();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    gateway.tick();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    assert!(torrent.removed.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn retry_rechecks_only_when_the_file_is_missing() {
+    let dir = temp_dir();
+    let torrent = Arc::new(RecheckTorrent::default());
+    let gateway = gateway_with_torrent(&dir, torrent.clone());
+    gateway.preview("magnet:test").await.unwrap();
+
+    let output = dir.join("downloads").join("Mock Torrent");
+    std::fs::create_dir_all(&output).unwrap();
+    std::fs::write(output.join("one.bin"), b"data").unwrap();
+    gateway.download_files(&[0]).unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    gateway.tick();
+
+    std::fs::remove_file(output.join("one.bin")).unwrap();
+    gateway.download_files(&[0]).unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    gateway.tick();
+
+    assert_eq!(*torrent.rechecks.lock().unwrap(), vec![false, true]);
 }

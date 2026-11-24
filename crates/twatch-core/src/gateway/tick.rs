@@ -89,10 +89,16 @@ impl Gateway {
         let mut dirty = false;
         let mut session_dirty = false;
         let mut toasts: Vec<(ToastLevel, String)> = Vec::new();
+        let mut orphaned = Vec::new();
 
         for (id, torrent_id, stream_path) in ready {
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) else {
+                let cancelled =
+                    self.cancelled.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+                if cancelled {
+                    orphaned.push(torrent_id);
+                }
                 continue;
             };
             entry.torrent_id = Some(torrent_id);
@@ -125,6 +131,7 @@ impl Gateway {
         }
 
         for (id, message) in failed {
+            self.cancelled.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
             let mut downloads = self.downloads.write().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = downloads.iter_mut().find(|entry| entry.id == id) {
                 entry.state = DownloadState::Failed;
@@ -134,6 +141,13 @@ impl Gateway {
                 dirty = true;
             }
             toasts.push((ToastLevel::Error, message));
+        }
+
+        for torrent_id in orphaned {
+            let torrent = self.torrent.clone();
+            self.spawner.spawn(Box::pin(async move {
+                let _ = torrent.remove(&torrent_id, false).await;
+            }));
         }
 
         if dirty {
