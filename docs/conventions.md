@@ -8,8 +8,8 @@
   past roughly 400 lines.
 - Public gateway operations return user-facing errors. Internal adapters may use
   `anyhow`; map errors to HTTP in `twatch-server` only.
-- Use typed IDs (`DownloadId`, `FileIndex`, `TorrentId`) at boundaries instead of
-  raw `u64`/`usize`.
+- Use typed IDs (`DownloadId`, `TorrentId`) at gateway boundaries. File indices
+  stay numeric at the selection edge.
 - Do not block an async worker with filesystem or process work. Use
   `spawn_blocking` or an adapter that owns blocking work.
 - Keep locks scoped. Never hold a `std::sync` guard across `.await`.
