@@ -544,3 +544,101 @@ async fn retry_rechecks_only_when_the_file_is_missing() {
 
     assert_eq!(*torrent.rechecks.lock().unwrap(), vec![false, true]);
 }
+
+#[tokio::test]
+async fn delete_files_removes_existing_files_and_reports_missing_ones() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+    let root = dir.join("downloads").join("Mock Torrent");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("one.bin"), b"data").unwrap();
+
+    let report = gateway.delete_files(&[0, 1]);
+    assert_eq!(report.deleted, 1);
+    assert_eq!(report.failed, vec!["two.bin"]);
+    assert!(!root.join("one.bin").exists());
+    assert!(!gateway.session().unwrap().files[0].selected);
+}
+
+#[test]
+fn delete_files_without_a_session_is_a_noop() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    let report = gateway.delete_files(&[0]);
+    assert_eq!(report.deleted, 0);
+    assert!(report.failed.is_empty());
+}
+
+#[tokio::test]
+async fn rename_file_moves_disk_state_and_rejects_unsafe_names() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+    let root = dir.join("downloads").join("Mock Torrent");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("one.bin"), b"data").unwrap();
+
+    let result = gateway.rename_file(0, "renamed.bin").unwrap();
+    assert_eq!(result, "Renamed to: renamed.bin");
+    assert!(!root.join("one.bin").exists());
+    assert!(root.join("renamed.bin").exists());
+    assert_eq!(gateway.session().unwrap().files[0].name, "renamed.bin");
+    assert!(gateway.rename_file(0, "../escape").is_err());
+    assert!(gateway.rename_file(0, "").is_err());
+    assert!(gateway.rename_file(99, "nope.bin").is_err());
+}
+
+#[tokio::test]
+async fn player_can_open_and_stop_a_ready_stream() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+    gateway.watch_file(0).unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    gateway.tick();
+
+    let player = gateway.open_player(1, "http://127.0.0.1:7878").unwrap();
+    assert!(player.running);
+    assert_eq!(player.download_id, Some(1));
+    assert_eq!(player.stream_path.as_deref(), Some("/api/stream/7/0"));
+
+    gateway.stop_player();
+    assert!(!gateway.player().running);
+}
+
+#[tokio::test]
+async fn config_updates_validate_theme_and_player() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    assert!(gateway.update_theme("emerald-dark").is_ok());
+    assert!(gateway.update_theme("not-a-theme").is_err());
+    assert!(gateway.update_player("mpv").is_ok());
+    assert!(gateway.update_player("not-a-player").is_err());
+    assert_eq!(gateway.config_view().theme, "emerald-dark");
+    assert_eq!(gateway.config_view().player, "mpv");
+}
+
+#[tokio::test]
+async fn session_selection_can_be_set_and_cleared() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    gateway.preview("magnet:test").await.unwrap();
+    gateway.select_files(&[0, 99], true).unwrap();
+    assert_eq!(gateway.session().unwrap().selected_count, 1);
+    gateway.select_all(true).unwrap();
+    assert_eq!(gateway.session().unwrap().selected_count, 2);
+    gateway.select_all(false).unwrap();
+    assert_eq!(gateway.session().unwrap().selected_count, 0);
+    gateway.close_session();
+    assert!(gateway.session().is_none());
+}
+
+#[tokio::test]
+async fn corrupt_downloads_file_is_ignored_on_restore() {
+    let dir = temp_dir();
+    let gateway = gateway(&dir);
+    std::fs::write(gateway.config().config_dir.join("downloads.json"), "{not json").unwrap();
+    gateway.restore_downloads();
+    assert!(gateway.downloads().is_empty());
+}
