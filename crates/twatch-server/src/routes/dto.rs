@@ -62,6 +62,7 @@ pub struct SearchParams {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlayerOpenRequest {
     pub download_id: u64,
 }

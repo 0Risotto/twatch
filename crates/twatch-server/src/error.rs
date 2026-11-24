@@ -49,6 +49,10 @@ impl From<anyhow::Error> for ApiError {
             || message.contains("File not found")
             || message.contains("Download not found")
             || message.contains("History entry not found")
+            || message.contains("Unknown theme")
+            || message.contains("Unknown player")
+            || message.contains("File name must be")
+            || message.contains("Invalid file name")
         {
             StatusCode::BAD_REQUEST
         } else {

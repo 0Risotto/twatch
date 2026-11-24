@@ -253,3 +253,185 @@ async fn stream_without_engine_is_a_clean_503() {
     let response = app().oneshot(request("/api/stream/1/0", Some("test-token"))).await.unwrap();
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
+
+fn json_request(method: &str, path: &str, body: serde_json::Value) -> Request<Body> {
+    Request::builder()
+        .uri(path)
+        .method(method)
+        .header("authorization", "Bearer test-token")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn session_preview_select_and_close() {
+    let app = app();
+    let response = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/api/session/preview",
+            serde_json::json!({ "url": "magnet:test" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["name"], "Test");
+    assert_eq!(json["files"].as_array().unwrap().len(), 1);
+
+    let response = app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/api/session/files/select",
+            serde_json::json!({ "indices": [0], "selected": true }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["selectedCount"], 1);
+
+    let response = app.clone().oneshot(request("/api/session", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(json_request("POST", "/api/session/close", serde_json::json!({})))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let response = app.oneshot(request("/api/session", Some("test-token"))).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json.is_null());
+}
+
+#[tokio::test]
+async fn search_config_round_trips() {
+    let app = app();
+    let response =
+        app.clone().oneshot(request("/api/search/config", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let config = serde_json::json!({
+        "url": "https://example.test/search?q={query}",
+        "headers": {},
+        "fieldMap": {
+            "name": "name",
+            "infoHash": "infohash",
+            "seeders": "seeders",
+            "leechers": "leechers",
+            "size": "size",
+            "username": "username"
+        }
+    });
+    let response = app
+        .clone()
+        .oneshot(json_request("PUT", "/api/search/config", config.clone()))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["url"], config["url"]);
+
+    let response = app
+        .clone()
+        .oneshot(request("/api/search?q=test&page=0", Some("test-token")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json, serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn player_and_config_endpoints_validate_input() {
+    let app = app();
+    let response = app.clone().oneshot(request("/api/player", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["running"], false);
+
+    let response = app
+        .clone()
+        .oneshot(json_request("POST", "/api/player/open", serde_json::json!({ "downloadId": 99 })))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let response = app
+        .clone()
+        .oneshot(json_request("POST", "/api/player/stop", serde_json::json!({})))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(json_request(
+            "PATCH",
+            "/api/config",
+            serde_json::json!({ "theme": "emerald-dark", "player": "mpv" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["theme"], "emerald-dark");
+    assert_eq!(json["player"], "mpv");
+
+    let response = app
+        .clone()
+        .oneshot(json_request(
+            "PATCH",
+            "/api/config",
+            serde_json::json!({ "theme": "missing-theme" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let response = app
+        .oneshot(json_request(
+            "PATCH",
+            "/api/config",
+            serde_json::json!({ "player": "missing-player" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn empty_download_and_delete_lists_are_well_formed() {
+    let app = app();
+    let response =
+        app.clone().oneshot(request("/api/downloads", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json, serde_json::json!([]));
+
+    let response = app
+        .oneshot(json_request(
+            "DELETE",
+            "/api/session/files",
+            serde_json::json!({ "indices": [0] }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["deleted"], 0);
+    assert_eq!(json["failed"], serde_json::json!([]));
+}
