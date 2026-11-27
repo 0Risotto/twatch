@@ -27,12 +27,14 @@ use crate::domain::search::{SearchConfig, SearchResult};
 use crate::domain::torrent::ports::TorrentPort;
 use crate::domain::torrent::{TorrentFile, TorrentId, TorrentStats};
 use crate::theme::{self, ThemeSpec};
+use library::LibraryFile;
 
 mod config;
 mod downloads;
 mod error;
 mod files;
 mod history;
+mod library;
 mod lifecycle;
 mod persistence;
 mod player;
@@ -139,6 +141,50 @@ pub struct QueueFile {
     pub name: String,
     #[ts(type = "number")]
     pub size: u64,
+}
+
+/// Which local root owns a library file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum LibraryRoot {
+    Cache,
+    Downloads,
+}
+
+impl LibraryRoot {
+    const fn key(self) -> &'static str {
+        match self {
+            Self::Cache => "cache",
+            Self::Downloads => "downloads",
+        }
+    }
+}
+
+/// The kind of media the library found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum LibraryMediaKind {
+    Video,
+    Audio,
+}
+
+/// A playable file discovered under the local cache or downloads folder.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct LibraryEntry {
+    pub id: String,
+    pub name: String,
+    pub relative_path: String,
+    pub root: LibraryRoot,
+    pub media_kind: LibraryMediaKind,
+    #[ts(type = "number")]
+    pub size: u64,
+    #[ts(type = "number | null")]
+    pub modified_ms: Option<u64>,
+    pub stream_path: String,
 }
 
 /// A live or recently completed download.
@@ -541,6 +587,7 @@ pub struct Gateway {
     search_config: RwLock<SearchConfig>,
     session: RwLock<Option<SessionState>>,
     downloads: RwLock<Vec<DownloadEntry>>,
+    library: RwLock<Option<Vec<LibraryFile>>>,
     player_state: Mutex<PlayerState>,
     next_download_id: AtomicU64,
     revision: AtomicU64,
@@ -573,6 +620,7 @@ impl Gateway {
             search_config: RwLock::new(search_config),
             session: RwLock::new(None),
             downloads: RwLock::new(Vec::new()),
+            library: RwLock::new(None),
             player_state: Mutex::new(PlayerState::default()),
             next_download_id: AtomicU64::new(1),
             revision: AtomicU64::new(1),
@@ -664,6 +712,17 @@ impl Gateway {
         let _ = self.events.send(event);
     }
 }
+/// Build an absolute media URL for a native player.  Browsers authenticate
+/// with the HttpOnly cookie; mpv/VLC need the query token instead.
+pub(super) fn stream_url(base_url: &str, stream_path: &str, token: Option<&str>) -> String {
+    let mut url = format!("{}{}", base_url.trim_end_matches('/'), stream_path);
+    if let Some(token) = token.filter(|token| !token.is_empty()) {
+        url.push_str(if stream_path.contains('?') { "&token=" } else { "?token=" });
+        url.push_str(token);
+    }
+    url
+}
+
 fn apply_stats(entry: &mut DownloadEntry, stats: &TorrentStats) {
     entry.progress = stats.progress.clamp(0.0, 1.0);
     entry.speed = stats.download_speed;
@@ -713,6 +772,27 @@ mod playable_tests {
         let queue = playable_queue(&files);
         assert_eq!(queue.iter().map(|file| file.index).collect::<Vec<_>>(), vec![0, 2, 4]);
         assert_eq!(queue[1].name, "Show.S01E02.MKV");
+    }
+}
+
+#[cfg(test)]
+mod stream_url_tests {
+    use super::stream_url;
+
+    #[test]
+    fn adds_only_media_tokens_when_present() {
+        assert_eq!(
+            stream_url("http://127.0.0.1:7878/", "/api/stream/7/0", None),
+            "http://127.0.0.1:7878/api/stream/7/0"
+        );
+        assert_eq!(
+            stream_url("http://127.0.0.1:7878", "/api/stream/7/0", Some("abc")),
+            "http://127.0.0.1:7878/api/stream/7/0?token=abc"
+        );
+        assert_eq!(
+            stream_url("http://127.0.0.1:7878", "/api/library/cache-id/stream", Some("abc")),
+            "http://127.0.0.1:7878/api/library/cache-id/stream?token=abc"
+        );
     }
 }
 

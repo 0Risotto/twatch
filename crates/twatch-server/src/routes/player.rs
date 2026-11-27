@@ -24,7 +24,11 @@ pub async fn open_player(
     let scheme =
         headers.get("x-forwarded-proto").and_then(|value| value.to_str().ok()).unwrap_or("http");
     let base_url = format!("{scheme}://{host}");
-    Ok(Json(state.gateway.open_player(DownloadId::new(request.download_id), &base_url)?))
+    Ok(Json(state.gateway.open_player_with_token(
+        DownloadId::new(request.download_id),
+        &base_url,
+        Some(state.token.as_ref()),
+    )?))
 }
 
 pub async fn stop_player(State(state): State<AppState>) -> Json<OkResponse> {

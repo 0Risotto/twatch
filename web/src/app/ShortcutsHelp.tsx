@@ -6,6 +6,7 @@ const shortcuts: Array<[string, string]> = [
   ['g then h', 'Home'],
   ['g then s', 'Search'],
   ['g then d', 'Downloads'],
+  ['g then l', 'Library'],
   ['g then p', 'Player'],
   ['g then y', 'History'],
   ['g then t', 'Settings'],

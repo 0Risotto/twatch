@@ -35,6 +35,10 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | POST | `/api/downloads/{id}/pause` | Pause |
 | POST | `/api/downloads/{id}/resume` | Resume (or re-add a restored transfer) |
 | DELETE | `/api/downloads/{id}` | Remove torrent from the engine |
+| GET | `/api/library` | Indexed local media from the cache and downloads roots |
+| POST | `/api/library/rescan` | Rebuild the local media index |
+| POST | `/api/library/{id}/open` | Hand a local file to mpv/VLC |
+| GET | `/api/library/{id}/stream` | Byte-range stream for a local file |
 | GET | `/api/search?q=&page=` | Search the configured JSON API |
 | GET/PUT | `/api/search/config` | Read/write the search endpoint and field map |
 | GET | `/api/history` | History entries |
@@ -154,6 +158,20 @@ and the player seeks to it after metadata loads. The player writes progress
 every five seconds, on pause, on tab hide, and on unmount. `DownloadSnapshot`
 also carries the current `fileIndex` and a `queue` of playable files so the
 player can provide next/previous/autoplay without re-fetching the session.
+
+## Local library
+
+The library scans two roots:
+
+- `Config.session_path` (default `$XDG_CACHE_HOME/twatch/session`)
+- `Config.download_dir` (default `$XDG_DOWNLOAD_DIR/twatch`)
+
+Only non-empty video and audio files are indexed. Hidden directories, symlinks,
+and temporary/partial files without a media extension are skipped. The scan is
+recursive, capped at 10,000 files, and returns opaque ids. `/api/library/{id}/stream`
+only resolves ids from that index; the request never supplies a filesystem path.
+Responses use the same single-range semantics as torrent streams, and the
+`/open` action passes the local stream to the configured native player.
 
 ## Streaming
 

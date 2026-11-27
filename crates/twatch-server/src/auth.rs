@@ -1,7 +1,7 @@
 //! Local-first authentication and browser hardening.
 
 use axum::extract::{Request, State};
-use axum::http::{HeaderValue, header};
+use axum::http::{HeaderValue, Method, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
@@ -94,6 +94,23 @@ fn check_host_and_origin(state: &AppState, request: &Request) -> Result<(), ApiE
     Ok(())
 }
 
+fn media_query_token(request: &Request) -> Option<&str> {
+    let method = request.method();
+    if method != Method::GET && method != Method::HEAD {
+        return None;
+    }
+    let path = request.uri().path();
+    let allowed = path.starts_with("/api/stream/")
+        || (path.starts_with("/api/library/") && path.ends_with("/stream"));
+    if !allowed {
+        return None;
+    }
+    request.uri().query()?.split('&').find_map(|pair| {
+        let (key, value) = pair.split_once('=')?;
+        (key == "token").then_some(value)
+    })
+}
+
 /// Middleware for every `/api` route except the health probe.
 pub async fn require_token(
     State(state): State<AppState>,
@@ -101,7 +118,9 @@ pub async fn require_token(
     next: Next,
 ) -> Result<Response, ApiError> {
     check_host_and_origin(&state, &request)?;
-    if !has_valid_token(request.headers(), &state.token) {
+    let query_ok = media_query_token(&request)
+        .is_some_and(|token| constant_time_eq(token.as_bytes(), state.token.as_bytes()));
+    if !has_valid_token(request.headers(), &state.token) && !query_ok {
         return Err(ApiError::unauthorized());
     }
     Ok(next.run(request).await)

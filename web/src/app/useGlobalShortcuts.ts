@@ -41,6 +41,7 @@ export function useGlobalShortcuts(): void {
           h: '/',
           s: '/search',
           d: '/downloads',
+          l: '/library',
           p: '/player',
           y: '/history',
           t: '/settings',

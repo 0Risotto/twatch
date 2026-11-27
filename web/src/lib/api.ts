@@ -4,6 +4,7 @@ import type {
   CoverInfo,
   DownloadSnapshot,
   HistoryEntry,
+  LibraryEntry,
   PlayerSnapshot,
   SearchConfig,
   SearchResult,
@@ -86,6 +87,10 @@ export const api = {
   pauseDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/pause`),
   resumeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/resume`),
   removeDownload: (id: number) => del<{ ok: boolean }>(`/api/downloads/${id}`),
+
+  library: () => request<LibraryEntry[]>('/api/library'),
+  rescanLibrary: () => post<LibraryEntry[]>('/api/library/rescan'),
+  openLibrary: (id: string) => post<PlayerSnapshot>(`/api/library/${encodeURIComponent(id)}/open`),
 
   search: (q: string, page = 0) =>
     request<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}&page=${page}`),

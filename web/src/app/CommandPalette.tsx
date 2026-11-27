@@ -8,6 +8,7 @@ import {
   Command,
   Home,
   Keyboard,
+  LibraryBig,
   Play,
   Search,
   Settings,
@@ -64,6 +65,14 @@ export function CommandPalette() {
         icon: ArrowDownToLine,
         keywords: 'downloads transfers progress',
         run: go('/downloads'),
+      },
+      {
+        id: 'library',
+        label: 'Open library',
+        hint: 'Local cache and downloads',
+        icon: LibraryBig,
+        keywords: 'library local cache files media',
+        run: go('/library'),
       },
       {
         id: 'player',

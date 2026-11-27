@@ -1,3 +1,4 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
 
 const TOKEN = 'e2e-token'
@@ -43,6 +44,10 @@ test('navigates between the main pages', async ({ page }) => {
   await expect(page).toHaveURL(/\/downloads$/)
   await expect(page.getByRole('heading', { name: 'Downloads in flight' })).toBeVisible()
 
+  await nav.getByRole('link', { name: 'Library' }).click()
+  await expect(page).toHaveURL(/\/library$/)
+  await expect(page.getByRole('heading', { name: 'Local library' })).toBeVisible()
+
   await nav.getByRole('link', { name: 'History' }).click()
   await expect(page).toHaveURL(/\/history$/)
   await expect(page.getByRole('heading', { name: 'Everything you have opened' })).toBeVisible()
@@ -66,6 +71,25 @@ test('opens search and shows the configure state', async ({ page }) => {
   await expect(page).toHaveURL(/\/search$/)
   await expect(page.getByRole('heading', { name: 'Find something worth watching' })).toBeVisible()
   await expect(page.getByText('Connect a search API').first()).toBeVisible()
+})
+
+test('indexes files from the local cache', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'library playback is covered in the desktop project')
+  const cache = '/tmp/twatch-playwright/cache/twatch/session'
+  await mkdir(cache, { recursive: true })
+  await writeFile(`${cache}/Library.Sample.mp4`, 'sample media')
+
+  await page.goto('/library')
+  await page.getByRole('button', { name: /rescan/i }).click()
+  await expect(page.getByText('Library.Sample.mp4').first()).toBeVisible()
+  await expect(page.getByText('Cache', { exact: true }).first()).toBeVisible()
+
+  await page.getByLabel('Filter local library').fill('sample')
+  await expect(page.getByText('Library.Sample.mp4').first()).toBeVisible()
+  await page.getByLabel('Filter local library').fill('missing')
+  await expect(page.getByText('Nothing matches that filter')).toBeVisible()
+
+  await rm(`${cache}/Library.Sample.mp4`, { force: true })
 })
 
 test('persists the selected theme', async ({ page, isMobile }) => {

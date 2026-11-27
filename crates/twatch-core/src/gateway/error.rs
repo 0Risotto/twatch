@@ -18,6 +18,8 @@ pub enum GatewayError {
     FileNotFound,
     #[error("Download not found")]
     DownloadNotFound,
+    #[error("Library file not found")]
+    LibraryNotFound,
     #[error("History entry not found")]
     HistoryNotFound,
     #[error("Stream is not ready yet")]

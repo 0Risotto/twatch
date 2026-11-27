@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { ArrowDownToLine, Clock3, Home, Play, Search, Settings } from 'lucide-react'
+import { ArrowDownToLine, Clock3, Home, LibraryBig, Play, Search, Settings } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { springs } from '@/lib/motion'
@@ -19,6 +19,12 @@ export const NAV_ITEMS = [
     label: 'Downloads',
     icon: ArrowDownToLine,
     match: (path: string) => path.startsWith('/downloads'),
+  },
+  {
+    to: '/library',
+    label: 'Library',
+    icon: LibraryBig,
+    match: (path: string) => path.startsWith('/library'),
   },
   {
     to: '/player',
@@ -124,7 +130,7 @@ export function MobileNav() {
             key={item.to}
             to={item.to}
             className={cn(
-              'relative flex size-12 flex-col items-center justify-center gap-0.5 rounded-[4px] text-[9px] font-semibold',
+              'relative flex size-11 flex-col items-center justify-center gap-0.5 rounded-[4px] text-[9px] font-semibold min-[390px]:size-12',
               active ? 'text-[var(--fg)]' : 'text-[var(--muted)]',
             )}
           >

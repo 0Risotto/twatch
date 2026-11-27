@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   '/search': 'Search',
   '/torrent': 'Torrent',
   '/downloads': 'Downloads',
+  '/library': 'Library',
   '/player': 'Player',
   '/history': 'History',
   '/settings': 'Settings',

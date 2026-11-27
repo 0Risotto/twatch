@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use axum::body::Body;
+use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
@@ -114,12 +114,16 @@ fn temp_dir() -> PathBuf {
 }
 
 fn test_state() -> AppState {
-    let dir = temp_dir();
-    std::fs::create_dir_all(&dir).unwrap();
+    test_state_at(&temp_dir())
+}
+
+fn test_state_at(dir: &Path) -> AppState {
+    std::fs::create_dir_all(dir).unwrap();
     std::fs::write(dir.join("index.html"), "<html><body>twatch</body></html>").unwrap();
 
     let config = Config {
         config_dir: dir.join("config"),
+        session_path: dir.join("cache"),
         download_dir: dir.join("downloads"),
         ..Config::default()
     };
@@ -134,7 +138,7 @@ fn test_state() -> AppState {
     );
     let server = ServerConfig {
         bind: "127.0.0.1:0".parse().unwrap(),
-        web_dir: Some(dir),
+        web_dir: Some(dir.to_path_buf()),
         token: "test-token".into(),
         allow_remote: false,
     };
@@ -174,6 +178,17 @@ async fn csp_allows_wasm_subtitle_workers() {
     assert!(csp.contains("'unsafe-eval'"));
     assert!(csp.contains("worker-src 'self'"));
     assert!(csp.contains("media-src 'self' blob: data:"));
+}
+
+#[tokio::test]
+async fn media_streams_accept_a_query_token_but_regular_apis_do_not() {
+    let app = app();
+    let response =
+        app.clone().oneshot(request("/api/stream/1/0?token=test-token", None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    let response = app.oneshot(request("/api/bootstrap?token=test-token", None)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -437,4 +452,41 @@ async fn empty_download_and_delete_lists_are_well_formed() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["deleted"], 0);
     assert_eq!(json["failed"], serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn library_lists_and_streams_local_media_with_ranges() {
+    let dir = temp_dir();
+    let cache = dir.join("cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::write(cache.join("Local Movie.mp4"), b"0123456789").unwrap();
+
+    let app = twatch_server::router(test_state_at(&dir));
+    let response = app.clone().oneshot(request("/api/library", Some("test-token"))).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let entries: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let entry = &entries[0];
+    assert_eq!(entry["name"], "Local Movie.mp4");
+    assert_eq!(entry["root"], "cache");
+    assert_eq!(entry["mediaKind"], "video");
+    assert_eq!(entry["size"], 10);
+    assert_eq!(entry["relativePath"], "Local Movie.mp4");
+
+    let stream_path = entry["streamPath"].as_str().unwrap();
+    let mut stream_request = Request::builder()
+        .uri(stream_path)
+        .method("GET")
+        .header("authorization", "Bearer test-token")
+        .header("range", "bytes=2-5")
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .oneshot(std::mem::replace(&mut stream_request, Request::new(Body::empty())))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(response.headers()["content-range"], "bytes 2-5/10");
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[..], b"2345");
 }

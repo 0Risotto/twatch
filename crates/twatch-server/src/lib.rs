@@ -42,6 +42,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/downloads/{id}/pause", post(routes::pause_download))
         .route("/api/downloads/{id}/resume", post(routes::resume_download))
         .route("/api/downloads/{id}", delete(routes::remove_download))
+        .route("/api/library", get(routes::library))
+        .route("/api/library/rescan", post(routes::rescan_library))
+        .route("/api/library/{id}/open", post(routes::open_library))
         .route("/api/search", get(routes::search))
         .route("/api/search/config", get(routes::get_search_config))
         .route("/api/search/config", put(routes::put_search_config))
@@ -58,6 +61,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/config", patch(routes::patch_config))
         .route("/api/covers", post(routes::covers))
         .route("/api/stream/{torrent_id}/{file_idx}", get(stream::stream_file))
+        .route("/api/library/{id}/stream", get(stream::library_stream))
         .route("/api/subtitles/{torrent_id}/{file_idx}", get(subtitles::subtitles))
         .route("/api/ws", get(ws::ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth::require_token));

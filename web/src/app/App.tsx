@@ -8,6 +8,7 @@ import { useUiStore } from '@/store/ui'
 import { Shell } from './Shell'
 import { useLive, useThemeSync } from './useLive'
 import { HomePage } from '@/pages/HomePage'
+import { LibraryPage } from '@/pages/LibraryPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { TorrentPage } from '@/pages/TorrentPage'
 import { DownloadsPage } from '@/pages/DownloadsPage'
@@ -41,6 +42,7 @@ function AppShell() {
               <Route path="search" element={<SearchPage />} />
               <Route path="torrent" element={<TorrentPage />} />
               <Route path="downloads" element={<DownloadsPage />} />
+              <Route path="library" element={<LibraryPage />} />
               <Route path="player" element={<PlayerPage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="settings" element={<SettingsPage />} />

@@ -1,7 +1,9 @@
 # twatch
 
 Desktop and web torrent streaming client. Browse, preview, stream, and download
-torrents from the Electron app or a local browser console.
+torrents from the Electron app or a local browser console. Completed downloads
+and movies already in the twatch cache are indexed in a local library with
+byte-range playback and native-player handoff.
 
 The backend is Rust: `librqbit` for the engine, `tokio` for async work, and
 `axum` for the local web API. No Node server runs at runtime.

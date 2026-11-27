@@ -52,6 +52,7 @@ impl From<GatewayError> for ApiError {
             | GatewayError::InvalidFileName => StatusCode::BAD_REQUEST,
             GatewayError::FileNotFound
             | GatewayError::DownloadNotFound
+            | GatewayError::LibraryNotFound
             | GatewayError::HistoryNotFound => StatusCode::NOT_FOUND,
             GatewayError::StreamNotReady => StatusCode::CONFLICT,
             GatewayError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,

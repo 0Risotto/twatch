@@ -13,13 +13,15 @@ use twatch_engine::stream::StreamService;
 
 use crate::state::AppState;
 
-/// Open a file stream, waiting briefly while a freshly added torrent initializes.
+const STREAM_INIT_ATTEMPTS: u8 = 200;
+
+/// Open a file stream, waiting while a freshly added torrent initializes.
 pub(crate) async fn open_stream(
     stream_service: &StreamService,
     torrent: TorrentId,
     file_idx: usize,
 ) -> Result<impl AsyncRead + AsyncSeek + Unpin + Send + 'static, (StatusCode, &'static str)> {
-    for attempt in 0..40u8 {
+    for attempt in 0..STREAM_INIT_ATTEMPTS {
         match stream_service.open(torrent, file_idx) {
             Ok(stream) => return Ok(stream),
             Err(error) => {
@@ -31,7 +33,7 @@ pub(crate) async fn open_stream(
                     );
                     return Err((StatusCode::NOT_FOUND, "Torrent file not found"));
                 }
-                if attempt == 39 {
+                if attempt + 1 == STREAM_INIT_ATTEMPTS {
                     tracing::warn!(
                         "Stream still initializing for {}/{file_idx}: {error:#}",
                         torrent.raw()
@@ -62,6 +64,78 @@ impl ByteRange {
     pub const fn is_empty(self) -> bool {
         self.len() == 0
     }
+}
+
+/// Serve a file from the local cache or downloads folder.
+///
+/// The id is resolved through the gateway's library index; the request never
+/// supplies a filesystem path directly.
+pub async fn library_stream(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    let Some(path) = state.gateway.library_file_path(&id) else {
+        return (StatusCode::NOT_FOUND, "Library file not found").into_response();
+    };
+    let mut file = match tokio::fs::File::open(&path).await {
+        Ok(file) => file,
+        Err(error) => {
+            tracing::warn!("Library stream open failed: {error:#}");
+            return (StatusCode::NOT_FOUND, "Library file not found").into_response();
+        }
+    };
+    let len = match file.metadata().await {
+        Ok(metadata) => metadata.len(),
+        Err(error) => {
+            tracing::warn!("Library stream metadata failed: {error:#}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Could not read file").into_response();
+        }
+    };
+
+    let range_header = headers.get(header::RANGE).and_then(|value| value.to_str().ok());
+    let range = match parse_range(range_header, len) {
+        Ok(range) => range,
+        Err(RangeError) => {
+            let mut response_headers = HeaderMap::new();
+            response_headers.insert(header::CONTENT_RANGE, header_value(format!("bytes */{len}")));
+            return (StatusCode::RANGE_NOT_SATISFIABLE, response_headers).into_response();
+        }
+    };
+
+    let (start, end, status) = match range {
+        Some(range) => (range.start, range.end, StatusCode::PARTIAL_CONTENT),
+        None => (0, len.saturating_sub(1), StatusCode::OK),
+    };
+    let content_len = if len == 0 { 0 } else { end - start + 1 };
+
+    if let Err(error) = file.seek(SeekFrom::Start(start)).await {
+        tracing::warn!("Library stream seek failed: {error:#}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Could not seek file").into_response();
+    }
+
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    response_headers.insert(header::CONTENT_LENGTH, header_value(content_len));
+    response_headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response_headers.insert(header::CONTENT_DISPOSITION, HeaderValue::from_static("inline"));
+    response_headers.insert(
+        header::CONTENT_TYPE,
+        header_value(mime_guess::from_path(&path).first_or_octet_stream()),
+    );
+    if status == StatusCode::PARTIAL_CONTENT {
+        response_headers
+            .insert(header::CONTENT_RANGE, header_value(format!("bytes {start}-{end}/{len}")));
+    }
+
+    if method == Method::HEAD {
+        return (status, response_headers).into_response();
+    }
+
+    let limited = file.take(content_len);
+    let body = Body::from_stream(ReaderStream::with_capacity(limited, 64 * 1024));
+    (status, response_headers, body).into_response()
 }
 
 /// The range header was malformed or unsatisfiable.

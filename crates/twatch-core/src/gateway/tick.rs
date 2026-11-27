@@ -65,6 +65,8 @@ impl Gateway {
             self.emit(GatewayEvent::DownloadsChanged);
         }
         if had_completed {
+            // A completed batch just appeared under the downloads root.
+            *self.library.write().unwrap_or_else(|e| e.into_inner()) = None;
             self.persist_downloads();
         }
     }
