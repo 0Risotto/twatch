@@ -11,6 +11,7 @@ Default address: `http://127.0.0.1:7878`
   print the token.
 - `GET /` sets an `HttpOnly`, `SameSite=Strict` `twatch_token` cookie.
 - API requests accept either the cookie or `Authorization: Bearer <token>`.
+- Media `GET`/`HEAD` stream endpoints also accept `?token=<token>` so mpv/VLC can authenticate without a cookie.
 - `GET /api/health` is public. Everything else under `/api` requires the token.
 - `Host` and `Origin` are checked to block DNS rebinding and cross-origin
   mutations.
