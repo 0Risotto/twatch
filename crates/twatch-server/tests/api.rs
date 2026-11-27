@@ -416,11 +416,14 @@ async fn library_lists_and_streams_local_media_with_ranges() {
     let entry = &entries[0];
     assert_eq!(entry["name"], "Local Movie.mp4");
     assert_eq!(entry["root"], "cache");
-    assert_eq!(entry["mediaKind"], "video");
     assert_eq!(entry["size"], 10);
     assert_eq!(entry["relativePath"], "Local Movie.mp4");
+    assert_eq!(entry["media"]["kind"], "video");
+    assert_eq!(entry["media"]["playback"], "direct");
+    assert_eq!(entry["media"]["size"], 10);
 
     let stream_path = entry["streamPath"].as_str().unwrap();
+    assert_eq!(entry["media"]["streamPath"], stream_path);
     let mut stream_request = Request::builder()
         .uri(stream_path)
         .method("GET")

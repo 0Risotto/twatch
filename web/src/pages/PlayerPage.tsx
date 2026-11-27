@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePlayback } from '@/features/player/PlaybackProvider'
-import { canPreview, fileKind, isAudio, isImage, isVideo } from '@/lib/fileIcons'
+import { fileKind } from '@/lib/fileIcons'
 import { useAppStore } from '@/store/app'
 import { PlayerEmptyState } from './player/PlayerEmptyState'
 import { PlayerHeader } from './player/PlayerHeader'
@@ -35,7 +35,7 @@ export function PlayerPage() {
   const requestedId = Number(params.get('download')) || null
   const autoDownload =
     !requestedId && !activeDownload
-      ? (downloads.find(item => item.streamPath) ??
+      ? (downloads.find(item => item.media.streamPath) ??
         downloads.find(item => item.isStreaming) ??
         null)
       : null
@@ -53,12 +53,12 @@ export function PlayerPage() {
     ? (downloads.find(item => item.id === requestedId) ?? activeDownload)
     : (activeDownload ?? autoDownload)
 
-  const streamUrl = download?.streamPath ?? null
+  const streamUrl = download?.media?.streamPath ?? null
   const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
-  const video = isVideo(kind)
-  const audio = isAudio(kind)
-  const image = isImage(kind)
-  const previewable = canPreview(kind)
+  const video = download?.media?.kind === 'video'
+  const audio = download?.media?.kind === 'audio'
+  const image = download?.media?.kind === 'image'
+  const previewable = video || audio || image
   const playable = video || audio
   const queue = download?.queue ?? []
   const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))

@@ -34,6 +34,7 @@ mod files;
 mod history;
 mod library;
 mod lifecycle;
+mod media;
 mod persistence;
 mod search;
 mod session;
@@ -245,6 +246,14 @@ const DOWNLOADS_FILENAME: &str = "downloads.json";
 impl DownloadEntry {
     fn snapshot(&self) -> DownloadSnapshot {
         let remaining = self.total_size.saturating_sub(self.downloaded);
+        let filename = self.file_names.first().cloned().unwrap_or_else(|| self.label.clone());
+        let media = media::descriptor(
+            MediaId::Download(self.id.raw()),
+            self.label.clone(),
+            filename,
+            self.total_size,
+            self.stream_path.clone(),
+        );
         let eta_seconds = if self.speed_ema > 1.0 && remaining > 0 {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Some((remaining as f64 / self.speed_ema).ceil() as u64)
@@ -259,6 +268,7 @@ impl DownloadEntry {
             label: self.label.clone(),
             file_names: self.file_names.clone(),
             url: self.url.clone(),
+            media,
             progress: self.progress.clamp(0.0, 1.0),
             speed: self.speed,
             upload_speed: self.upload_speed,
@@ -327,17 +337,8 @@ impl DownloadEntry {
     }
 }
 
-/// Extensions the inline or transcoded player can reasonably open.
-const PLAYABLE_EXTENSIONS: &[&str] = &[
-    "mp4", "m4v", "mkv", "webm", "avi", "mov", "ts", "m2ts", "flv", "wmv", "ogv", "mpg", "mpeg",
-    "mp3", "m4a", "aac", "flac", "opus", "ogg", "oga", "wav", "wma",
-];
-
 fn is_playable_file(name: &str) -> bool {
-    name.rsplit('.').next().is_some_and(|extension| {
-        let extension = extension.to_ascii_lowercase();
-        PLAYABLE_EXTENSIONS.iter().any(|candidate| *candidate == extension)
-    })
+    matches!(media::media_kind(name), MediaKind::Video | MediaKind::Audio)
 }
 
 fn playable_queue(files: &[TorrentFile]) -> Vec<QueueFile> {
@@ -527,6 +528,7 @@ mod playable_tests {
         assert!(is_playable_file("Show.S01E01.mkv"));
         assert!(is_playable_file("Show.S01E02.MKV"));
         assert!(is_playable_file("track.flac"));
+        assert!(is_playable_file("track.oga"));
         assert!(!is_playable_file("Show.S01E01.en.srt"));
         assert!(!is_playable_file("notes.txt"));
 

@@ -62,6 +62,7 @@ const EXTENSIONS: Record<string, FileKind> = {
   m4a: 'audio',
   mka: 'audio',
   ogg: 'audio',
+  oga: 'audio',
   opus: 'audio',
   wma: 'audio',
   aiff: 'audio',
@@ -267,12 +268,6 @@ export function mediaTone(name: string): string {
 
 export function isVideo(kind: FileKind): boolean {
   return kind === 'movie' || kind === 'tv'
-}
-
-/** Containers Chromium reliably plays inline. Everything else goes native. */
-export function isInlineVideoName(name: string): boolean {
-  const extension = name.split('.').pop()?.toLowerCase()
-  return extension === 'mp4' || extension === 'm4v' || extension === 'webm' || extension === 'ogv'
 }
 
 export function isAudio(kind: FileKind): boolean {

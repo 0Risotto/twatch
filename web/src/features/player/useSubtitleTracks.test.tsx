@@ -43,9 +43,10 @@ vi.mock('jassub/dist/jassub-worker-modern.wasm?url', () => ({
 }))
 vi.mock('jassub/dist/default.woff2?url', () => ({ default: '/assets/default.woff2' }))
 
+import { withMedia } from '@/test/fixtures'
 import { useSubtitleTracks } from './useSubtitleTracks'
 
-const download: DownloadSnapshot = {
+const download: DownloadSnapshot = withMedia({
   id: 1,
   torrentId: 7,
   torrentName: 'Test Torrent',
@@ -67,7 +68,7 @@ const download: DownloadSnapshot = {
   fileIndex: 0,
   queue: [],
   resumePosition: null,
-}
+})
 
 function refs() {
   const media = document.createElement('video')

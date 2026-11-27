@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LibraryPage } from './LibraryPage'
 import { api } from '@/lib/api'
+import { mediaForFiles } from '@/test/fixtures'
 import type { LibraryEntry } from '@/types/api'
 
 vi.mock('@/lib/api', () => ({
@@ -18,20 +19,32 @@ const entries: LibraryEntry[] = [
     name: 'Movie.mkv',
     relativePath: 'Movies/Movie.mkv',
     root: 'cache',
-    mediaKind: 'video',
     size: 2_147_483_648,
     modifiedMs: Date.now() - 60_000,
     streamPath: '/api/library/cache-6d6f766965/stream',
+    media: mediaForFiles(
+      { kind: 'library', value: 'cache-6d6f766965' },
+      'Movie.mkv',
+      'Movie.mkv',
+      2_147_483_648,
+      '/api/library/cache-6d6f766965/stream',
+    ),
   },
   {
     id: 'downloads-73686f77',
     name: 'Show.mp4',
     relativePath: 'Show/Show.mp4',
     root: 'downloads',
-    mediaKind: 'video',
     size: 1024,
     modifiedMs: null,
     streamPath: '/api/library/downloads-73686f77/stream',
+    media: mediaForFiles(
+      { kind: 'library', value: 'downloads-73686f77' },
+      'Show.mp4',
+      'Show.mp4',
+      1024,
+      '/api/library/downloads-73686f77/stream',
+    ),
   },
 ]
 

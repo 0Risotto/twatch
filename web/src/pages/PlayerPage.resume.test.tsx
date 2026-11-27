@@ -4,9 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { PlayerPage } from './PlayerPage'
 import { PlaybackProvider } from '@/features/player/PlaybackProvider'
 import { useAppStore } from '@/store/app'
+import { withMedia } from '@/test/fixtures'
 import type { DownloadSnapshot } from '@/types/api'
 
-const paused: DownloadSnapshot = {
+const paused = withMedia({
   id: 9,
   torrentId: 7,
   torrentName: 'Test Torrent',
@@ -28,13 +29,13 @@ const paused: DownloadSnapshot = {
   fileIndex: 0,
   queue: [],
   resumePosition: null,
-}
+})
 
-const streaming: DownloadSnapshot = {
+const streaming: DownloadSnapshot = withMedia({
   ...paused,
   state: 'streaming',
   streamPath: '/api/stream/7/0',
-}
+})
 
 function response(body: unknown): Response {
   return { ok: true, status: 200, json: async () => body } as Response

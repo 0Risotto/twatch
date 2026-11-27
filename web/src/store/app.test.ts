@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAppStore } from './app'
+import { withMedia } from '@/test/fixtures'
 import type { DownloadSnapshot, FileSnapshot, SessionSnapshot } from '@/types/api'
 
 function file(index: number, name: string): FileSnapshot {
@@ -26,7 +27,7 @@ function session(): SessionSnapshot {
   }
 }
 
-const download: DownloadSnapshot = {
+const download: DownloadSnapshot = withMedia({
   id: 1,
   torrentId: 1,
   torrentName: 'Test',
@@ -48,7 +49,7 @@ const download: DownloadSnapshot = {
   fileIndex: 0,
   queue: [],
   resumePosition: null,
-}
+})
 
 beforeEach(() => {
   useAppStore.setState({

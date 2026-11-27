@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fileKind, isVideo } from '@/lib/fileIcons'
 import { PlayerStage } from './PlayerStage'
 import type { PlaybackContextValue } from './PlaybackProvider'
 
@@ -184,7 +183,7 @@ export function PlayerDock({
 
   if (!download || !dockActive) return null
 
-  const kind = fileKind(download.fileNames[0] ?? download.label)
+  const kind = download.media.kind === 'video' ? 'video' : 'audio'
   const style: CSSProperties =
     mode === 'full'
       ? rect && rect.width > 0
@@ -226,7 +225,7 @@ export function PlayerDock({
     >
       <PlayerStage
         download={download}
-        kind={isVideo(kind) ? 'video' : 'audio'}
+        kind={kind}
         streamUrl={streamUrl}
         coverUrl={cover?.url}
         mediaRef={mediaRef}

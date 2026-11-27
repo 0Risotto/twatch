@@ -4,9 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { PlayerPage } from './PlayerPage'
 import { PlaybackProvider } from '@/features/player/PlaybackProvider'
 import { useAppStore } from '@/store/app'
+import { withMedia } from '@/test/fixtures'
 import type { DownloadSnapshot } from '@/types/api'
 
-const base: DownloadSnapshot = {
+const base: Omit<DownloadSnapshot, 'media'> = {
   id: 1,
   torrentId: 7,
   torrentName: 'Test Torrent',
@@ -30,12 +31,13 @@ const base: DownloadSnapshot = {
   resumePosition: null,
 }
 
-function renderWith(download: DownloadSnapshot) {
+function renderWith(download: Omit<DownloadSnapshot, 'media'>) {
+  const item = withMedia(download)
   useAppStore.setState({
-    downloads: [download],
+    downloads: [item],
   })
   return render(
-    <MemoryRouter initialEntries={[`/player?download=${download.id}`]}>
+    <MemoryRouter initialEntries={[`/player?download=${item.id}`]}>
       <PlaybackProvider>
         <PlayerPage />
       </PlaybackProvider>

@@ -21,7 +21,6 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
-import { isInlineVideoName } from '@/lib/fileIcons'
 import { useHlsPlayback } from '@/features/player/useHlsPlayback'
 import { formatBytes, formatRelative } from '@/lib/format'
 import { springs } from '@/lib/motion'
@@ -34,13 +33,11 @@ type RootFilter = 'all' | 'cache' | 'downloads'
 const ROOT_LABEL = { cache: 'Cache', downloads: 'Downloads' } as const
 
 function inlinePlayable(entry: LibraryEntry): boolean {
-  return entry.mediaKind === 'audio' || isInlineVideoName(entry.name)
+  return entry.media.playback === 'direct'
 }
 
 function streamPathFor(entry: LibraryEntry): string {
-  return inlinePlayable(entry)
-    ? entry.streamPath
-    : `/api/transcode/library/${encodeURIComponent(entry.id)}/index.m3u8`
+  return entry.media.streamPath ?? entry.streamPath
 }
 
 function LibraryVideo({ entry }: { entry: LibraryEntry }) {
@@ -104,10 +101,10 @@ function LibraryRow({
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
           <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)]">
-            {entry.mediaKind === 'audio' ? (
+            {entry.media.kind === 'audio' ? (
               <Music className="size-4" />
             ) : (
-              <FilmIcon name={entry.name} />
+              <FilmIcon entry={entry} />
             )}
           </span>
           <span className="min-w-0">
@@ -148,8 +145,8 @@ function LibraryRow({
   )
 }
 
-function FilmIcon({ name }: { name: string }) {
-  return isInlineVideoName(name) ? <Play className="size-4" /> : <Tv className="size-4" />
+function FilmIcon({ entry }: { entry: LibraryEntry }) {
+  return entry.media.playback === 'direct' ? <Play className="size-4" /> : <Tv className="size-4" />
 }
 
 function LibraryPlayer({
@@ -187,18 +184,18 @@ function LibraryPlayer({
       </div>
 
       <div className="bg-black">
-        {inline && entry.mediaKind === 'audio' && (
+        {inline && entry.media.kind === 'audio' && (
           <div className="flex min-h-28 items-center justify-center p-6">
-            <audio controls autoPlay src={entry.streamPath} className="w-full max-w-xl" />
+            <audio controls autoPlay src={streamPathFor(entry)} className="w-full max-w-xl" />
           </div>
         )}
-        {entry.mediaKind === 'video' && <LibraryVideo entry={entry} />}
+        {entry.media.kind === 'video' && <LibraryVideo entry={entry} />}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] px-4 py-2.5">
         <Badge tone={entry.root === 'cache' ? 'folder' : 'accent'}>{ROOT_LABEL[entry.root]}</Badge>
         <a
-          href={entry.streamPath}
+          href={streamPathFor(entry)}
           target="_blank"
           rel="noreferrer"
           className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
@@ -255,7 +252,7 @@ export function LibraryPage() {
 
   const copyStream = async (entry: LibraryEntry) => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${entry.streamPath}`)
+      await navigator.clipboard.writeText(`${window.location.origin}${streamPathFor(entry)}`)
       addToast('success', 'Stream URL copied')
     } catch {
       addToast('warning', 'Clipboard is unavailable')

@@ -87,15 +87,6 @@ impl LibraryRoot {
     }
 }
 
-/// The kind of media the library found.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub enum LibraryMediaKind {
-    Video,
-    Audio,
-}
-
 /// A playable file discovered under the local cache or downloads folder.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -105,12 +96,13 @@ pub struct LibraryEntry {
     pub name: String,
     pub relative_path: String,
     pub root: LibraryRoot,
-    pub media_kind: LibraryMediaKind,
     #[ts(type = "number")]
     pub size: u64,
     #[ts(type = "number | null")]
     pub modified_ms: Option<u64>,
+    /// Direct byte stream for the raw file. Playback uses [`Self::media`].
     pub stream_path: String,
+    pub media: MediaDescriptor,
 }
 
 /// A live or recently completed download.
@@ -125,6 +117,7 @@ pub struct DownloadSnapshot {
     pub label: String,
     pub file_names: Vec<String>,
     pub url: String,
+    pub media: MediaDescriptor,
     pub progress: f64,
     #[ts(type = "number")]
     pub speed: u64,
@@ -190,4 +183,48 @@ pub enum ToastLevel {
     Success,
     Warning,
     Error,
+}
+
+/// The category of media represented by a playable item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum MediaKind {
+    Video,
+    Audio,
+    Image,
+    Other,
+}
+
+/// How the frontend should request playback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum PlaybackMode {
+    Direct,
+    Hls,
+}
+
+/// Stable identity for a download or local-library item.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", content = "value", rename_all = "camelCase")]
+#[ts(export)]
+pub enum MediaId {
+    Download(#[ts(type = "number")] u64),
+    Library(String),
+}
+
+/// The shared playback contract used by the player, library, and downloads UI.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MediaDescriptor {
+    pub id: MediaId,
+    pub title: String,
+    pub filename: String,
+    pub kind: MediaKind,
+    pub playback: PlaybackMode,
+    pub stream_path: Option<String>,
+    #[ts(type = "number")]
+    pub size: u64,
 }

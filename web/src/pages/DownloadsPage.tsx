@@ -21,7 +21,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { PageHeader, SectionHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
 import { formatBytes, formatEta, formatPercent, formatSpeed } from '@/lib/format'
-import { canPreview, fileKind, previewLabel, FileTypeIcon } from '@/lib/fileIcons'
+import { fileKind, previewLabel, FileTypeIcon } from '@/lib/fileIcons'
 import { CoverArt } from '@/components/CoverArt'
 import { springs } from '@/lib/motion'
 import { useAppStore } from '@/store/app'
@@ -72,8 +72,12 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
   const active = download.state === 'downloading' || download.state === 'streaming'
   const samples = useSpeedSamples(download.speed, active)
   const kind = fileKind(download.fileNames[0] ?? download.label)
-  const previewable = canPreview(kind)
-  const PreviewIcon = kind === 'image' ? Eye : Play
+  const previewable =
+    download.media.kind === 'video' ||
+    download.media.kind === 'audio' ||
+    download.media.kind === 'image'
+  const streamUrl = download.media.streamPath
+  const PreviewIcon = download.media.kind === 'image' ? Eye : Play
 
   const call = async (name: string, action: () => Promise<unknown>) => {
     if (busy) return
@@ -102,9 +106,9 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
     })
 
   const copyStream = async () => {
-    if (!download.streamPath) return
+    if (!streamUrl) return
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${download.streamPath}`)
+      await navigator.clipboard.writeText(`${window.location.origin}${streamUrl}`)
       addToast('success', 'Stream URL copied')
     } catch {
       addToast('warning', 'Clipboard is unavailable')
@@ -201,7 +205,7 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] px-4 py-2.5">
-        {download.streamPath && (
+        {streamUrl && (
           <>
             {previewable ? (
               <Button
@@ -216,7 +220,7 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
               </Button>
             ) : (
               <a
-                href={download.streamPath}
+                href={streamUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="btn btn-secondary h-8 px-3 text-xs"

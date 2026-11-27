@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode, RefObject } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { mediaKind, fileKind, isAudio, isInlineVideoName, isVideo } from '@/lib/fileIcons'
+import { mediaKind } from '@/lib/fileIcons'
 import { useCover } from '@/lib/covers'
 import { useAppStore } from '@/store/app'
 import type { CoverInfo, DownloadSnapshot } from '@/types/api'
@@ -114,21 +114,17 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     download?.torrentName,
     download ? mediaKind(download.torrentName) : undefined,
   )
-  const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
-  const video = isVideo(kind)
-  const audio = isAudio(kind)
-  const directStreamUrl = download?.streamPath ?? null
-  const inlineVideo = video && isInlineVideoName(download?.fileNames[0] ?? download?.label ?? '')
+  const video = download?.media?.kind === 'video'
+  const audio = download?.media?.kind === 'audio'
+  const streamUrl = download?.media?.streamPath ?? null
+  const inlineVideo = download?.media?.playback === 'direct' && video
   const transcodePath =
-    download && video && !inlineVideo && directStreamUrl
-      ? `/api/transcode/download/${download.id}/index.m3u8`
-      : null
-  const streamUrl = transcodePath ?? directStreamUrl
+    download?.media?.playback === 'hls' && video ? download.media.streamPath : null
   const mode: 'full' | 'mini' = location.pathname === '/player' ? 'full' : 'mini'
 
   useEffect(() => {
     const id = download?.id
-    if (!id || download?.streamPath) return
+    if (!id || download?.media?.streamPath) return
     let cancelled = false
 
     const run = async () => {
@@ -141,7 +137,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
           const list = await api.downloads()
           useAppStore.getState().setDownloads(list)
           const entry = list.find(item => item.id === id)
-          if (entry?.streamPath || entry?.state === 'failed') return
+          if (entry?.media?.streamPath || entry?.state === 'failed') return
           if (!resumeRequested && (entry?.state === 'paused' || entry?.state === 'completed')) {
             await api.resumeDownload(id)
             resumeRequested = true
@@ -159,7 +155,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [addToast, download?.id, download?.streamPath])
+  }, [addToast, download?.id, download?.media?.streamPath])
 
   const queue = useMemo(() => download?.queue ?? [], [download?.queue])
   const queueIndex = queue.findIndex(file => file.index === (download?.fileIndex ?? 0))
@@ -204,7 +200,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     const id = restoreId.current
     if (!id) return
     const candidate = downloads.find(item => item.id === id)
-    if (candidate?.streamPath) {
+    if (candidate?.media?.streamPath) {
       setRestoredPause(true)
       activate(id, { restored: true })
     } else {

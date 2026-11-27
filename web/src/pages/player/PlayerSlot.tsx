@@ -83,7 +83,7 @@ export function PlayerSlot({
               {kindLabel(kind)} preview is not available in the browser
             </p>
             <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-              The stream is ready. Open it directly, copy the URL, or hand it to a native app.
+              The stream is ready. Open it directly or copy the URL.
             </p>
             <div className="mt-1 flex flex-wrap justify-center gap-2">
               <a

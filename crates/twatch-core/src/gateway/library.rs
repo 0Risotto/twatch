@@ -6,13 +6,6 @@ use std::time::UNIX_EPOCH;
 const MAX_DEPTH: usize = 8;
 const MAX_ENTRIES: usize = 10_000;
 
-const VIDEO_EXTENSIONS: &[&str] = &[
-    "mp4", "m4v", "mkv", "avi", "mov", "webm", "wmv", "flv", "mpg", "mpeg", "m2ts", "ts", "vob",
-    "ogv", "rmvb",
-];
-const AUDIO_EXTENSIONS: &[&str] =
-    &["mp3", "flac", "wav", "aac", "m4a", "mka", "ogg", "opus", "wma", "aiff", "alac", "ape"];
-
 #[derive(Debug, Clone)]
 pub(super) struct LibraryFile {
     pub(super) entry: LibraryEntry,
@@ -129,8 +122,8 @@ fn walk(directory: &Path, depth: usize, state: &mut ScanState<'_>) {
         if state.files.len() >= MAX_ENTRIES {
             return;
         }
-        let name = entry.file_name();
-        if name.to_string_lossy().starts_with('.') {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
             continue;
         }
         let Ok(file_type) = entry.file_type() else {
@@ -147,9 +140,9 @@ fn walk(directory: &Path, depth: usize, state: &mut ScanState<'_>) {
         if !file_type.is_file() {
             continue;
         }
-        let Some(media_kind) = media_kind(&path) else {
+        if !matches!(media::media_kind(&name), MediaKind::Video | MediaKind::Audio) {
             continue;
-        };
+        }
         let Ok(metadata) = entry.metadata() else {
             continue;
         };
@@ -163,6 +156,14 @@ fn walk(directory: &Path, depth: usize, state: &mut ScanState<'_>) {
 
         let relative_path = relative_display_path(&path, state.root_path);
         let id = library_id(state.root, &relative_path);
+        let stream_path = format!("/api/library/{id}/stream");
+        let descriptor = media::descriptor(
+            MediaId::Library(id.clone()),
+            name.clone(),
+            name.clone(),
+            metadata.len(),
+            Some(stream_path.clone()),
+        );
         let modified_ms = metadata
             .modified()
             .ok()
@@ -172,27 +173,16 @@ fn walk(directory: &Path, depth: usize, state: &mut ScanState<'_>) {
         state.files.push(LibraryFile {
             path,
             entry: LibraryEntry {
-                stream_path: format!("/api/library/{id}/stream"),
+                stream_path,
+                media: descriptor,
                 id,
-                name: name.to_string_lossy().into_owned(),
+                name,
                 relative_path,
                 root: state.root,
-                media_kind,
                 size: metadata.len(),
                 modified_ms,
             },
         });
-    }
-}
-
-fn media_kind(path: &Path) -> Option<LibraryMediaKind> {
-    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-    if VIDEO_EXTENSIONS.contains(&extension.as_str()) {
-        Some(LibraryMediaKind::Video)
-    } else if AUDIO_EXTENSIONS.contains(&extension.as_str()) {
-        Some(LibraryMediaKind::Audio)
-    } else {
-        None
     }
 }
 
@@ -242,8 +232,21 @@ mod tests {
         let names: Vec<_> = files.iter().map(|file| file.entry.name.as_str()).collect();
         assert_eq!(names, vec!["Episode.mp4", "Movie.MKV"]);
         assert_eq!(files[0].entry.relative_path, "Season 01/Episode.mp4");
-        assert_eq!(files[1].entry.media_kind, LibraryMediaKind::Video);
-        assert!(files.iter().all(|file| file.entry.stream_path.starts_with("/api/library/")));
+        assert_eq!(files[1].entry.media.kind, MediaKind::Video);
+        assert_eq!(files[0].entry.media.playback, PlaybackMode::Direct);
+        assert_eq!(files[1].entry.media.playback, PlaybackMode::Hls);
+        assert!(files[0].entry.stream_path.starts_with("/api/library/"));
+        assert!(files[1].entry.stream_path.starts_with("/api/library/"));
+        assert!(files[0].entry.media.stream_path.as_deref().unwrap().starts_with("/api/library/"));
+        assert!(
+            files[1]
+                .entry
+                .media
+                .stream_path
+                .as_deref()
+                .unwrap()
+                .starts_with("/api/transcode/library/")
+        );
 
         fs::remove_dir_all(root).expect("remove scratch");
     }
