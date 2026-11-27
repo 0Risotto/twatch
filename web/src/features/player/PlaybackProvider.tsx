@@ -9,6 +9,7 @@ import type { CoverInfo, DownloadSnapshot } from '@/types/api'
 import { PlayerDock } from './PlayerDock'
 import { useMediaPlayer } from './useMediaPlayer'
 import { usePlayerShortcuts } from './usePlayerShortcuts'
+import { useExternalSubtitle } from './useExternalSubtitle'
 import { useSubtitleTracks } from './useSubtitleTracks'
 import type { ExternalSubtitle } from './useSubtitleTracks'
 import { useThumbnails } from './useThumbnails'
@@ -41,43 +42,6 @@ export interface PlaybackContextValue {
   autoPlay: boolean
   externalSubtitle: ExternalSubtitle | null
   setExternalSubtitle: (subtitle: ExternalSubtitle | null) => void
-}
-
-const EXTERNAL_SUBTITLE_PREFIX = 'twatch.external-subtitle:'
-
-function externalSubtitleKey(download: DownloadSnapshot): string {
-  return `${EXTERNAL_SUBTITLE_PREFIX}${download.url}|${download.label}`
-}
-
-function readExternalSubtitle(download: DownloadSnapshot | null): ExternalSubtitle | null {
-  if (!download) return null
-  try {
-    const raw = window.localStorage.getItem(externalSubtitleKey(download))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { name?: string; content?: string }
-    return typeof parsed.name === 'string' && typeof parsed.content === 'string'
-      ? { name: parsed.name, content: parsed.content }
-      : null
-  } catch {
-    return null
-  }
-}
-
-function writeExternalSubtitle(
-  download: DownloadSnapshot,
-  subtitle: ExternalSubtitle | null,
-): boolean {
-  try {
-    const key = externalSubtitleKey(download)
-    if (!subtitle) {
-      window.localStorage.removeItem(key)
-      return true
-    }
-    window.localStorage.setItem(key, JSON.stringify(subtitle))
-    return true
-  } catch {
-    return false
-  }
 }
 
 const ACTIVE_DOWNLOAD_KEY = 'twatch.active-download'
@@ -127,11 +91,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [fallback, setFallback] = useState<DownloadSnapshot | null>(null)
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const [restoredPause, setRestoredPause] = useState(false)
-  const [externalSubtitle, setExternalSubtitleState] = useState<ExternalSubtitle | null>(null)
   const activeRef = useRef<number | null>(null)
   const restoreId = useRef<number | null>(readActiveDownload())
   const restoreTried = useRef(false)
-  const externalKeyRef = useRef<string | null>(null)
 
   const mediaRef = useRef<HTMLMediaElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -146,17 +108,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (storeDownload && fallback?.id === activeId) setFallback(null)
   }, [activeId, fallback, storeDownload])
 
-  useEffect(() => {
-    if (!download) {
-      externalKeyRef.current = null
-      setExternalSubtitleState(null)
-      return
-    }
-    const key = externalSubtitleKey(download)
-    if (externalKeyRef.current === key) return
-    externalKeyRef.current = key
-    setExternalSubtitleState(readExternalSubtitle(download))
-  }, [download])
+  const { externalSubtitle, setExternalSubtitle } = useExternalSubtitle(download, addToast)
 
   const cover = useCover(
     download?.torrentName,
@@ -304,16 +256,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     externalSubtitle,
   )
 
-  const setExternalSubtitle = useCallback(
-    (subtitle: ExternalSubtitle | null) => {
-      setExternalSubtitleState(subtitle)
-      if (!download) return
-      if (!writeExternalSubtitle(download, subtitle)) {
-        addToast('warning', 'That subtitle is too large to remember; attached for this session')
-      }
-    },
-    [addToast, download],
-  )
   const { getThumbnail, getCachedThumbnail, prefetchThumbnail } = useThumbnails(
     video && !transcodePath ? streamUrl : null,
   )
