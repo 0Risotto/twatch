@@ -4,24 +4,35 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, SeekFrom};
 use tokio::time::{Duration, sleep};
 use tokio_util::io::ReaderStream;
 
 use twatch_core::domain::torrent::TorrentId;
-use twatch_engine::stream::StreamService;
+use twatch_engine::stream::{StreamPhase, StreamService};
 
 use crate::state::AppState;
 
-const STREAM_INIT_ATTEMPTS: u8 = 200;
+const STREAM_POLL: Duration = Duration::from_millis(250);
+const STREAM_MAX_WAIT: Duration = Duration::from_secs(60);
+const STREAM_STALL_WAIT: Duration = Duration::from_secs(8);
 
 /// Open a file stream, waiting while a freshly added torrent initializes.
+///
+/// Waiting is progress-based: a torrent that is moving bytes gets up to a
+/// minute, while a swarm with no peers fails after a short stall instead of
+/// holding the request open for a fixed timeout.
 pub(crate) async fn open_stream(
     stream_service: &StreamService,
     torrent: TorrentId,
     file_idx: usize,
 ) -> Result<impl AsyncRead + AsyncSeek + Unpin + Send + 'static, (StatusCode, &'static str)> {
-    for attempt in 0..STREAM_INIT_ATTEMPTS {
+    let started = Instant::now();
+    let mut last_progress = 0_u64;
+    let mut last_progress_at = started;
+
+    loop {
         match stream_service.open(torrent, file_idx) {
             Ok(stream) => return Ok(stream),
             Err(error) => {
@@ -33,18 +44,46 @@ pub(crate) async fn open_stream(
                     );
                     return Err((StatusCode::NOT_FOUND, "Torrent file not found"));
                 }
-                if attempt + 1 == STREAM_INIT_ATTEMPTS {
-                    tracing::warn!(
-                        "Stream still initializing for {}/{file_idx}: {error:#}",
-                        torrent.raw()
-                    );
-                    return Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent is still initializing"));
-                }
-                sleep(Duration::from_millis(100)).await;
             }
         }
+
+        let now = Instant::now();
+        if now.duration_since(started) >= STREAM_MAX_WAIT {
+            tracing::warn!("Stream initialization timed out for {}/{file_idx}", torrent.raw());
+            return Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent is still initializing"));
+        }
+
+        if let Some(status) = stream_service.status(torrent, file_idx) {
+            match status.phase {
+                StreamPhase::Error => {
+                    tracing::warn!(
+                        "Torrent failed while opening stream {}/{file_idx}",
+                        torrent.raw()
+                    );
+                    return Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent failed to initialize"));
+                }
+                StreamPhase::Paused => {
+                    return Err((StatusCode::CONFLICT, "Torrent is paused"));
+                }
+                StreamPhase::Initializing | StreamPhase::Live => {}
+            }
+
+            if status.progress_bytes > last_progress {
+                last_progress = status.progress_bytes;
+                last_progress_at = now;
+            } else if now.duration_since(last_progress_at) >= STREAM_STALL_WAIT && status.peers == 0
+            {
+                tracing::warn!(
+                    "Stream is waiting for peers for {}/{file_idx} after {:.1}s",
+                    torrent.raw(),
+                    now.duration_since(started).as_secs_f32()
+                );
+                return Err((StatusCode::SERVICE_UNAVAILABLE, "Waiting for peers"));
+            }
+        }
+
+        sleep(STREAM_POLL).await;
     }
-    Err((StatusCode::SERVICE_UNAVAILABLE, "Torrent is still initializing"))
 }
 
 /// Inclusive byte range.

@@ -6,12 +6,33 @@
 //! narrow and gives the browser proper `206 Partial Content` support.
 
 use anyhow::Result;
-use librqbit::Api;
 use librqbit::api::TorrentIdOrHash;
+use librqbit::{Api, TorrentStatsState};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncSeek};
 
 use twatch_core::domain::torrent::TorrentId;
+
+/// The torrent states that matter while opening a stream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamPhase {
+    Initializing,
+    Live,
+    Paused,
+    Error,
+}
+
+/// Snapshot used to decide how long to wait for a stream.
+#[derive(Debug, Clone, Copy)]
+pub struct StreamStatus {
+    pub phase: StreamPhase,
+    pub total_bytes: u64,
+    pub progress_bytes: u64,
+    pub file_size: Option<u64>,
+    pub file_downloaded: Option<u64>,
+    pub download_speed: u64,
+    pub peers: usize,
+}
 
 /// Shared streaming facade over one librqbit session.
 #[derive(Clone)]
@@ -33,6 +54,51 @@ impl StreamService {
     ) -> Result<impl AsyncRead + AsyncSeek + Unpin + Send + 'static> {
         let api = Api::new(self.session.clone(), None);
         Ok(api.api_stream(TorrentIdOrHash::Id(torrent_id.raw()), file_idx)?)
+    }
+
+    /// Current torrent and file progress, if the torrent still exists.
+    #[must_use]
+    pub fn status(&self, torrent_id: TorrentId, file_idx: usize) -> Option<StreamStatus> {
+        self.session.with_torrents(|torrents| {
+            for (tid, handle) in torrents {
+                if tid != torrent_id.raw() {
+                    continue;
+                }
+                let stats = handle.stats();
+                let file_size = handle
+                    .with_metadata(|metadata| {
+                        metadata.file_infos.get(file_idx).map(|file| file.len)
+                    })
+                    .ok()
+                    .flatten();
+                let phase = match stats.state {
+                    TorrentStatsState::Initializing => StreamPhase::Initializing,
+                    TorrentStatsState::Live => StreamPhase::Live,
+                    TorrentStatsState::Paused => StreamPhase::Paused,
+                    TorrentStatsState::Error => StreamPhase::Error,
+                };
+                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+                let download_speed = stats
+                    .live
+                    .as_ref()
+                    .map(|live| (live.download_speed.mbps * 1024.0 * 1024.0).max(0.0) as u64)
+                    .unwrap_or(0);
+                return Some(StreamStatus {
+                    phase,
+                    total_bytes: stats.total_bytes,
+                    progress_bytes: stats.progress_bytes,
+                    file_size,
+                    file_downloaded: stats.file_progress.get(file_idx).copied(),
+                    download_speed,
+                    peers: stats
+                        .live
+                        .as_ref()
+                        .map(|live| live.snapshot.peer_stats.live)
+                        .unwrap_or(0),
+                });
+            }
+            None
+        })
     }
 
     /// Best-effort MIME type from the torrent file name.

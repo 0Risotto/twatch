@@ -73,6 +73,7 @@ describe('PlaybackProvider stream recovery', () => {
     )
 
     expect(container.textContent).toContain('Preparing movie')
+    expect(container.textContent).toContain('Waiting for peers')
     await waitFor(() => expect(container.querySelector('video')).not.toBeNull(), {
       timeout: 5_000,
     })

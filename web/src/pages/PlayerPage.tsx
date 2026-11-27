@@ -24,7 +24,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/Progress'
 import { PageHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
-import { formatBytes, formatEta, formatSpeed, formatTime } from '@/lib/format'
+import { formatBytes, formatEta, formatPercent, formatSpeed, formatTime } from '@/lib/format'
 import {
   FileTypeIcon,
   canPreview,
@@ -100,6 +100,11 @@ export function PlayerPage() {
   const queue = download?.queue ?? []
   const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
   const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
+  const waitingForPeers = Boolean(download) && download?.peers === 0 && download?.speed === 0
+  const bufferedAhead = Math.max(
+    0,
+    ...player.state.buffered.map(range => range.end - player.state.currentTime),
+  )
   const error = Boolean(download) && (player.state.error || download?.state === 'failed')
   const dockActive = Boolean(download && streamUrl && (audio || inlineVideo) && !error)
   const external = Boolean(
@@ -314,12 +319,17 @@ export function PlayerPage() {
                     Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…
                   </p>
                   <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-                    Waiting for the first pieces from the swarm. The preview starts automatically
-                    once the first bytes are available.
+                    {waitingForPeers
+                      ? 'Waiting for peers. The preview starts automatically once data starts moving.'
+                      : 'Waiting for the first pieces from the swarm. The preview starts automatically once the first bytes are available.'}
                   </p>
                 </div>
                 <div className="w-56">
                   <ProgressBar progress={download.progress} tone="stream" />
+                  <p className="mt-2 font-mono text-[10px] tabular text-[var(--muted)]">
+                    {formatPercent(download.progress)} · {formatSpeed(download.speed)} ·{' '}
+                    {download.peers} peers · {formatEta(download.etaSeconds)} left
+                  </p>
                 </div>
               </div>
             )}
@@ -465,12 +475,15 @@ export function PlayerPage() {
               />
               <Metric label="ETA" value={formatEta(download.etaSeconds)} />
               {playable && player.state.duration > 0 && (
-                <Metric
-                  label="Played"
-                  value={`${formatTime(player.state.currentTime)} / ${formatTime(
-                    player.state.duration,
-                  )}`}
-                />
+                <>
+                  <Metric
+                    label="Played"
+                    value={`${formatTime(player.state.currentTime)} / ${formatTime(
+                      player.state.duration,
+                    )}`}
+                  />
+                  <Metric label="Buffered" value={`${formatTime(bufferedAhead)} ahead`} />
+                </>
               )}
             </div>
           </section>
