@@ -31,6 +31,7 @@ import {
   fileKind,
   isAudio,
   isImage,
+  isInlineVideoName,
   isVideo,
   kindLabel,
 } from '@/lib/fileIcons'
@@ -94,11 +95,13 @@ export function PlayerPage() {
   const previewable = canPreview(kind)
   const externalPlayable = video || audio
   const playable = video || audio
+  const inlineVideo = video && isInlineVideoName(download?.fileNames[0] ?? download?.label ?? '')
+  const externalOnly = video && !inlineVideo
   const queue = download?.queue ?? []
   const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
   const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
   const error = Boolean(download) && (player.state.error || download?.state === 'failed')
-  const dockActive = Boolean(download && streamUrl && playable && !error)
+  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo) && !error)
   const external = Boolean(
     download && playerState.running && playerState.downloadId === download.id,
   )
@@ -280,6 +283,23 @@ export function PlayerPage() {
                     Copy stream URL
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {externalOnly && streamUrl && !error && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <Tv className="size-8 text-[var(--accent)]" />
+                <p className="text-sm font-semibold text-[var(--fg)]">
+                  This video needs a native player
+                </p>
+                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
+                  {download.fileNames[0] ?? download.label} uses a container or codec Chromium
+                  cannot decode reliably. The stream is ready.
+                </p>
+                <Button variant="primary" size="sm" onClick={openExternal}>
+                  <ExternalLink className="size-4" />
+                  Open in mpv / VLC
+                </Button>
               </div>
             )}
 

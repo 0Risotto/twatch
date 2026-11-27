@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode, RefObject } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { mediaKind, fileKind, isAudio, isVideo } from '@/lib/fileIcons'
+import { mediaKind, fileKind, isAudio, isInlineVideoName, isVideo } from '@/lib/fileIcons'
 import { useCover } from '@/lib/covers'
 import { useAppStore } from '@/store/app'
 import type { CoverInfo, DownloadSnapshot } from '@/types/api'
@@ -165,7 +165,43 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const video = isVideo(kind)
   const audio = isAudio(kind)
   const streamUrl = download?.streamPath ?? null
+  const inlineVideo = video && isInlineVideoName(download?.fileNames[0] ?? download?.label ?? '')
   const mode: 'full' | 'mini' = location.pathname === '/player' ? 'full' : 'mini'
+
+  useEffect(() => {
+    const id = download?.id
+    if (!id || download?.streamPath) return
+    let cancelled = false
+
+    const run = async () => {
+      let resumeRequested = false
+      try {
+        const deadline = Date.now() + 30_000
+        while (!cancelled && Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 1_000))
+          if (cancelled) return
+          const list = await api.downloads()
+          useAppStore.getState().setDownloads(list)
+          const entry = list.find(item => item.id === id)
+          if (entry?.streamPath || entry?.state === 'failed') return
+          if (!resumeRequested && (entry?.state === 'paused' || entry?.state === 'completed')) {
+            await api.resumeDownload(id)
+            resumeRequested = true
+          }
+        }
+        if (!cancelled) addToast('warning', 'Stream is taking too long to prepare')
+      } catch (error) {
+        if (!cancelled) {
+          addToast('error', error instanceof Error ? error.message : 'Could not prepare stream')
+        }
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [addToast, download?.id, download?.streamPath])
 
   const queue = useMemo(() => download?.queue ?? [], [download?.queue])
   const queueIndex = queue.findIndex(file => file.index === (download?.fileIndex ?? 0))
@@ -325,7 +361,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const registerSlot = useCallback((node: HTMLDivElement | null) => setSlot(node), [])
 
-  const dockActive = Boolean(download && streamUrl && (video || audio))
+  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo))
 
   const value = useMemo<PlaybackContextValue>(
     () => ({

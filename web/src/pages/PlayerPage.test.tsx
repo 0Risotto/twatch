@@ -48,8 +48,14 @@ afterEach(cleanup)
 
 describe('PlayerPage media modes', () => {
   it('renders video for a movie file', () => {
-    const { container } = renderWith({ ...base, label: 'movie.mkv', fileNames: ['movie.mkv'] })
+    const { container } = renderWith({ ...base, label: 'movie.mp4', fileNames: ['movie.mp4'] })
     expect(container.querySelector('video')).not.toBeNull()
+  })
+
+  it('falls back to a native player for an MKV', () => {
+    const { container } = renderWith({ ...base, label: 'movie.mkv', fileNames: ['movie.mkv'] })
+    expect(container.querySelector('video')).toBeNull()
+    expect(container.innerHTML).toContain('This video needs a native player')
   })
 
   it('renders an audio element for an audio file', () => {
@@ -60,8 +66,8 @@ describe('PlayerPage media modes', () => {
   it('attaches in-torrent subtitles to the video element', () => {
     const { container } = renderWith({
       ...base,
-      label: 'episode.mkv',
-      fileNames: ['episode.mkv'],
+      label: 'episode.mp4',
+      fileNames: ['episode.mp4'],
       subtitles: [
         { index: 2, name: 'episode.en.srt' },
         { index: 3, name: 'episode.es.srt' },
