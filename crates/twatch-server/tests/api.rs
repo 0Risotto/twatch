@@ -437,3 +437,26 @@ async fn library_lists_and_streams_local_media_with_ranges() {
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&body[..], b"2345");
 }
+#[tokio::test]
+async fn transcode_routes_reject_missing_sources() {
+    let app = app();
+    let response = app
+        .clone()
+        .oneshot(request("/api/transcode/download/99/index.m3u8", Some("test-token")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+
+    let response = app
+        .clone()
+        .oneshot(request("/api/transcode/library/missing-file/index.m3u8", Some("test-token")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let response = app
+        .oneshot(request("/api/transcode/download/99/seg00000.ts", Some("test-token")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}

@@ -326,4 +326,64 @@ mod tests {
         service.stop("fixture").await;
         let _ = std::fs::remove_dir_all(scratch);
     }
+
+    #[test]
+    fn rejects_invalid_session_keys_and_files() {
+        assert!(valid_key("download-1"));
+        assert!(!valid_key(""));
+        assert!(!valid_key("../escape"));
+        assert!(!valid_key(&"x".repeat(161)));
+
+        assert!(valid_file("index.m3u8"));
+        assert!(valid_file("seg00001.ts"));
+        assert!(!valid_file("../index.m3u8"));
+        assert!(!valid_file("seg00001.mp4"));
+        assert!(!valid_file("nested/seg.ts"));
+    }
+
+    #[tokio::test]
+    async fn playlist_waits_for_an_extinf_and_segment() {
+        let dir = scratch_dir();
+        std::fs::create_dir_all(&dir).expect("create dir");
+        assert!(!playlist_ready(&dir).await);
+
+        std::fs::write(
+            dir.join("index.m3u8"),
+            "#EXTM3U
+",
+        )
+        .expect("write empty playlist");
+        assert!(!playlist_ready(&dir).await);
+
+        std::fs::write(
+            dir.join("index.m3u8"),
+            "#EXTM3U
+#EXTINF:4.0,
+seg00000.ts
+",
+        )
+        .expect("write playlist");
+        assert!(!playlist_ready(&dir).await);
+
+        std::fs::write(dir.join("seg00000.ts"), b"segment").expect("write segment");
+        assert!(playlist_ready(&dir).await);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn missing_inputs_and_unknown_sessions_fail_cleanly() {
+        let scratch = scratch_dir();
+        let service = TranscodeService::new(scratch.join("hls"));
+        assert!(service.read("missing", "seg00000.ts").await.is_none());
+        assert!(service.read("missing", "../escape").await.is_none());
+        assert!(service.read("../escape", "seg00000.ts").await.is_none());
+
+        let error = service
+            .ensure("missing", &scratch.join("does-not-exist.mkv").to_string_lossy(), None)
+            .await
+            .expect_err("missing input should fail");
+        assert!(!error.is_empty());
+        service.stop("missing").await;
+        let _ = std::fs::remove_dir_all(scratch);
+    }
 }
