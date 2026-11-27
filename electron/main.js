@@ -15,6 +15,11 @@ let started = false;
 let quitting = false;
 let opened = false;
 
+function mediaToolDir() {
+  if (app.isPackaged) return process.resourcesPath;
+  return path.join(__dirname, 'resources');
+}
+
 function daemonBinary() {
   if (process.env.TWATCHD_BIN) return process.env.TWATCHD_BIN;
   if (app.isPackaged) {
@@ -195,7 +200,10 @@ function startDaemon() {
   daemonLog?.write(`\n[twatch-electron] starting ${binary}\n`);
 
   daemon = spawn(binary, ['--port', '0'], {
-    env: process.env,
+    env: {
+      ...process.env,
+      PATH: [mediaToolDir(), process.env.PATH].filter(Boolean).join(path.delimiter),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });

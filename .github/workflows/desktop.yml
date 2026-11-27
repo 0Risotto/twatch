@@ -37,6 +37,9 @@ jobs:
       - name: Install Electron shell dependencies
         working-directory: electron
         run: npm ci
+      - name: Prepare media tools
+        working-directory: electron
+        run: npm run prepare:media
       - name: Package Linux app
         working-directory: electron
         run: npx electron-builder --publish never --linux AppImage deb
@@ -81,6 +84,10 @@ jobs:
       - name: Install Electron shell dependencies
         working-directory: electron
         run: npm ci
+      - name: Prepare media tools
+        working-directory: electron
+        shell: pwsh
+        run: npm run prepare:media
       - name: Package Windows app
         working-directory: electron
         run: npx electron-builder --publish never --win portable nsis
