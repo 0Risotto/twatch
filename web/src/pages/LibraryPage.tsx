@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Hls from 'hls.js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import {
@@ -36,18 +37,82 @@ function inlinePlayable(entry: LibraryEntry): boolean {
   return entry.mediaKind === 'audio' || isInlineVideoName(entry.name)
 }
 
+function streamPathFor(entry: LibraryEntry): string {
+  return inlinePlayable(entry)
+    ? entry.streamPath
+    : `/api/transcode/library/${encodeURIComponent(entry.id)}/index.m3u8`
+}
+
+function LibraryVideo({ entry }: { entry: LibraryEntry }) {
+  const ref = useRef<HTMLVideoElement | null>(null)
+  const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const source = streamPathFor(entry)
+  const isHls = source.endsWith('.m3u8')
+
+  useEffect(() => {
+    setError(false)
+    const media = ref.current
+    if (!media) return
+    if (!isHls) {
+      media.src = source
+      return
+    }
+    if (!Hls.isSupported()) {
+      if (media.canPlayType('application/vnd.apple.mpegurl')) {
+        media.src = source
+        return
+      }
+      setError(true)
+      return
+    }
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 })
+    hls.loadSource(source)
+    hls.attachMedia(media)
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) setError(true)
+    })
+    return () => hls.destroy()
+  }, [attempt, isHls, source])
+
+  return (
+    <div className="relative">
+      <video
+        key={`${source}:${attempt}`}
+        ref={ref}
+        controls
+        autoPlay
+        playsInline
+        src={isHls ? undefined : source}
+        className="aspect-video max-h-[62vh] w-full bg-black object-contain"
+      />
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 px-6 text-center text-white">
+          <p className="text-sm font-semibold">Could not start the local transcoder</p>
+          <p className="max-w-md text-xs text-white/60">
+            Make sure ffmpeg is available, then try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => setAttempt(value => value + 1)}
+            className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function LibraryRow({
   entry,
   selected,
-  busy,
   onSelect,
-  onOpen,
 }: {
   entry: LibraryEntry
   selected: boolean
-  busy: boolean
   onSelect: () => void
-  onOpen: () => void
 }) {
   const inline = inlinePlayable(entry)
   return (
@@ -104,10 +169,6 @@ function LibraryRow({
             <Play className="size-3.5" />
             {inline ? 'Play' : 'Preview'}
           </Button>
-          <Button variant="ghost" size="sm" loading={busy} onClick={onOpen}>
-            <Tv className="size-3.5" />
-            mpv / VLC
-          </Button>
         </div>
       </div>
     </motion.article>
@@ -121,12 +182,10 @@ function FilmIcon({ name }: { name: string }) {
 function LibraryPlayer({
   entry,
   onClose,
-  onOpen,
   onCopy,
 }: {
   entry: LibraryEntry
   onClose: () => void
-  onOpen: () => void
   onCopy: () => void
 }) {
   const inline = inlinePlayable(entry)
@@ -160,31 +219,7 @@ function LibraryPlayer({
             <audio controls autoPlay src={entry.streamPath} className="w-full max-w-xl" />
           </div>
         )}
-        {inline && entry.mediaKind === 'video' && (
-          <video
-            controls
-            autoPlay
-            playsInline
-            src={entry.streamPath}
-            className="aspect-video max-h-[62vh] w-full bg-black object-contain"
-          />
-        )}
-        {!inline && (
-          <div className="flex min-h-56 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-            <Tv className="size-8 text-[var(--accent)]" />
-            <p className="text-sm font-semibold text-[var(--fg)]">
-              This file is ready for a native player
-            </p>
-            <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-              Chromium cannot reliably decode this container or codec. The library stream supports
-              range requests, so mpv or VLC can start immediately and seek normally.
-            </p>
-            <Button variant="primary" size="sm" onClick={onOpen}>
-              <ExternalLinkIcon />
-              Open in mpv / VLC
-            </Button>
-          </div>
-        )}
+        {entry.mediaKind === 'video' && <LibraryVideo entry={entry} />}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] px-4 py-2.5">
@@ -205,17 +240,12 @@ function LibraryPlayer({
   )
 }
 
-function ExternalLinkIcon() {
-  return <Play className="size-3.5" />
-}
-
 export function LibraryPage() {
   const addToast = useAppStore(state => state.addToast)
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [root, setRoot] = useState<RootFilter>('all')
   const [selected, setSelected] = useState<LibraryEntry | null>(null)
-  const [opening, setOpening] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const library = useQuery({ queryKey: ['library'], queryFn: api.library, staleTime: 30_000 })
 
@@ -247,19 +277,6 @@ export function LibraryPage() {
       addToast('error', error instanceof Error ? error.message : 'Could not scan the library')
     } finally {
       setScanning(false)
-    }
-  }
-
-  const openExternal = async (entry: LibraryEntry) => {
-    if (opening) return
-    setOpening(entry.id)
-    try {
-      await api.openLibrary(entry.id)
-      addToast('info', 'Opened in the external player')
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Could not open the player')
-    } finally {
-      setOpening(null)
     }
   }
 
@@ -313,7 +330,6 @@ export function LibraryPage() {
         <LibraryPlayer
           entry={selected}
           onClose={() => setSelected(null)}
-          onOpen={() => void openExternal(selected)}
           onCopy={() => void copyStream(selected)}
         />
       )}
@@ -387,9 +403,7 @@ export function LibraryPage() {
               key={entry.id}
               entry={entry}
               selected={selected?.id === entry.id}
-              busy={opening === entry.id}
               onSelect={() => setSelected(entry)}
-              onOpen={() => void openExternal(entry)}
             />
           ))}
         </div>

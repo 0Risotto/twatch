@@ -7,6 +7,7 @@
   pkg-config,
   makeWrapper,
   mpv,
+  ffmpeg,
   xdg-utils,
   go,
 }:
@@ -36,7 +37,7 @@ let
       src = ../web;
       filter = sourceFilter;
     };
-    npmDepsHash = "sha256-aOVSryCozLy0MSQCTQBj3ACc7foWr3x807xQzW45UCU=";
+    npmDepsHash = "sha256-4TJy3HPLONOrnES96PJki46feNGgTkUg5LUcnJIAyyY=";
     installPhase = ''
       runHook preInstall
       mkdir -p $out
@@ -83,6 +84,7 @@ rustPlatform.buildRustPackage {
     wrapProgram $out/bin/twatchd --prefix PATH : ${
       lib.makeBinPath [
         mpv
+        ffmpeg
         xdg-utils
       ]
     }

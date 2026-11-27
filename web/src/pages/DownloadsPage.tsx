@@ -11,7 +11,6 @@ import {
   Play,
   RotateCcw,
   Trash2,
-  Tv,
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -74,7 +73,6 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
   const samples = useSpeedSamples(download.speed, active)
   const kind = fileKind(download.fileNames[0] ?? download.label)
   const previewable = canPreview(kind)
-  const externalPlayable = kind === 'movie' || kind === 'tv' || kind === 'audio'
   const PreviewIcon = kind === 'image' ? Eye : Play
 
   const call = async (name: string, action: () => Promise<unknown>) => {
@@ -101,12 +99,6 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
       await api.removeDownload(download.id)
       removeDownload(download.id)
       addToast('success', 'Removed from activity')
-    })
-
-  const openExternal = () =>
-    void call('open', async () => {
-      await api.openPlayer(download.id)
-      addToast('info', 'Opened in the external player')
     })
 
   const copyStream = async () => {
@@ -233,12 +225,6 @@ function DownloadCard({ download }: { download: DownloadSnapshot }) {
                 Open file
               </a>
             )}
-            {externalPlayable && (
-              <Button variant="ghost" size="sm" loading={busy === 'open'} onClick={openExternal}>
-                <Tv className="size-3.5" />
-                mpv / VLC
-              </Button>
-            )}
             <IconButton label="Copy stream URL" size="sm" onClick={() => void copyStream()}>
               <Copy className="size-3.5" />
             </IconButton>
@@ -362,7 +348,7 @@ export function DownloadsPage() {
         title={tab === 'active' ? 'Active transfers' : tab === 'completed' ? 'Completed' : 'Failed'}
         hint={
           tab === 'active'
-            ? 'Pause, resume, stream inline, or hand the file to mpv.'
+            ? 'Pause, resume, or stream inline while pieces arrive.'
             : tab === 'completed'
               ? 'Files stay on disk. Remove the card to tidy the activity list.'
               : 'These tasks stopped before completing. Remove them or start the torrent again.'

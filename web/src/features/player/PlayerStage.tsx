@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
+import Hls from 'hls.js'
 import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
 import { formatPlaybackTimes } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -58,8 +59,49 @@ export function PlayerStage({
 }: PlayerStageProps) {
   const { state } = player
   const [controlsVisible, setControlsVisible] = useState(true)
+  const [hlsError, setHlsError] = useState(false)
+  const [hlsAttempt, setHlsAttempt] = useState(0)
+  const isHls = Boolean(streamUrl?.endsWith('.m3u8'))
   const hideTimer = useRef(0)
   const { elapsed, remaining } = formatPlaybackTimes(state.currentTime, state.duration)
+
+  useEffect(() => {
+    setHlsError(false)
+    if (!isHls || !streamUrl) return
+    const media = mediaRef.current
+    if (!media) return
+
+    if (!Hls.isSupported()) {
+      if (media.canPlayType('application/vnd.apple.mpegurl')) {
+        media.src = streamUrl
+        return () => {
+          media.removeAttribute('src')
+          media.load()
+        }
+      }
+      setHlsError(true)
+      return
+    }
+
+    const hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 30,
+      maxBufferLength: 30,
+    })
+    hls.loadSource(streamUrl)
+    hls.attachMedia(media)
+    const onError = (_event: string, data: { fatal?: boolean }) => {
+      if (data.fatal) setHlsError(true)
+    }
+    hls.on(Hls.Events.ERROR, onError)
+    return () => {
+      hls.off(Hls.Events.ERROR, onError)
+      hls.destroy()
+      media.removeAttribute('src')
+      media.load()
+    }
+  }, [hlsAttempt, isHls, mediaRef, streamUrl])
 
   const showControls = () => {
     setControlsVisible(true)
@@ -101,7 +143,7 @@ export function PlayerStage({
         <video
           key={streamUrl}
           ref={mediaRef as RefObject<HTMLVideoElement | null>}
-          src={streamUrl}
+          src={isHls ? undefined : (streamUrl ?? undefined)}
           poster={coverUrl ?? undefined}
           autoPlay={autoPlay}
           playsInline
@@ -203,6 +245,23 @@ export function PlayerStage({
         </div>
       )}
 
+      {hlsError && !state.error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center text-white">
+          <TriangleAlert className="size-8 text-[var(--warning)]" />
+          <p className="text-sm font-semibold">Could not prepare browser playback</p>
+          <p className="max-w-md text-xs leading-relaxed text-white/60">
+            The local transcoder did not start. Check that ffmpeg is available, then retry.
+          </p>
+          <button
+            type="button"
+            onClick={() => setHlsAttempt(attempt => attempt + 1)}
+            className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+          >
+            Retry transcode
+          </button>
+        </div>
+      )}
+
       {state.error && (
         <div
           className={cn(
@@ -222,7 +281,7 @@ export function PlayerStage({
           </p>
           {!compact && (
             <p className="max-w-md text-xs leading-relaxed text-white/60">
-              The stream is ready. Retry, or hand it to mpv or VLC and play it locally.
+              The stream is ready. Retry, or download the file and play it locally.
             </p>
           )}
           <div className="mt-1 flex items-center gap-2">

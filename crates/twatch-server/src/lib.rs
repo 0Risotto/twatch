@@ -10,6 +10,7 @@ pub mod state;
 pub mod static_files;
 pub mod stream;
 pub mod subtitles;
+pub mod transcode;
 pub mod ws;
 
 use std::sync::Arc;
@@ -62,6 +63,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/covers", post(routes::covers))
         .route("/api/stream/{torrent_id}/{file_idx}", get(stream::stream_file))
         .route("/api/library/{id}/stream", get(stream::library_stream))
+        .route("/api/transcode/download/{id}/{file}", get(routes::download_file))
+        .route("/api/transcode/library/{id}/{file}", get(routes::library_file))
         .route("/api/subtitles/{torrent_id}/{file_idx}", get(subtitles::subtitles))
         .route("/api/ws", get(ws::ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth::require_token));

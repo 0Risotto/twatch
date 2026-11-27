@@ -5,7 +5,6 @@ import type {
   DownloadSnapshot,
   HistoryEntry,
   LibraryEntry,
-  PlayerSnapshot,
   SearchConfig,
   SearchResult,
   SessionSnapshot,
@@ -90,7 +89,6 @@ export const api = {
 
   library: () => request<LibraryEntry[]>('/api/library'),
   rescanLibrary: () => post<LibraryEntry[]>('/api/library/rescan'),
-  openLibrary: (id: string) => post<PlayerSnapshot>(`/api/library/${encodeURIComponent(id)}/open`),
 
   search: (q: string, page = 0) =>
     request<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}&page=${page}`),
@@ -105,15 +103,10 @@ export const api = {
   saveProgress: (url: string, file: string, position: number, duration: number) =>
     put<{ ok: boolean }>('/api/history/progress', { url, file, position, duration }),
 
-  player: () => request<PlayerSnapshot>('/api/player'),
-  openPlayer: (downloadId: number) => post<PlayerSnapshot>('/api/player/open', { downloadId }),
-  stopPlayer: () => post<{ ok: boolean }>('/api/player/stop'),
-
   covers: (items: Array<{ title: string; kind?: string }>) =>
     post<CoverInfo[]>('/api/covers', { items }),
 
   themes: () => request<ThemeSpec[]>('/api/themes'),
   config: () => request<ConfigView>('/api/config'),
-  patchConfig: (body: { theme?: string; player?: string }) =>
-    patch<ConfigView>('/api/config', body),
+  patchConfig: (body: { theme?: string }) => patch<ConfigView>('/api/config', body),
 }

@@ -65,6 +65,7 @@
             perl
             pkg-config
             mpv
+            ffmpeg
             xdg-utils
             go
             wrapGAppsHook3

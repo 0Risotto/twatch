@@ -62,6 +62,7 @@ export function PlayerDock({
     download,
     dockActive,
     mode,
+    streamUrl,
     cover,
     mediaRef,
     containerRef,
@@ -226,7 +227,7 @@ export function PlayerDock({
       <PlayerStage
         download={download}
         kind={isVideo(kind) ? 'video' : 'audio'}
-        streamUrl={download.streamPath}
+        streamUrl={streamUrl}
         coverUrl={cover?.url}
         mediaRef={mediaRef}
         containerRef={containerRef}

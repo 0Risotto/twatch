@@ -8,6 +8,8 @@ use twatch_core::gateway::Gateway;
 use twatch_engine::covers::CoverService;
 use twatch_engine::stream::StreamService;
 
+use crate::transcode::TranscodeService;
+
 /// Runtime configuration for the gateway HTTP server.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -34,6 +36,7 @@ pub struct AppState {
     pub gateway: Arc<Gateway>,
     pub stream: Option<StreamService>,
     pub covers: Arc<CoverService>,
+    pub transcode: Arc<TranscodeService>,
     pub web_dir: Option<Arc<PathBuf>>,
     pub token: Arc<str>,
     pub allow_remote: bool,
@@ -47,10 +50,13 @@ impl AppState {
         covers: Arc<CoverService>,
         config: &ServerConfig,
     ) -> Self {
+        let transcode =
+            Arc::new(TranscodeService::new(gateway.config().config_dir.join("transcode")));
         Self {
             gateway,
             stream,
             covers,
+            transcode,
             web_dir: config.web_dir.clone().map(Arc::new),
             token: Arc::from(config.token.as_str()),
             allow_remote: config.allow_remote,

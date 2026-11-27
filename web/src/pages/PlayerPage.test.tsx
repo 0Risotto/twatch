@@ -52,10 +52,10 @@ describe('PlayerPage media modes', () => {
     expect(container.querySelector('video')).not.toBeNull()
   })
 
-  it('falls back to a native player for an MKV', () => {
+  it('routes an MKV through the local transcode player', () => {
     const { container } = renderWith({ ...base, label: 'movie.mkv', fileNames: ['movie.mkv'] })
-    expect(container.querySelector('video')).toBeNull()
-    expect(container.innerHTML).toContain('This video needs a native player')
+    expect(container.querySelector('video')).not.toBeNull()
+    expect(container.innerHTML).not.toContain('This video needs a native player')
   })
 
   it('renders an audio element for an audio file', () => {

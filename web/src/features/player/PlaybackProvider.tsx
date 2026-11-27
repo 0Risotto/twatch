@@ -36,6 +36,7 @@ export interface PlaybackContextValue {
   deactivate: () => void
   registerSlot: (node: HTMLDivElement | null) => void
   mode: 'full' | 'mini'
+  streamUrl: string | null
   dockActive: boolean
   autoPlay: boolean
   externalSubtitle: ExternalSubtitle | null
@@ -164,8 +165,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
   const video = isVideo(kind)
   const audio = isAudio(kind)
-  const streamUrl = download?.streamPath ?? null
+  const directStreamUrl = download?.streamPath ?? null
   const inlineVideo = video && isInlineVideoName(download?.fileNames[0] ?? download?.label ?? '')
+  const transcodePath =
+    download && video && !inlineVideo && directStreamUrl
+      ? `/api/transcode/download/${download.id}/index.m3u8`
+      : null
+  const streamUrl = transcodePath ?? directStreamUrl
   const mode: 'full' | 'mini' = location.pathname === '/player' ? 'full' : 'mini'
 
   useEffect(() => {
@@ -309,7 +315,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     [addToast, download],
   )
   const { getThumbnail, getCachedThumbnail, prefetchThumbnail } = useThumbnails(
-    video ? streamUrl : null,
+    video && !transcodePath ? streamUrl : null,
   )
 
   const cycleSubtitles = useCallback(() => {
@@ -361,7 +367,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const registerSlot = useCallback((node: HTMLDivElement | null) => setSlot(node), [])
 
-  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo))
+  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo || transcodePath))
 
   const value = useMemo<PlaybackContextValue>(
     () => ({
@@ -384,6 +390,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       deactivate,
       registerSlot,
       mode,
+      streamUrl,
       dockActive,
       autoPlay: !restoredPause,
       externalSubtitle,
@@ -403,6 +410,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       hasPrev,
       mediaRef,
       mode,
+      streamUrl,
       playNext,
       playPrev,
       player,

@@ -9,6 +9,7 @@ mod player;
 mod search;
 mod session;
 mod settings;
+mod transcode;
 
 pub use covers::covers;
 pub use downloads::*;
@@ -19,6 +20,7 @@ pub use player::*;
 pub use search::*;
 pub use session::*;
 pub use settings::*;
+pub use transcode::*;
 
 use axum::Json;
 

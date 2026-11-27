@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Captions,
   Copy,
-  ExternalLink,
   Eye,
   ListVideo,
   MonitorPlay,
@@ -14,7 +13,6 @@ import {
   Play,
   SkipBack,
   SkipForward,
-  Tv,
   Upload,
   X,
 } from 'lucide-react'
@@ -23,7 +21,6 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/Progress'
 import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
 import { formatBytes, formatEta, formatPercent, formatSpeed, formatTime } from '@/lib/format'
 import {
   FileTypeIcon,
@@ -31,7 +28,6 @@ import {
   fileKind,
   isAudio,
   isImage,
-  isInlineVideoName,
   isVideo,
   kindLabel,
 } from '@/lib/fileIcons'
@@ -46,9 +42,7 @@ export function PlayerPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const downloads = useAppStore(state => state.downloads)
-  const playerState = useAppStore(state => state.player)
   const addToast = useAppStore(state => state.addToast)
-  const [busy, setBusy] = useState<string | null>(null)
   const subtitleInputRef = useRef<HTMLInputElement | null>(null)
   const {
     download: activeDownload,
@@ -93,10 +87,7 @@ export function PlayerPage() {
   const audio = isAudio(kind)
   const image = isImage(kind)
   const previewable = canPreview(kind)
-  const externalPlayable = video || audio
   const playable = video || audio
-  const inlineVideo = video && isInlineVideoName(download?.fileNames[0] ?? download?.label ?? '')
-  const externalOnly = video && !inlineVideo
   const queue = download?.queue ?? []
   const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
   const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
@@ -106,24 +97,7 @@ export function PlayerPage() {
     ...player.state.buffered.map(range => range.end - player.state.currentTime),
   )
   const error = Boolean(download) && (player.state.error || download?.state === 'failed')
-  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo) && !error)
-  const external = Boolean(
-    download && playerState.running && playerState.downloadId === download.id,
-  )
-
-  const openExternal = () => {
-    if (!download) return
-    if (busy) return
-    setBusy('external')
-    api
-      .openPlayer(download.id)
-      .then(() => addToast('info', 'Opened in the external player'))
-      .catch((reason: unknown) =>
-        addToast('error', reason instanceof Error ? reason.message : 'Playback action failed'),
-      )
-      .finally(() => setBusy(null))
-  }
-
+  const dockActive = Boolean(download && streamUrl && playable && !error)
   const goBack = () => {
     const from = (location.state as { from?: string } | null)?.from
     if (from) {
@@ -206,17 +180,6 @@ export function PlayerPage() {
             <Link to="/downloads" className="btn btn-ghost h-8 px-3 text-xs">
               Downloads
             </Link>
-            {externalPlayable && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={busy === 'external'}
-                onClick={openExternal}
-              >
-                <Tv className="size-4" />
-                Open in mpv / VLC
-              </Button>
-            )}
             {streamUrl && !previewable && (
               <a
                 href={streamUrl}
@@ -291,23 +254,6 @@ export function PlayerPage() {
               </div>
             )}
 
-            {externalOnly && streamUrl && !error && (
-              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                <Tv className="size-8 text-[var(--accent)]" />
-                <p className="text-sm font-semibold text-[var(--fg)]">
-                  This video needs a native player
-                </p>
-                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                  {download.fileNames[0] ?? download.label} uses a container or codec Chromium
-                  cannot decode reliably. The stream is ready.
-                </p>
-                <Button variant="primary" size="sm" onClick={openExternal}>
-                  <ExternalLink className="size-4" />
-                  Open in mpv / VLC
-                </Button>
-              </div>
-            )}
-
             {preparing && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
                 <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
@@ -345,18 +291,9 @@ export function PlayerPage() {
                       : 'This video container cannot play in the browser'}
                 </p>
                 <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                  The stream is ready.{' '}
-                  {externalPlayable
-                    ? 'Hand it to mpv or VLC, or download the file and play it locally.'
-                    : 'Open the file directly, or copy the stream URL.'}
+                  The stream is ready. Open the file directly, or copy the stream URL.
                 </p>
                 <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  {externalPlayable && (
-                    <Button variant="primary" size="sm" onClick={openExternal}>
-                      <Tv className="size-4" />
-                      Open in mpv / VLC
-                    </Button>
-                  )}
                   {streamUrl && (
                     <Button variant="secondary" size="sm" onClick={player.retry}>
                       <Play className="size-4" />
@@ -396,11 +333,6 @@ export function PlayerPage() {
               </span>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {external && (
-                <span className="text-[11px] text-[var(--badge-stream)]">
-                  Playing in external player
-                </span>
-              )}
               <Button variant="ghost" size="sm" onClick={() => void copyStream()}>
                 <Copy className="size-3.5" />
                 Copy URL
@@ -437,7 +369,7 @@ export function PlayerPage() {
                     <button
                       type="button"
                       onClick={() => void switchTo(file.index)}
-                      disabled={busy !== null || index === queueIndex}
+                      disabled={index === queueIndex}
                       className={cn(
                         'flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left text-[11px] transition-colors',
                         index === queueIndex
@@ -647,19 +579,13 @@ export function PlayerPage() {
             </h2>
             <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
               {video
-                ? 'MP4/H.264 and WebM play inline. For MKV, HEVC, DTS, or subtitle-heavy releases, use mpv/VLC — the same byte stream is handed to the player.'
+                ? 'MP4 and WebM play inline. MKV and HEVC are prepared by the local transcoder and use the same player controls.'
                 : audio
-                  ? 'Audio is played with the browser engine. MP3, AAC, FLAC and Opus usually work; DTS and exotic codecs may need a native player.'
+                  ? 'Audio is played with the browser engine. MP3, AAC, FLAC and Opus usually work.'
                   : image
                     ? 'Images are served through the same byte-range stream. Click the image to open the original resolution in a new tab.'
-                    : 'This file type is not rendered in the browser. Open it directly or hand it to a native application.'}
+                    : 'This file type is not rendered in the browser. Open it directly.'}
             </p>
-            {externalPlayable && (
-              <Button variant="secondary" size="sm" className="mt-3" onClick={openExternal}>
-                <ExternalLink className="size-3.5" />
-                Hand off to player
-              </Button>
-            )}
           </section>
         </aside>
       </div>

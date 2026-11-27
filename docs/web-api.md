@@ -54,6 +54,8 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | POST | `/api/covers` | `{items:[{title,kind?}]}` — batched movie/anime/book cover lookup |
 | GET/PATCH | `/api/config` | Web theme and external player preference |
 | GET | `/api/stream/{torrentId}/{fileIndex}` | Byte-range media stream |
+| GET | `/api/transcode/download/{id}/{file}` | On-demand HLS playlist/segments for a download |
+| GET | `/api/transcode/library/{id}/{file}` | On-demand HLS playlist/segments for a library file |
 | GET | `/api/subtitles/{torrentId}/{fileIndex}` | SRT/ASS/SSA/VTT as WebVTT (or `?format=raw`) |
 
 All response bodies are camelCase JSON. Errors use:
@@ -173,6 +175,20 @@ recursive, capped at 10,000 files, and returns opaque ids. `/api/library/{id}/st
 only resolves ids from that index; the request never supplies a filesystem path.
 Responses use the same single-range semantics as torrent streams, and the
 `/open` action passes the local stream to the configured native player.
+
+## Transcoding
+
+The SPA uses the direct byte-range player for MP4, M4V, WebM, and audio.
+Other video containers (MKV/HEVC, and files with unsupported audio) request an
+H.264/AAC HLS event playlist from `/api/transcode/...`.
+
+The daemon probes the source with `ffprobe`. H.264 video is stream-copied;
+other video codecs are transcoded with libx264. Audio is transcoded to AAC.
+The first playlist and segment are produced before the playlist request
+returns, so the browser does not need a separate prepare call. Temporary
+segments live under `$XDG_CONFIG_HOME/twatch/transcode/` and are cleaned up on
+session expiry and daemon restart. The web player uses hls.js, so it remains a
+single browser `<video>` element with the existing controls and subtitles.
 
 ## Streaming
 

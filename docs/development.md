@@ -5,6 +5,7 @@
 - Rust 1.88+ (edition 2024)
 - Node.js 22+ for the web UI
 - mpv or VLC for external player hand-off
+- ffmpeg/ffprobe for in-app MKV/HEVC transcoding
 - A C compiler and CMake for `librqbit`
 
 The Nix dev shell provides all of the above:

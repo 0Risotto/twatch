@@ -6,15 +6,13 @@ import {
   ExternalLink,
   Monitor,
   Palette,
-  Play,
   RefreshCw,
   Search,
   Server,
   Sparkles,
-  Volume2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Field, Label, Select, TextInput } from '@/components/ui/Field'
+import { Field, Label, TextInput } from '@/components/ui/Field'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
@@ -91,16 +89,6 @@ export function SettingsPage() {
       addToast('error', error instanceof Error ? error.message : 'Could not save theme')
     } finally {
       setSavingTheme(null)
-    }
-  }
-
-  const choosePlayer = async (player: string) => {
-    try {
-      const next = await api.patchConfig({ player })
-      setConfig(next)
-      addToast('success', `External player: ${player}`)
-    } catch (error) {
-      addToast('error', error instanceof Error ? error.message : 'Could not save player preference')
     }
   }
 
@@ -253,33 +241,6 @@ export function SettingsPage() {
             Motion is intentionally short: 120–320 ms, springs for panels and selection, fades for
             pages. Active transfers pulse ambiently only while the tab is visible.
           </p>
-        </SettingsSection>
-
-        <SettingsSection
-          icon={<Volume2 className="size-4" />}
-          title="Playback"
-          description="Inline video handles browser-friendly codecs. Everything else can go to mpv or VLC."
-          action={<Play className="size-4 text-[var(--badge-stream)]" />}
-        >
-          <Field
-            label="External player"
-            hint="The engine hands the local stream URL to the player process."
-          >
-            <Select
-              aria-label="External player"
-              value={config?.player ?? 'auto'}
-              onChange={event => void choosePlayer(event.target.value)}
-            >
-              <option value="auto">Auto (mpv, then VLC)</option>
-              <option value="mpv">mpv</option>
-              <option value="vlc">VLC</option>
-              <option value="none">Never launch</option>
-            </Select>
-          </Field>
-          <div className="mt-3 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
-            MP4/H.264 and WebM play inline. MKV/HEVC, DTS, and complex subtitles are better in a
-            native player; use the player page's hand-off button.
-          </div>
         </SettingsSection>
       </div>
 

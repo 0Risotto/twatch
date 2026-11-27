@@ -9,7 +9,6 @@ vi.mock('@/lib/api', () => ({
   api: {
     library: vi.fn(),
     rescanLibrary: vi.fn(),
-    openLibrary: vi.fn(),
   },
 }))
 
@@ -67,19 +66,14 @@ describe('LibraryPage', () => {
     expect(screen.getByText('Show.mp4')).toBeInTheDocument()
   })
 
-  it('opens unsupported formats in the native player', async () => {
+  it('opens the local player for unsupported video', async () => {
     vi.mocked(api.library).mockResolvedValue(entries)
-    vi.mocked(api.openLibrary).mockResolvedValue({
-      running: false,
-      title: 'Movie.mkv',
-      streamPath: '/api/library/cache-6d6f766965/stream',
-      downloadId: null,
-    })
     renderPage()
 
-    const buttons = await screen.findAllByRole('button', { name: /mpv \/ vlc/i })
+    const buttons = await screen.findAllByRole('button', { name: /preview/i })
     fireEvent.click(buttons[0])
-    await waitFor(() => expect(api.openLibrary).toHaveBeenCalledWith('cache-6d6f766965'))
+    await waitFor(() => expect(document.querySelector('video')).not.toBeNull())
+    expect(screen.getAllByText('Movie.mkv').length).toBeGreaterThan(0)
   })
 
   it('rescans and updates the list', async () => {
