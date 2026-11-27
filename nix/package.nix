@@ -11,7 +11,7 @@
   go,
 }:
 let
-  version = "0.2.2";
+  version = "0.2.3";
 
   sourceFilter =
     path: type:
@@ -36,7 +36,7 @@ let
       src = ../web;
       filter = sourceFilter;
     };
-    npmDepsHash = "sha256-kafHhhoLXotgZfaEVBtj8mHT/pEeMyIfgJchBd2tGZ0=";
+    npmDepsHash = "sha256-8cMM5AdmGlhWDDpoDbtVnpceapgkhpsjRpR3oIBbwVY=";
     installPhase = ''
       runHook preInstall
       mkdir -p $out

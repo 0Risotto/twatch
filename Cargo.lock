@@ -3002,7 +3002,7 @@ dependencies = [
 
 [[package]]
 name = "twatch-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "twatch-engine"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3037,7 +3037,7 @@ dependencies = [
 
 [[package]]
 name = "twatch-server"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3059,7 +3059,7 @@ dependencies = [
 
 [[package]]
 name = "twatchd"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "fs2",
