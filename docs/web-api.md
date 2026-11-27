@@ -22,7 +22,7 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Public liveness probe |
-| GET | `/api/bootstrap` | First paint: config, session, downloads, player, themes |
+| GET | `/api/bootstrap` | First paint: config, session, downloads, themes |
 | GET | `/api/session` | Current torrent session or `null` |
 | POST | `/api/session/preview` | `{url}` — fetch metadata and make it current |
 | POST | `/api/session/close` | Close the browse session (downloads keep running) |
@@ -169,7 +169,7 @@ and temporary/partial files without a media extension are skipped. The scan is
 recursive, capped at 10,000 files, and returns opaque ids. `/api/library/{id}/stream`
 only resolves ids from that index; the request never supplies a filesystem path.
 Responses use the same single-range semantics as torrent streams, and the
-`/open` action passes the local stream to the configured native player.
+The browser player opens the local range stream directly.
 
 ## Transcoding
 

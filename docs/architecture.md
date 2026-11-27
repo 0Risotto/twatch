@@ -8,7 +8,7 @@ a sidecar and hosts the web UI.
 ```text
 crates/
 ├── twatch-core/      Pure domain, config, themes, headless Gateway
-├── twatch-engine/    librqbit, JSON history, search, player, covers, streams
+├── twatch-engine/    librqbit, JSON history, search, covers, streams
 ├── twatch-server/    axum REST/WebSocket API, auth, static SPA, Range streaming
 └── twatchd/          Headless daemon binary
 electron/             Electron shell and packaging
@@ -30,7 +30,7 @@ twatch-core::gateway::Gateway
 twatch-engine ── librqbit, filesystem, ffmpeg, search, covers
 ```
 
-The gateway owns the active browse session, transfers, history, player state,
+The gateway owns the active browse session, transfers, history, local library,
 and event stream. It is independent of HTTP and desktop UI code.
 
 `TorrentPort`, `StreamPort`, `HistoryPort`, `SearchPort`, and `TaskSpawner` are the adapter boundaries. Tests replace them with in-memory
