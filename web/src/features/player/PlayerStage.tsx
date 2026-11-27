@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import Hls from 'hls.js'
 import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
 import { formatPlaybackTimes } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PlayerControls } from './PlayerControls'
+import { useHlsPlayback } from './useHlsPlayback'
 import type { useMediaPlayer } from './useMediaPlayer'
 import type { useSubtitleTracks } from './useSubtitleTracks'
 import type { DownloadSnapshot } from '@/types/api'
@@ -59,49 +59,9 @@ export function PlayerStage({
 }: PlayerStageProps) {
   const { state } = player
   const [controlsVisible, setControlsVisible] = useState(true)
-  const [hlsError, setHlsError] = useState(false)
-  const [hlsAttempt, setHlsAttempt] = useState(0)
-  const isHls = Boolean(streamUrl?.endsWith('.m3u8'))
   const hideTimer = useRef(0)
+  const { hlsError, isHls, retry: retryHls } = useHlsPlayback(streamUrl, mediaRef)
   const { elapsed, remaining } = formatPlaybackTimes(state.currentTime, state.duration)
-
-  useEffect(() => {
-    setHlsError(false)
-    if (!isHls || !streamUrl) return
-    const media = mediaRef.current
-    if (!media) return
-
-    if (!Hls.isSupported()) {
-      if (media.canPlayType('application/vnd.apple.mpegurl')) {
-        media.src = streamUrl
-        return () => {
-          media.removeAttribute('src')
-          media.load()
-        }
-      }
-      setHlsError(true)
-      return
-    }
-
-    const hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: false,
-      backBufferLength: 30,
-      maxBufferLength: 30,
-    })
-    hls.loadSource(streamUrl)
-    hls.attachMedia(media)
-    const onError = (_event: string, data: { fatal?: boolean }) => {
-      if (data.fatal) setHlsError(true)
-    }
-    hls.on(Hls.Events.ERROR, onError)
-    return () => {
-      hls.off(Hls.Events.ERROR, onError)
-      hls.destroy()
-      media.removeAttribute('src')
-      media.load()
-    }
-  }, [hlsAttempt, isHls, mediaRef, streamUrl])
 
   const showControls = () => {
     setControlsVisible(true)
@@ -254,7 +214,7 @@ export function PlayerStage({
           </p>
           <button
             type="button"
-            onClick={() => setHlsAttempt(attempt => attempt + 1)}
+            onClick={retryHls}
             className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
           >
             Retry transcode

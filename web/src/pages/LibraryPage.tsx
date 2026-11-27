@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import Hls from 'hls.js'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import {
@@ -23,6 +22,7 @@ import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
 import { api } from '@/lib/api'
 import { isInlineVideoName } from '@/lib/fileIcons'
+import { useHlsPlayback } from '@/features/player/useHlsPlayback'
 import { formatBytes, formatRelative } from '@/lib/format'
 import { springs } from '@/lib/motion'
 import { useAppStore } from '@/store/app'
@@ -45,35 +45,8 @@ function streamPathFor(entry: LibraryEntry): string {
 
 function LibraryVideo({ entry }: { entry: LibraryEntry }) {
   const ref = useRef<HTMLVideoElement | null>(null)
-  const [error, setError] = useState(false)
-  const [attempt, setAttempt] = useState(0)
   const source = streamPathFor(entry)
-  const isHls = source.endsWith('.m3u8')
-
-  useEffect(() => {
-    setError(false)
-    const media = ref.current
-    if (!media) return
-    if (!isHls) {
-      media.src = source
-      return
-    }
-    if (!Hls.isSupported()) {
-      if (media.canPlayType('application/vnd.apple.mpegurl')) {
-        media.src = source
-        return
-      }
-      setError(true)
-      return
-    }
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 })
-    hls.loadSource(source)
-    hls.attachMedia(media)
-    hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data.fatal) setError(true)
-    })
-    return () => hls.destroy()
-  }, [attempt, isHls, source])
+  const { attempt, hlsError, isHls, retry } = useHlsPlayback(source, ref)
 
   return (
     <div className="relative">
@@ -86,7 +59,7 @@ function LibraryVideo({ entry }: { entry: LibraryEntry }) {
         src={isHls ? undefined : source}
         className="aspect-video max-h-[62vh] w-full bg-black object-contain"
       />
-      {error && (
+      {hlsError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 px-6 text-center text-white">
           <p className="text-sm font-semibold">Could not start the local transcoder</p>
           <p className="max-w-md text-xs text-white/60">
@@ -94,7 +67,7 @@ function LibraryVideo({ entry }: { entry: LibraryEntry }) {
           </p>
           <button
             type="button"
-            onClick={() => setAttempt(value => value + 1)}
+            onClick={retry}
             className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs"
           >
             Retry

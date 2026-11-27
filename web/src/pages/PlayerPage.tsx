@@ -1,41 +1,13 @@
 import { useEffect, useRef } from 'react'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Captions,
-  Copy,
-  Eye,
-  ListVideo,
-  MonitorPlay,
-  Music2,
-  Play,
-  SkipBack,
-  SkipForward,
-  Upload,
-  X,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { ProgressBar } from '@/components/ui/Progress'
-import { PageHeader } from '@/components/PageHeader'
-import { formatBytes, formatEta, formatPercent, formatSpeed, formatTime } from '@/lib/format'
-import {
-  FileTypeIcon,
-  canPreview,
-  fileKind,
-  isAudio,
-  isImage,
-  isVideo,
-  kindLabel,
-} from '@/lib/fileIcons'
-import { subtitleLabel } from '@/lib/subtitles'
-import { useAppStore } from '@/store/app'
-import { cn } from '@/lib/cn'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePlayback } from '@/features/player/PlaybackProvider'
-import type { SubtitleSize } from '@/features/player/useSubtitleTracks'
+import { canPreview, fileKind, isAudio, isImage, isVideo } from '@/lib/fileIcons'
+import { useAppStore } from '@/store/app'
+import { PlayerEmptyState } from './player/PlayerEmptyState'
+import { PlayerHeader } from './player/PlayerHeader'
+import { PlayerSidebar } from './player/PlayerSidebar'
+import { PlayerSlot } from './player/PlayerSlot'
 
 export function PlayerPage() {
   const [params] = useSearchParams()
@@ -98,6 +70,7 @@ export function PlayerPage() {
   )
   const error = Boolean(download) && (player.state.error || download?.state === 'failed')
   const dockActive = Boolean(download && streamUrl && playable && !error)
+
   const goBack = () => {
     const from = (location.state as { from?: string } | null)?.from
     if (from) {
@@ -135,469 +108,59 @@ export function PlayerPage() {
     }
   }
 
-  if (!download) {
-    return (
-      <div className="space-y-5">
-        <PageHeader
-          eyebrow="Playback"
-          title="Now playing"
-          description="Inline playback appears here while the engine streams pieces from the swarm."
-          actions={
-            <Link to="/downloads" className="btn btn-secondary h-8 px-3 text-xs">
-              Downloads
-            </Link>
-          }
-        />
-        <EmptyState
-          icon={<MonitorPlay className="size-6" />}
-          title="Nothing playing"
-          description="Pick a file in a torrent and press Watch. twatch starts a one-file stream and keeps downloading in the background."
-          action={
-            <Link to="/search" className="btn btn-secondary">
-              Find a torrent
-              <Play className="size-4" />
-            </Link>
-          }
-        />
-      </div>
-    )
-  }
-
-  const PreparingIcon = audio ? Music2 : image ? MonitorPlay : Play
+  if (!download) return <PlayerEmptyState />
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        eyebrow="Playback"
-        title={download.label}
-        description={`${download.torrentName} · ${formatBytes(download.totalSize)}`}
-        actions={
-          <>
-            <Button variant="ghost" size="sm" onClick={goBack}>
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-            <Link to="/downloads" className="btn btn-ghost h-8 px-3 text-xs">
-              Downloads
-            </Link>
-            {streamUrl && !previewable && (
-              <a
-                href={streamUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary h-8 px-3 text-xs"
-              >
-                <Eye className="size-4" />
-                Open file
-              </a>
-            )}
-          </>
-        }
+      <PlayerHeader
+        download={download}
+        streamUrl={streamUrl}
+        previewable={previewable}
+        onBack={goBack}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <div className="panel overflow-hidden">
-          <div
-            ref={registerSlot}
-            className="relative aspect-video w-full overflow-hidden bg-black"
-            data-player-slot
-          >
-            {dockActive && cover?.url && (
-              <img
-                src={cover.url}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-full w-full object-cover opacity-20"
-              />
-            )}
+        <PlayerSlot
+          download={download}
+          kind={kind}
+          streamUrl={streamUrl}
+          coverUrl={cover?.url ?? null}
+          audio={audio}
+          image={image}
+          previewable={previewable}
+          dockActive={dockActive}
+          preparing={preparing}
+          waitingForPeers={waitingForPeers}
+          error={error}
+          player={player}
+          onRegisterSlot={registerSlot}
+          onCopy={() => void copyStream()}
+        />
 
-            {streamUrl && !error && image && (
-              <a
-                href={streamUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex h-full items-center justify-center p-2"
-                title="Open original image"
-              >
-                <img
-                  src={streamUrl}
-                  alt={download.label}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </a>
-            )}
-
-            {streamUrl && !error && !previewable && !image && (
-              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                <FileTypeIcon name={download.fileNames[0] ?? download.label} className="size-10" />
-                <p className="text-sm font-semibold text-[var(--fg)]">
-                  {kindLabel(kind)} preview is not available in the browser
-                </p>
-                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                  The stream is ready. Open it directly, copy the URL, or hand it to a native app.
-                </p>
-                <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  <a
-                    href={streamUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-primary h-8 px-3 text-xs"
-                  >
-                    <Eye className="size-4" />
-                    Open file
-                  </a>
-                  <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                    <Copy className="size-4" />
-                    Copy stream URL
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {preparing && (
-              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <div className="relative grid size-20 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)]">
-                  <PreparingIcon className="size-8 text-[var(--accent)]" />
-                  <span className="absolute inset-0 animate-ping rounded-full border border-[var(--accent)] opacity-30" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--fg)]">
-                    Preparing {previewable ? kindLabel(kind).toLowerCase() : 'file'}…
-                  </p>
-                  <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-                    {waitingForPeers
-                      ? 'Waiting for peers. The preview starts automatically once data starts moving.'
-                      : 'Waiting for the first pieces from the swarm. The preview starts automatically once the first bytes are available.'}
-                  </p>
-                </div>
-                <div className="w-56">
-                  <ProgressBar progress={download.progress} tone="stream" />
-                  <p className="mt-2 font-mono text-[10px] tabular text-[var(--muted)]">
-                    {formatPercent(download.progress)} · {formatSpeed(download.speed)} ·{' '}
-                    {download.peers} peers · {formatEta(download.etaSeconds)} left
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {error && !dockActive && (
-              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                <AlertTriangle className="size-7 text-[var(--warning)]" />
-                <p className="text-sm font-semibold text-[var(--fg)]">
-                  {image
-                    ? 'Could not load this image'
-                    : audio
-                      ? 'This audio codec cannot play in the browser'
-                      : 'This video container cannot play in the browser'}
-                </p>
-                <p className="max-w-md text-xs leading-relaxed text-[var(--muted)]">
-                  The stream is ready. Open the file directly, or copy the stream URL.
-                </p>
-                <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  {streamUrl && (
-                    <Button variant="secondary" size="sm" onClick={player.retry}>
-                      <Play className="size-4" />
-                      Retry
-                    </Button>
-                  )}
-                  {streamUrl && (
-                    <a
-                      href={streamUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary h-8 px-3 text-xs"
-                    >
-                      <Eye className="size-4" />
-                      Open file
-                    </a>
-                  )}
-                  <Button variant="secondary" size="sm" onClick={() => void copyStream()}>
-                    <Copy className="size-4" />
-                    Copy stream URL
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-soft)] px-4 py-3">
-            <Badge tone={download.state === 'completed' ? 'success' : 'stream'} dot>
-              {download.state === 'completed' ? 'ready' : 'streaming'}
-            </Badge>
-            <span className="font-mono text-[11px] tabular text-[var(--muted)]">
-              {Math.round(download.progress * 100)}% · {formatSpeed(download.speed)}
-            </span>
-            {player.state.resumed && (
-              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
-                resumed
-              </span>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => void copyStream()}>
-                <Copy className="size-3.5" />
-                Copy URL
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <aside className="space-y-3">
-          {queue.length > 1 && (
-            <section className="panel p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-                  <ListVideo className="size-3.5 text-[var(--accent)]" />
-                  Playback queue
-                </h2>
-                <span className="text-[10px] text-[var(--muted)]">
-                  {Math.max(1, queueIndex + 1)} / {queue.length}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center gap-1">
-                <Button variant="ghost" size="sm" disabled={!hasPrev} onClick={playPrev}>
-                  <SkipBack className="size-3.5" />
-                  Prev
-                </Button>
-                <Button variant="ghost" size="sm" disabled={!hasNext} onClick={playNext}>
-                  Next
-                  <SkipForward className="size-3.5" />
-                </Button>
-              </div>
-              <ul className="mt-2 max-h-56 space-y-0.5 overflow-y-auto">
-                {queue.map((file, index) => (
-                  <li key={file.index}>
-                    <button
-                      type="button"
-                      onClick={() => void switchTo(file.index)}
-                      disabled={index === queueIndex}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left text-[11px] transition-colors',
-                        index === queueIndex
-                          ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
-                          : 'text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]',
-                      )}
-                    >
-                      <span className="w-5 shrink-0 font-mono text-[10px] tabular opacity-60">
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <section className="panel p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-              Stream health
-            </h2>
-            <div className="mt-3 space-y-3">
-              <Metric label="Progress" value={`${Math.round(download.progress * 100)}%`} />
-              <ProgressBar
-                progress={download.progress}
-                tone={download.state === 'completed' ? 'success' : 'stream'}
-                height={7}
-              />
-              <Metric label="Download" value={formatSpeed(download.speed)} />
-              <Metric label="Peers" value={String(download.peers)} />
-              <Metric
-                label="Downloaded"
-                value={`${formatBytes(download.downloaded)} / ${formatBytes(download.totalSize)}`}
-              />
-              <Metric label="ETA" value={formatEta(download.etaSeconds)} />
-              {playable && player.state.duration > 0 && (
-                <>
-                  <Metric
-                    label="Played"
-                    value={`${formatTime(player.state.currentTime)} / ${formatTime(
-                      player.state.duration,
-                    )}`}
-                  />
-                  <Metric label="Buffered" value={`${formatTime(bufferedAhead)} ahead`} />
-                </>
-              )}
-            </div>
-          </section>
-
-          {video && (
-            <section className="panel p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-                  <Captions className="size-3.5 text-[var(--accent)]" />
-                  Subtitles
-                </h2>
-                <span className="text-[10px] text-[var(--muted)]">
-                  {subtitles.tracks.length} track{subtitles.tracks.length === 1 ? '' : 's'}
-                </span>
-              </div>
-              <select
-                value={subtitles.selected ?? 'off'}
-                onChange={event => {
-                  const value = event.target.value
-                  subtitles.selectTrack(value === 'off' ? null : value)
-                }}
-                className="input mt-3 h-9 text-xs"
-                aria-label="Subtitle track"
-              >
-                <option value="off">Off</option>
-                {subtitles.tracks.map(track => (
-                  <option
-                    key={`${track.external ? 'external' : 'torrent'}:${track.index}`}
-                    value={track.name}
-                  >
-                    {subtitleLabel(track)}
-                    {track.external ? ' · external' : ''}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => subtitleInputRef.current?.click()}
-                >
-                  <Upload className="size-3.5" />
-                  Load subtitle file
-                </Button>
-                {externalSubtitle && (
-                  <Button variant="ghost" size="sm" onClick={() => setExternalSubtitle(null)}>
-                    <X className="size-3.5" />
-                    Remove external
-                  </Button>
-                )}
-                <input
-                  ref={subtitleInputRef}
-                  type="file"
-                  accept=".srt,.vtt,.ass,.ssa"
-                  className="hidden"
-                  onChange={event => void loadSubtitle(event)}
-                />
-              </div>
-
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
-                  Delay
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className="btn btn-ghost h-7 px-2 text-[11px]"
-                    onClick={() => subtitles.adjustDelay(-1)}
-                  >
-                    −1s
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost h-7 px-2 text-[11px]"
-                    onClick={() => subtitles.adjustDelay(-0.1)}
-                  >
-                    −.1
-                  </button>
-                  <button
-                    type="button"
-                    className="min-w-12 font-mono text-[11px] text-[var(--fg)]"
-                    onClick={subtitles.resetDelay}
-                    title="Reset delay"
-                  >
-                    {subtitles.delay > 0 ? '+' : ''}
-                    {subtitles.delay.toFixed(1)}s
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost h-7 px-2 text-[11px]"
-                    onClick={() => subtitles.adjustDelay(0.1)}
-                  >
-                    +.1
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost h-7 px-2 text-[11px]"
-                    onClick={() => subtitles.adjustDelay(1)}
-                  >
-                    +1s
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
-                  Size
-                </span>
-                <div className="flex items-center gap-1">
-                  {subtitles.selectedIsAss ? (
-                    <span className="text-[10px] text-[var(--muted)]">from release</span>
-                  ) : (
-                    (['sm', 'md', 'lg'] as SubtitleSize[]).map(value => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => subtitles.setSize(value)}
-                        className={cn(
-                          'rounded-[2px] px-2 py-0.5 text-[11px] uppercase',
-                          subtitles.size === value
-                            ? 'bg-[var(--accent-soft)] text-[var(--fg)]'
-                            : 'text-[var(--muted)] hover:bg-[var(--surface-2)]',
-                        )}
-                      >
-                        {value === 'sm' ? 'S' : value === 'md' ? 'M' : 'L'}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-              <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
-                Tracks come from this torrent or an external file. SRT/VTT use native tracks;
-                ASS/SSA renders through libass. Accepted external formats: SRT, VTT, ASS, SSA. Your
-                track, delay and size are remembered per torrent.
-              </p>
-            </section>
-          )}
-
-          <section className="panel p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-              File
-            </h2>
-            <p className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] leading-relaxed text-[var(--muted)]">
-              <FileTypeIcon
-                name={download.fileNames[0] ?? download.label}
-                className="mt-0.5 size-4 shrink-0"
-              />
-              <span>{download.fileNames.join(', ')}</span>
-            </p>
-            {streamUrl && (
-              <p className="mt-3 break-all font-mono text-[10px] text-[var(--faint)]">
-                {streamUrl}
-              </p>
-            )}
-          </section>
-
-          <section className="panel p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-              {kindLabel(kind)} preview
-            </h2>
-            <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
-              {video
-                ? 'MP4 and WebM play inline. MKV and HEVC are prepared by the local transcoder and use the same player controls.'
-                : audio
-                  ? 'Audio is played with the browser engine. MP3, AAC, FLAC and Opus usually work.'
-                  : image
-                    ? 'Images are served through the same byte-range stream. Click the image to open the original resolution in a new tab.'
-                    : 'This file type is not rendered in the browser. Open it directly.'}
-            </p>
-          </section>
-        </aside>
+        <PlayerSidebar
+          download={download}
+          kind={kind}
+          video={video}
+          audio={audio}
+          image={image}
+          playable={playable}
+          streamUrl={streamUrl}
+          bufferedAhead={bufferedAhead}
+          queue={queue}
+          queueIndex={queueIndex}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          onPrev={playPrev}
+          onNext={playNext}
+          onSwitch={switchTo}
+          player={player}
+          subtitles={subtitles}
+          externalSubtitle={externalSubtitle}
+          setExternalSubtitle={setExternalSubtitle}
+          subtitleInputRef={subtitleInputRef}
+          onLoadSubtitle={event => void loadSubtitle(event)}
+        />
       </div>
-    </div>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-[11px]">
-      <span className="text-[var(--muted)]">{label}</span>
-      <span className={cn('font-mono tabular text-[var(--fg)]')}>{value}</span>
     </div>
   )
 }
