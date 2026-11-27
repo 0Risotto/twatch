@@ -186,7 +186,10 @@ Range: bytes=100-199
   `Content-Type` and `Content-Disposition: inline`.
 - `206` for a range with `Content-Range` and the requested `Content-Length`.
 - `416` + `Content-Range: bytes */<len>` for an invalid range.
-- `503` if the streaming engine is unavailable (tests).
+- `503` if the streaming engine is unavailable (tests), the swarm has no peers,
+  or initialization exceeds 60 seconds.
+- Stream opening polls progress every 250 ms. It keeps waiting while downloaded
+  bytes advance, and fails after 8 seconds of no progress with zero peers.
 - Files are served only from active torrents; there is no path input.
 
 ## WebSocket
