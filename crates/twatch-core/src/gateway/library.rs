@@ -55,7 +55,9 @@ impl Gateway {
         let file = self.find_library_file(id).ok_or(GatewayError::LibraryNotFound)?;
         let url = stream_url(base_url, &file.entry.stream_path, token);
 
-        self.player.play(&url, &file.entry.name);
+        self.player
+            .play(&url, &file.entry.name)
+            .map_err(|error| GatewayError::PlayerUnavailable(format!("{error:#}")))?;
         {
             let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
             state.title = Some(file.entry.name);

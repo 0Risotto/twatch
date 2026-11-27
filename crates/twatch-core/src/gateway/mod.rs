@@ -576,6 +576,7 @@ fn write_private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
 
 #[derive(Default)]
 struct PlayerState {
+    running: bool,
     title: Option<String>,
     stream_path: Option<String>,
     download_id: Option<u64>,

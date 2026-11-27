@@ -28,6 +28,8 @@ pub enum GatewayError {
     UnknownTheme(String),
     #[error("Unknown player preference: {0}")]
     UnknownPlayer(String),
+    #[error("Could not launch the external player: {0}")]
+    PlayerUnavailable(String),
     #[error("File name must be between 1 and 256 characters")]
     InvalidFileNameLength,
     #[error("File name cannot contain path separators")]

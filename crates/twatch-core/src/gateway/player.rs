@@ -29,9 +29,12 @@ impl Gateway {
         let stream_path = download.stream_path.clone().ok_or(GatewayError::StreamNotReady)?;
         let url = stream_url(base_url, &stream_path, token);
 
-        self.player.play(&url, &download.label);
+        self.player
+            .play(&url, &download.label)
+            .map_err(|error| GatewayError::PlayerUnavailable(format!("{error:#}")))?;
         {
             let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
+            state.running = true;
             state.title = Some(download.label);
             state.stream_path = Some(stream_path);
             state.download_id = Some(download_id.raw());

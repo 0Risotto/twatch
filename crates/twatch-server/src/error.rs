@@ -55,6 +55,7 @@ impl From<GatewayError> for ApiError {
             | GatewayError::LibraryNotFound
             | GatewayError::HistoryNotFound => StatusCode::NOT_FOUND,
             GatewayError::StreamNotReady => StatusCode::CONFLICT,
+            GatewayError::PlayerUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             GatewayError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         Self { status, message: error.to_string() }

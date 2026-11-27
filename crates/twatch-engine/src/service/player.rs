@@ -4,6 +4,7 @@
 //! HTTP stream.  State is protected by a [`Mutex`] so the component
 //! can be stored in an `Arc` without requiring `&mut self`.
 
+use anyhow::Result;
 use shaku::Component;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -24,7 +25,7 @@ pub struct RealPlayer {
 }
 
 impl PlayerPort for RealPlayer {
-    fn play(&self, url: &str, title: &str) {
+    fn play(&self, url: &str, title: &str) -> Result<()> {
         // Kill old process outside the lock so wait() doesn't block all callers.
         let old_child = {
             let mut state = super::lock_state(&self.state);
@@ -35,22 +36,31 @@ impl PlayerPort for RealPlayer {
             let _ = child.wait();
         }
 
-        let new_child = spawn_player(url, title);
-        let sanitized = sanitize(title);
-
-        match new_child {
-            Ok(child) => {
-                super::lock_state(&self.state).child = Some(child);
-                tracing::info!("Launched player for: {sanitized}");
-            }
-            Err(e) => {
-                tracing::error!("Neither mpv nor vlc found. Install mpv or vlc. Error: {e}");
-            }
-        }
+        let child = spawn_player(url, title).map_err(|error| {
+            anyhow::anyhow!(
+                "Neither mpv nor VLC is available. Install one of them and try again: {error}"
+            )
+        })?;
+        super::lock_state(&self.state).child = Some(child);
+        tracing::info!("Launched player for: {}", sanitize(title));
+        Ok(())
     }
 
     fn is_running(&self) -> bool {
-        super::lock_state(&self.state).child.is_some()
+        let mut state = super::lock_state(&self.state);
+        let status = state.child.as_mut().map(Child::try_wait);
+        match status {
+            Some(Ok(Some(_))) => {
+                state.child.take();
+                false
+            }
+            Some(Ok(None)) => true,
+            Some(Err(_)) => {
+                state.child.take();
+                false
+            }
+            None => false,
+        }
     }
 
     fn kill(&self) {

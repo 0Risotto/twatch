@@ -96,7 +96,9 @@ impl SearchPort for MockSearch {
 
 struct MockPlayer;
 impl PlayerPort for MockPlayer {
-    fn play(&self, _url: &str, _title: &str) {}
+    fn play(&self, _url: &str, _title: &str) -> Result<()> {
+        Ok(())
+    }
     fn is_running(&self) -> bool {
         false
     }

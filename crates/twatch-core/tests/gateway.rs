@@ -20,7 +20,7 @@ use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::search::{SearchConfig, SearchResult};
 use twatch_core::domain::torrent::ports::TorrentPort;
 use twatch_core::domain::torrent::{TorrentFile, TorrentId, TorrentInfo, TorrentStats};
-use twatch_core::gateway::{DownloadId, DownloadState, Gateway};
+use twatch_core::gateway::{DownloadId, DownloadState, Gateway, GatewayError};
 
 struct MockTorrent {
     stats: Mutex<TorrentStats>,
@@ -297,8 +297,9 @@ impl MockPlayer {
 }
 
 impl PlayerPort for MockPlayer {
-    fn play(&self, url: &str, _title: &str) {
+    fn play(&self, url: &str, _title: &str) -> Result<()> {
         *self.url.lock().unwrap() = Some(url.into());
+        Ok(())
     }
     fn is_running(&self) -> bool {
         self.url.lock().unwrap().is_some()
@@ -325,6 +326,14 @@ fn gateway(dir: &Path) -> Arc<Gateway> {
 }
 
 fn gateway_with_torrent(dir: &Path, torrent: Arc<dyn TorrentPort>) -> Arc<Gateway> {
+    gateway_with_player(dir, torrent, Arc::new(MockPlayer::new()))
+}
+
+fn gateway_with_player(
+    dir: &Path,
+    torrent: Arc<dyn TorrentPort>,
+    player: Arc<dyn PlayerPort>,
+) -> Arc<Gateway> {
     let config = Config {
         config_dir: dir.join("config"),
         download_dir: dir.join("downloads"),
@@ -338,7 +347,7 @@ fn gateway_with_torrent(dir: &Path, torrent: Arc<dyn TorrentPort>) -> Arc<Gatewa
         torrent,
         Arc::new(MockHistory::new()),
         Arc::new(MockSearch),
-        Arc::new(MockPlayer::new()),
+        player,
         Arc::new(TokioSpawner),
     )
 }
@@ -604,6 +613,32 @@ async fn player_can_open_and_stop_a_ready_stream() {
     assert_eq!(player.stream_path.as_deref(), Some("/api/stream/7/0"));
 
     gateway.stop_player();
+    assert!(!gateway.player().running);
+}
+
+struct FailingPlayer;
+
+impl PlayerPort for FailingPlayer {
+    fn play(&self, _url: &str, _title: &str) -> Result<()> {
+        anyhow::bail!("no native player installed")
+    }
+    fn is_running(&self) -> bool {
+        false
+    }
+    fn kill(&self) {}
+}
+
+#[tokio::test]
+async fn open_player_surfaces_a_missing_native_player() {
+    let dir = temp_dir();
+    let gateway = gateway_with_player(&dir, Arc::new(MockTorrent::new()), Arc::new(FailingPlayer));
+    gateway.preview("magnet:test").await.unwrap();
+    gateway.watch_file(0).unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    gateway.tick();
+
+    let error = gateway.open_player(DownloadId::new(1), "http://127.0.0.1:7878").unwrap_err();
+    assert!(matches!(error, GatewayError::PlayerUnavailable(_)));
     assert!(!gateway.player().running);
 }
 
