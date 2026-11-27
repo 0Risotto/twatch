@@ -63,15 +63,8 @@ pub struct SearchParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlayerOpenRequest {
-    pub download_id: u64,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct ConfigPatch {
     pub theme: Option<String>,
-    pub player: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

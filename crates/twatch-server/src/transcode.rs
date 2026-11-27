@@ -44,7 +44,12 @@ impl TranscodeService {
     }
 
     /// Start or reuse a transcode session and wait for the first HLS segment.
-    pub async fn ensure(&self, key: &str, input_url: &str) -> Result<PathBuf, String> {
+    pub async fn ensure(
+        &self,
+        key: &str,
+        input_url: &str,
+        token: Option<&str>,
+    ) -> Result<PathBuf, String> {
         if !valid_key(key) {
             return Err("Invalid transcode key".into());
         }
@@ -77,16 +82,17 @@ impl TranscodeService {
             .await
             .map_err(|error| format!("Could not create transcode directory: {error}"))?;
 
-        let video_codec = probe_video_codec(input_url).await;
+        let auth_header = token.map(|token| format!("Authorization: Bearer {token}\r\n"));
+        let video_codec = probe_video_codec(input_url, auth_header.as_deref()).await;
         let log_path = dir.join("ffmpeg.log");
         let log = std::fs::File::create(&log_path)
             .map_err(|error| format!("Could not create ffmpeg log: {error}"))?;
         let mut command = Command::new("ffmpeg");
+        command.arg("-hide_banner").arg("-loglevel").arg("warning").arg("-y");
+        if let Some(header) = &auth_header {
+            command.args(["-headers", header]);
+        }
         command
-            .arg("-hide_banner")
-            .arg("-loglevel")
-            .arg("warning")
-            .arg("-y")
             .arg("-i")
             .arg(input_url)
             .args(["-map", "0:v:0", "-map", "0:a:0?"])
@@ -209,23 +215,24 @@ async fn playlist_ready(dir: &Path) -> bool {
     false
 }
 
-async fn probe_video_codec(input_url: &str) -> Option<String> {
-    let output = tokio::time::timeout(
-        Duration::from_secs(15),
-        Command::new("ffprobe")
-            .args([
-                "-v",
-                "error",
-                "-select_streams",
-                "v:0",
-                "-show_entries",
-                "stream=codec_name",
-                "-of",
-                "default=nw=1:nk=1",
-                input_url,
-            ])
-            .output(),
-    )
+async fn probe_video_codec(input_url: &str, auth_header: Option<&str>) -> Option<String> {
+    let output = tokio::time::timeout(Duration::from_secs(15), async {
+        let mut command = Command::new("ffprobe");
+        command.args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=nw=1:nk=1",
+        ]);
+        if let Some(header) = auth_header {
+            command.args(["-headers", header]);
+        }
+        command.arg(input_url).output().await
+    })
     .await
     .ok()?
     .ok()?;
@@ -310,7 +317,7 @@ mod tests {
         }
 
         let service = TranscodeService::new(scratch.join("hls"));
-        let result = service.ensure("fixture", source.to_str().expect("utf8 path")).await;
+        let result = service.ensure("fixture", source.to_str().expect("utf8 path"), None).await;
         let dir = result.expect("transcode should produce HLS");
         let playlist = std::fs::read_to_string(dir.join("index.m3u8")).expect("playlist");
         assert!(playlist.contains("#EXTINF"));

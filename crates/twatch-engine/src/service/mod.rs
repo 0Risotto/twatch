@@ -1,13 +1,10 @@
 //! Concrete adapter implementations of the domain ports.
 
-pub mod player;
 pub mod search;
 pub mod storage;
-pub mod stream_server;
 pub mod task;
 pub mod torrent;
 
-pub use player::RealPlayer;
 pub use search::SearchServiceImpl;
 pub use storage::RealStorage;
 pub use task::TokioTaskSpawner;

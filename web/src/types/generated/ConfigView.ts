@@ -3,4 +3,4 @@
 /**
  * Config fields that are safe to send to the browser.
  */
-export type ConfigView = { theme: string, downloadDir: string, player: string, };
+export type ConfigView = { theme: string, downloadDir: string, };

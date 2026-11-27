@@ -15,17 +15,4 @@ impl Gateway {
         config.save()?;
         Ok(())
     }
-
-    pub fn update_player(&self, player: &str) -> GatewayResult<()> {
-        if !matches!(player, "auto" | "mpv" | "vlc" | "none") {
-            return Err(GatewayError::UnknownPlayer(player.to_owned()));
-        }
-        let config = {
-            let mut guard = self.config.write().unwrap_or_else(|e| e.into_inner());
-            guard.player = player.to_owned();
-            guard.clone()
-        };
-        config.save()?;
-        Ok(())
-    }
 }

@@ -5,6 +5,5 @@
 
 pub mod common;
 pub mod history;
-pub mod player;
 pub mod search;
 pub mod torrent;

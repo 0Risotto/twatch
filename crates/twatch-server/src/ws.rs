@@ -9,38 +9,17 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use tokio::time::interval;
 
-use twatch_core::gateway::{
-    DownloadSnapshot, GatewayEvent, PlayerSnapshot, SessionSnapshot, ToastLevel,
-};
+use twatch_core::gateway::{DownloadSnapshot, GatewayEvent, SessionSnapshot, ToastLevel};
 
 use crate::state::AppState;
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 enum WsFrame {
-    Snapshot {
-        revision: u64,
-        session: Option<SessionSnapshot>,
-        downloads: Vec<DownloadSnapshot>,
-        player: PlayerSnapshot,
-    },
-    Session {
-        revision: u64,
-        session: Option<SessionSnapshot>,
-    },
-    Downloads {
-        revision: u64,
-        downloads: Vec<DownloadSnapshot>,
-    },
-    Player {
-        revision: u64,
-        player: PlayerSnapshot,
-    },
-    Toast {
-        revision: u64,
-        level: ToastLevel,
-        message: String,
-    },
+    Snapshot { revision: u64, session: Option<SessionSnapshot>, downloads: Vec<DownloadSnapshot> },
+    Session { revision: u64, session: Option<SessionSnapshot> },
+    Downloads { revision: u64, downloads: Vec<DownloadSnapshot> },
+    Toast { revision: u64, level: ToastLevel, message: String },
 }
 
 fn text_frame(frame: &WsFrame) -> Option<Message> {
@@ -52,7 +31,6 @@ fn snapshot_frame(state: &AppState) -> WsFrame {
         revision: state.gateway.revision(),
         session: state.gateway.session(),
         downloads: state.gateway.downloads(),
-        player: state.gateway.player(),
     }
 }
 
@@ -85,10 +63,6 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     Ok(GatewayEvent::DownloadsChanged) => WsFrame::Downloads {
                         revision: state.gateway.revision(),
                         downloads: state.gateway.downloads(),
-                    },
-                    Ok(GatewayEvent::PlayerChanged) => WsFrame::Player {
-                        revision: state.gateway.revision(),
-                        player: state.gateway.player(),
                     },
                     Ok(GatewayEvent::Toast { level, message }) => WsFrame::Toast {
                         revision: state.gateway.revision(),

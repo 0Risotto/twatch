@@ -33,7 +33,6 @@ const base: DownloadSnapshot = {
 function renderWith(download: DownloadSnapshot) {
   useAppStore.setState({
     downloads: [download],
-    player: { running: false, title: null, streamPath: null, downloadId: null },
   })
   return render(
     <MemoryRouter initialEntries={[`/player?download=${download.id}`]}>

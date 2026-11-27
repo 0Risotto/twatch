@@ -11,7 +11,6 @@ Default address: `http://127.0.0.1:7878`
   print the token.
 - `GET /` sets an `HttpOnly`, `SameSite=Strict` `twatch_token` cookie.
 - API requests accept either the cookie or `Authorization: Bearer <token>`.
-- Media `GET`/`HEAD` stream endpoints also accept `?token=<token>` so mpv/VLC can authenticate without a cookie.
 - `GET /api/health` is public. Everything else under `/api` requires the token.
 - `Host` and `Origin` are checked to block DNS rebinding and cross-origin
   mutations.
@@ -38,7 +37,6 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | DELETE | `/api/downloads/{id}` | Remove torrent from the engine |
 | GET | `/api/library` | Indexed local media from the cache and downloads roots |
 | POST | `/api/library/rescan` | Rebuild the local media index |
-| POST | `/api/library/{id}/open` | Hand a local file to mpv/VLC |
 | GET | `/api/library/{id}/stream` | Byte-range stream for a local file |
 | GET | `/api/search?q=&page=` | Search the configured JSON API |
 | GET/PUT | `/api/search/config` | Read/write the search endpoint and field map |
@@ -47,12 +45,9 @@ Token file: `$XDG_CONFIG_HOME/twatch/server-token` (mode `0600`).
 | DELETE | `/api/history` | `{url}` — remove a history entry |
 | POST | `/api/history/open` | `{url}` — re-preview a history entry |
 | PUT | `/api/history/progress` | `{url, file, position, duration}` — persist a resume point |
-| GET | `/api/player` | External player state |
-| POST | `/api/player/open` | `{downloadId}` — hand the stream to mpv/VLC |
-| POST | `/api/player/stop` | Kill the external player |
 | GET | `/api/themes` | 56 built-in theme variants (28 bases × dark/light) |
 | POST | `/api/covers` | `{items:[{title,kind?}]}` — batched movie/anime/book cover lookup |
-| GET/PATCH | `/api/config` | Web theme and external player preference |
+| GET/PATCH | `/api/config` | Web theme preference |
 | GET | `/api/stream/{torrentId}/{fileIndex}` | Byte-range media stream |
 | GET | `/api/transcode/download/{id}/{file}` | On-demand HLS playlist/segments for a download |
 | GET | `/api/transcode/library/{id}/{file}` | On-demand HLS playlist/segments for a library file |
@@ -218,8 +213,7 @@ snapshot:
   "type": "snapshot",
   "revision": 12,
   "session": { "...": "SessionSnapshot or null" },
-  "downloads": ["DownloadSnapshot..."],
-  "player": { "...": "PlayerSnapshot" }
+  "downloads": ["DownloadSnapshot..."]
 }
 ```
 
@@ -228,7 +222,6 @@ Subsequent frames:
 ```json
 { "type": "session", "revision": 13, "session": { "...": "or null" } }
 { "type": "downloads", "revision": 14, "downloads": ["..."] }
-{ "type": "player", "revision": 15, "player": { "...": "..." } }
 { "type": "toast", "revision": 16, "level": "success", "message": "Download complete" }
 ```
 

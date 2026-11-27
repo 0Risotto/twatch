@@ -1,7 +1,7 @@
 //! twatch daemon: the Rust gateway behind the web UI.
 //!
 //! Owns the librqbit session, the JSON history store, the search adapter, the
-//! external player, and the axum server.  The browser is a thin client.
+//! local library, and the axum server.  The browser is a thin client.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
@@ -16,7 +16,6 @@ use tracing_subscriber::EnvFilter;
 
 use twatch_core::config::Config;
 use twatch_core::domain::history::ports::HistoryPort;
-use twatch_core::domain::player::ports::PlayerPort;
 use twatch_core::domain::search::SearchConfig;
 use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::torrent::ports::TorrentPort;
@@ -254,14 +253,12 @@ async fn run() -> Result<()> {
     let torrent: std::sync::Arc<dyn TorrentPort> = module.resolve();
     let history: std::sync::Arc<dyn HistoryPort> = module.resolve();
     let search: std::sync::Arc<dyn SearchPort> = module.resolve();
-    let player: std::sync::Arc<dyn PlayerPort> = module.resolve();
     let spawner: std::sync::Arc<dyn twatch_core::domain::common::spawner::TaskSpawner> =
         module.resolve();
 
     let covers = std::sync::Arc::new(CoverService::new(config.config_dir.join("covers.json")));
 
-    let gateway =
-        Gateway::new(config.clone(), search_config, torrent, history, search, player, spawner);
+    let gateway = Gateway::new(config.clone(), search_config, torrent, history, search, spawner);
     gateway.restore_downloads();
 
     {

@@ -18,18 +18,12 @@ pub enum GatewayError {
     FileNotFound,
     #[error("Download not found")]
     DownloadNotFound,
-    #[error("Library file not found")]
-    LibraryNotFound,
     #[error("History entry not found")]
     HistoryNotFound,
     #[error("Stream is not ready yet")]
     StreamNotReady,
     #[error("Unknown theme: {0}")]
     UnknownTheme(String),
-    #[error("Unknown player preference: {0}")]
-    UnknownPlayer(String),
-    #[error("Could not launch the external player: {0}")]
-    PlayerUnavailable(String),
     #[error("File name must be between 1 and 256 characters")]
     InvalidFileNameLength,
     #[error("File name cannot contain path separators")]

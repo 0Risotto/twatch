@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpRight, Play, Radio, Server } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpRight, Radio, Server } from 'lucide-react'
 import { ProgressBar } from '@/components/ui/Progress'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { formatBytes, formatEta, formatSpeed } from '@/lib/format'
@@ -8,7 +8,6 @@ import { useAppStore } from '@/store/app'
 
 export function ActivityPanel() {
   const downloads = useAppStore(state => state.downloads)
-  const player = useAppStore(state => state.player)
   const connected = useAppStore(state => state.connected)
   const bootstrap = useAppStore(state => state.bootstrap)
 
@@ -85,33 +84,6 @@ export function ActivityPanel() {
           ))}
         </div>
       </section>
-
-      {player.running && (
-        <section className="panel overflow-hidden">
-          <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Play className="size-3.5 text-[var(--badge-stream)]" />
-              <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-                Playing
-              </h2>
-            </div>
-            <StatusDot tone="stream" pulse />
-          </header>
-          <div className="px-4 py-3">
-            <p className="truncate text-xs font-medium text-[var(--fg)]">
-              {player.title ?? 'Untitled stream'}
-            </p>
-            <p className="mt-1 text-[10px] text-[var(--muted)]">External player session</p>
-            <Link
-              to="/player"
-              className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--badge-stream)] hover:underline"
-            >
-              Open player
-              <ArrowUpRight className="size-3" />
-            </Link>
-          </div>
-        </section>
-      )}
 
       <section className="panel overflow-hidden">
         <header className="flex items-center gap-2 border-b border-[var(--border-soft)] px-4 py-3">

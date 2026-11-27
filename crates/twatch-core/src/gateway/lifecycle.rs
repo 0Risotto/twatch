@@ -150,21 +150,6 @@ impl Gateway {
             self.emit(GatewayEvent::SessionChanged);
         }
 
-        let should_stop = {
-            let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
-            if state.download_id == Some(id.raw()) {
-                state.title = None;
-                state.stream_path = None;
-                state.download_id = None;
-                true
-            } else {
-                false
-            }
-        };
-        if should_stop {
-            self.player.kill();
-            self.emit(GatewayEvent::PlayerChanged);
-        }
         self.emit(GatewayEvent::DownloadsChanged);
         self.persist_downloads();
         Ok(())

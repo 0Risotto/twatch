@@ -3,7 +3,6 @@ import type {
   BootstrapSnapshot,
   ConfigView,
   DownloadSnapshot,
-  PlayerSnapshot,
   SessionSnapshot,
   ThemeSpec,
   ToastItem,
@@ -16,7 +15,6 @@ interface AppState {
   bootstrap: BootstrapSnapshot | null
   session: SessionSnapshot | null
   downloads: DownloadSnapshot[]
-  player: PlayerSnapshot
   config: ConfigView | null
   themes: ThemeSpec[]
   searchConfigured: boolean
@@ -29,7 +27,6 @@ interface AppState {
   setConnected: (connected: boolean) => void
   setSession: (session: SessionSnapshot | null) => void
   setDownloads: (downloads: DownloadSnapshot[]) => void
-  setPlayer: (player: PlayerSnapshot) => void
   setConfig: (config: ConfigView) => void
   setSearchConfigured: (configured: boolean) => void
   optimisticSelect: (indices: number[], selected: boolean) => void
@@ -40,13 +37,6 @@ interface AppState {
 }
 
 let toastSeq = 0
-
-const emptyPlayer: PlayerSnapshot = {
-  running: false,
-  title: null,
-  streamPath: null,
-  downloadId: null,
-}
 
 function recomputeSelection(
   session: SessionSnapshot,
@@ -69,7 +59,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   bootstrap: null,
   session: null,
   downloads: [],
-  player: emptyPlayer,
   config: null,
   themes: [],
   searchConfigured: false,
@@ -83,7 +72,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       bootstrap: data,
       session: data.session,
       downloads: data.downloads,
-      player: data.player,
       config: data.config,
       themes: data.themes,
       searchConfigured: data.searchConfigured,
@@ -96,7 +84,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         session: frame.session,
         downloads: frame.downloads,
-        player: frame.player,
         revision: frame.revision,
         connected: true,
       })
@@ -109,9 +96,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         break
       case 'downloads':
         set({ downloads: frame.downloads, revision: frame.revision })
-        break
-      case 'player':
-        set({ player: frame.player, revision: frame.revision })
         break
       case 'toast':
         set({
@@ -128,7 +112,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   setConnected: connected => set({ connected }),
   setSession: session => set({ session }),
   setDownloads: downloads => set({ downloads }),
-  setPlayer: player => set({ player }),
   setConfig: config => set({ config }),
   setSearchConfigured: configured => set({ searchConfigured: configured }),
   optimisticSelect: (indices, selected) => {

@@ -40,34 +40,6 @@ impl Gateway {
         self.find_library_file(id).map(|file| file.path)
     }
 
-    /// Hand a library stream to the configured native player.
-    pub fn open_library_file(&self, id: &str, base_url: &str) -> GatewayResult<PlayerSnapshot> {
-        self.open_library_file_with_token(id, base_url, None)
-    }
-
-    /// Open a local library file in a native player with a media query token.
-    pub fn open_library_file_with_token(
-        &self,
-        id: &str,
-        base_url: &str,
-        token: Option<&str>,
-    ) -> GatewayResult<PlayerSnapshot> {
-        let file = self.find_library_file(id).ok_or(GatewayError::LibraryNotFound)?;
-        let url = stream_url(base_url, &file.entry.stream_path, token);
-
-        self.player
-            .play(&url, &file.entry.name)
-            .map_err(|error| GatewayError::PlayerUnavailable(format!("{error:#}")))?;
-        {
-            let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
-            state.title = Some(file.entry.name);
-            state.stream_path = Some(file.entry.stream_path);
-            state.download_id = None;
-        }
-        self.emit(GatewayEvent::PlayerChanged);
-        Ok(self.player())
-    }
-
     fn library_entries(&self, force: bool) -> Vec<LibraryEntry> {
         if force {
             let files = scan_library(&self.config());

@@ -17,7 +17,6 @@ use twatch_core::config::Config;
 use twatch_core::domain::common::spawner::TaskSpawner;
 use twatch_core::domain::history::HistoryEntry;
 use twatch_core::domain::history::ports::HistoryPort;
-use twatch_core::domain::player::ports::PlayerPort;
 use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::search::{SearchConfig, SearchResult};
 use twatch_core::domain::torrent::ports::TorrentPort;
@@ -94,17 +93,6 @@ impl SearchPort for MockSearch {
     }
 }
 
-struct MockPlayer;
-impl PlayerPort for MockPlayer {
-    fn play(&self, _url: &str, _title: &str) -> Result<()> {
-        Ok(())
-    }
-    fn is_running(&self) -> bool {
-        false
-    }
-    fn kill(&self) {}
-}
-
 struct MockSpawner;
 impl TaskSpawner for MockSpawner {
     fn spawn(&self, _future: Pin<Box<dyn Future<Output = ()> + Send>>) {}
@@ -135,7 +123,6 @@ fn test_state_at(dir: &Path) -> AppState {
         Arc::new(MockTorrent),
         Arc::new(MockHistory::default()),
         Arc::new(MockSearch),
-        Arc::new(MockPlayer),
         Arc::new(MockSpawner),
     );
     let server = ServerConfig {
@@ -180,17 +167,6 @@ async fn csp_allows_wasm_subtitle_workers() {
     assert!(csp.contains("'unsafe-eval'"));
     assert!(csp.contains("worker-src 'self'"));
     assert!(csp.contains("media-src 'self' blob: data:"));
-}
-
-#[tokio::test]
-async fn media_streams_accept_a_query_token_but_regular_apis_do_not() {
-    let app = app();
-    let response =
-        app.clone().oneshot(request("/api/stream/1/0?token=test-token", None)).await.unwrap();
-    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-
-    let response = app.oneshot(request("/api/bootstrap?token=test-token", None)).await.unwrap();
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -372,34 +348,14 @@ async fn search_config_round_trips() {
 }
 
 #[tokio::test]
-async fn player_and_config_endpoints_validate_input() {
+async fn config_endpoints_validate_input() {
     let app = app();
-    let response = app.clone().oneshot(request("/api/player", Some("test-token"))).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(json["running"], false);
-
-    let response = app
-        .clone()
-        .oneshot(json_request("POST", "/api/player/open", serde_json::json!({ "downloadId": 99 })))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    let response = app
-        .clone()
-        .oneshot(json_request("POST", "/api/player/stop", serde_json::json!({})))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
     let response = app
         .clone()
         .oneshot(json_request(
             "PATCH",
             "/api/config",
-            serde_json::json!({ "theme": "emerald-dark", "player": "mpv" }),
+            serde_json::json!({ "theme": "emerald-dark" }),
         ))
         .await
         .unwrap();
@@ -407,7 +363,6 @@ async fn player_and_config_endpoints_validate_input() {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["theme"], "emerald-dark");
-    assert_eq!(json["player"], "mpv");
 
     let response = app
         .clone()
@@ -415,16 +370,6 @@ async fn player_and_config_endpoints_validate_input() {
             "PATCH",
             "/api/config",
             serde_json::json!({ "theme": "missing-theme" }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-
-    let response = app
-        .oneshot(json_request(
-            "PATCH",
-            "/api/config",
-            serde_json::json!({ "player": "missing-player" }),
         ))
         .await
         .unwrap();

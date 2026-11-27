@@ -27,14 +27,13 @@ twatch-server
 twatch-core::gateway::Gateway
         │ ports
         ▼
-twatch-engine ── librqbit, filesystem, mpv/vlc, search, covers
+twatch-engine ── librqbit, filesystem, ffmpeg, search, covers
 ```
 
 The gateway owns the active browse session, transfers, history, player state,
 and event stream. It is independent of HTTP and desktop UI code.
 
-`TorrentPort`, `StreamPort`, `HistoryPort`, `PlayerPort`, `SearchPort`, and
-`TaskSpawner` are the adapter boundaries. Tests replace them with in-memory
+`TorrentPort`, `StreamPort`, `HistoryPort`, `SearchPort`, and `TaskSpawner` are the adapter boundaries. Tests replace them with in-memory
 implementations.
 
 ## Behaviour worth knowing

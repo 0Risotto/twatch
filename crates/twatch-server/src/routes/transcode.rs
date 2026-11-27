@@ -17,11 +17,8 @@ fn base_url(headers: &HeaderMap) -> String {
     format!("{scheme}://{host}")
 }
 
-fn source_url(base_url: &str, path: &str, token: &str) -> String {
-    let mut url = format!("{}{}", base_url.trim_end_matches('/'), path);
-    url.push_str(if path.contains('?') { "&token=" } else { "?token=" });
-    url.push_str(token);
-    url
+fn source_url(base_url: &str, path: &str) -> String {
+    format!("{}{}", base_url.trim_end_matches('/'), path)
 }
 
 fn library_key(id: &str) -> String {
@@ -61,8 +58,8 @@ pub async fn download_file(
             .find(|download| download.id == id)
             .and_then(|download| download.stream_path)
             .ok_or_else(|| ApiError::new(StatusCode::CONFLICT, "Stream is not ready"))?;
-        let input = source_url(&base_url(&headers), &stream_path, &state.token);
-        state.transcode.ensure(&key, &input).await.map_err(|error| {
+        let input = source_url(&base_url(&headers), &stream_path);
+        state.transcode.ensure(&key, &input, Some(&state.token)).await.map_err(|error| {
             tracing::warn!("Transcode start failed: {error}");
             ApiError::new(StatusCode::SERVICE_UNAVAILABLE, error)
         })?;
@@ -84,8 +81,8 @@ pub async fn library_file(
             .find(|entry| entry.id == id)
             .map(|entry| entry.stream_path)
             .ok_or_else(|| ApiError::not_found("Library file not found"))?;
-        let input = source_url(&base_url(&headers), &stream_path, &state.token);
-        state.transcode.ensure(&key, &input).await.map_err(|error| {
+        let input = source_url(&base_url(&headers), &stream_path);
+        state.transcode.ensure(&key, &input, Some(&state.token)).await.map_err(|error| {
             tracing::warn!("Library transcode start failed: {error}");
             ApiError::new(StatusCode::SERVICE_UNAVAILABLE, error)
         })?;

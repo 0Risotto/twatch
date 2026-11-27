@@ -30,7 +30,6 @@ function renderSelected(name: string, index = 0) {
   useAppStore.setState({
     session,
     downloads: [],
-    player: { running: false, title: null, streamPath: null, downloadId: null },
   })
   return render(
     <MemoryRouter>

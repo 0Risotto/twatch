@@ -5,17 +5,6 @@ impl Gateway {
     pub fn tick(&self) {
         self.drain_internal();
 
-        let player_running = self.player.is_running();
-        let player_changed = {
-            let mut state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
-            let changed = state.running != player_running;
-            state.running = player_running;
-            changed
-        };
-        if player_changed {
-            self.emit(GatewayEvent::PlayerChanged);
-        }
-
         let mut changed = false;
         let mut completed: Vec<(String, Vec<String>, String)> = Vec::new();
 

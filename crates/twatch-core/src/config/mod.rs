@@ -29,17 +29,10 @@ pub struct Config {
     /// Theme name for the web UI (default: `"mono-dark"`).
     #[serde(default = "default_web_theme")]
     pub web_theme: String,
-    /// External player preference: `auto`, `mpv`, `vlc`, or `none`.
-    #[serde(default = "default_player")]
-    pub player: String,
 }
 
 fn default_history_filename() -> String {
     "history.json".into()
-}
-
-fn default_player() -> String {
-    "auto".into()
 }
 
 fn default_web_theme() -> String {
@@ -60,7 +53,6 @@ impl Default for Config {
             download_dir,
             history_filename: "history.json".to_string(),
             web_theme: "mono-dark".to_string(),
-            player: "auto".to_string(),
         }
     }
 }
@@ -136,7 +128,6 @@ fn merge_config(default: Config, user: Config) -> Config {
         download_dir: or_default_path(&user.download_dir, &default.download_dir),
         history_filename: or_default_str(&user.history_filename, &default.history_filename),
         web_theme: or_default_str(&user.web_theme, &default.web_theme),
-        player: or_default_str(&user.player, &default.player),
     }
 }
 

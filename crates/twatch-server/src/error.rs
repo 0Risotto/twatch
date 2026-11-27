@@ -46,16 +46,13 @@ impl From<GatewayError> for ApiError {
             | GatewayError::NoFilesSelected
             | GatewayError::NoMatchingFiles
             | GatewayError::UnknownTheme(_)
-            | GatewayError::UnknownPlayer(_)
             | GatewayError::InvalidFileNameLength
             | GatewayError::InvalidFileNameCharacters
             | GatewayError::InvalidFileName => StatusCode::BAD_REQUEST,
             GatewayError::FileNotFound
             | GatewayError::DownloadNotFound
-            | GatewayError::LibraryNotFound
             | GatewayError::HistoryNotFound => StatusCode::NOT_FOUND,
             GatewayError::StreamNotReady => StatusCode::CONFLICT,
-            GatewayError::PlayerUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             GatewayError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         Self { status, message: error.to_string() }

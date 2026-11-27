@@ -64,7 +64,6 @@
             cmake
             perl
             pkg-config
-            mpv
             ffmpeg
             xdg-utils
             go

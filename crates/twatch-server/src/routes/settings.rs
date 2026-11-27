@@ -23,8 +23,5 @@ pub async fn patch_config(
     if let Some(theme) = request.theme {
         state.gateway.update_theme(&theme)?;
     }
-    if let Some(player) = request.player {
-        state.gateway.update_player(&player)?;
-    }
     Ok(Json(state.gateway.config_view()))
 }

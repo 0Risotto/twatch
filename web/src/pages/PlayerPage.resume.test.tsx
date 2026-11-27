@@ -61,7 +61,6 @@ describe('PlaybackProvider stream recovery', () => {
 
     useAppStore.setState({
       downloads: [paused],
-      player: { running: false, title: null, streamPath: null, downloadId: null },
     })
 
     const { container } = render(

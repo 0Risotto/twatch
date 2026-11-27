@@ -6,7 +6,6 @@
   perl,
   pkg-config,
   makeWrapper,
-  mpv,
   ffmpeg,
   xdg-utils,
   go,
@@ -83,7 +82,6 @@ rustPlatform.buildRustPackage {
   postInstall = ''
     wrapProgram $out/bin/twatchd --prefix PATH : ${
       lib.makeBinPath [
-        mpv
         ffmpeg
         xdg-utils
       ]

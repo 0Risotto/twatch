@@ -2,7 +2,7 @@
 //! tests.
 //!
 //! The gateway owns the current browse session, the live download registry, the
-//! player state, and the event stream.  It has no HTTP or UI types in it;
+//! local library, and the event stream.  It has no HTTP or UI types in it;
 //! `twatch-server` turns these snapshots into JSON and WebSocket frames.
 
 use std::collections::HashSet;
@@ -21,7 +21,6 @@ use crate::config::Config;
 use crate::domain::common::spawner::TaskSpawner;
 use crate::domain::history::HistoryEntry;
 use crate::domain::history::ports::HistoryPort;
-use crate::domain::player::ports::PlayerPort;
 use crate::domain::search::ports::SearchPort;
 use crate::domain::search::{SearchConfig, SearchResult};
 use crate::domain::torrent::ports::TorrentPort;
@@ -37,7 +36,6 @@ mod history;
 mod library;
 mod lifecycle;
 mod persistence;
-mod player;
 mod search;
 mod session;
 mod tick;
@@ -224,18 +222,6 @@ pub struct DownloadSnapshot {
     pub resume_position: Option<f64>,
 }
 
-/// What the external player is doing.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct PlayerSnapshot {
-    pub running: bool,
-    pub title: Option<String>,
-    pub stream_path: Option<String>,
-    #[ts(type = "number | null")]
-    pub download_id: Option<u64>,
-}
-
 /// Config fields that are safe to send to the browser.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -243,7 +229,6 @@ pub struct PlayerSnapshot {
 pub struct ConfigView {
     pub theme: String,
     pub download_dir: String,
-    pub player: String,
 }
 
 /// Everything the SPA needs for its first paint.
@@ -255,7 +240,6 @@ pub struct BootstrapSnapshot {
     pub config: ConfigView,
     pub session: Option<SessionSnapshot>,
     pub downloads: Vec<DownloadSnapshot>,
-    pub player: PlayerSnapshot,
     pub themes: Vec<ThemeSpec>,
     pub search_configured: bool,
 }
@@ -285,7 +269,6 @@ pub enum ToastLevel {
 pub enum GatewayEvent {
     SessionChanged,
     DownloadsChanged,
-    PlayerChanged,
     Toast { level: ToastLevel, message: String },
 }
 
@@ -530,7 +513,7 @@ impl DownloadEntry {
     }
 }
 
-/// Extensions the browser player or a native player can reasonably open.
+/// Extensions the inline or transcoded player can reasonably open.
 const PLAYABLE_EXTENSIONS: &[&str] = &[
     "mp4", "m4v", "mkv", "webm", "avi", "mov", "ts", "m2ts", "flv", "wmv", "ogv", "mpg", "mpeg",
     "mp3", "m4a", "aac", "flac", "opus", "ogg", "oga", "wav", "wma",
@@ -574,14 +557,6 @@ fn write_private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     Ok(())
 }
 
-#[derive(Default)]
-struct PlayerState {
-    running: bool,
-    title: Option<String>,
-    stream_path: Option<String>,
-    download_id: Option<u64>,
-}
-
 /// The headless twatch application.
 pub struct Gateway {
     config: RwLock<Config>,
@@ -589,7 +564,6 @@ pub struct Gateway {
     session: RwLock<Option<SessionState>>,
     downloads: RwLock<Vec<DownloadEntry>>,
     library: RwLock<Option<Vec<LibraryFile>>>,
-    player_state: Mutex<PlayerState>,
     next_download_id: AtomicU64,
     revision: AtomicU64,
     events: broadcast::Sender<GatewayEvent>,
@@ -599,7 +573,6 @@ pub struct Gateway {
     torrent: Arc<dyn TorrentPort>,
     history: Arc<dyn HistoryPort>,
     search: Arc<dyn SearchPort>,
-    player: Arc<dyn PlayerPort>,
     spawner: Arc<dyn TaskSpawner>,
 }
 
@@ -611,7 +584,6 @@ impl Gateway {
         torrent: Arc<dyn TorrentPort>,
         history: Arc<dyn HistoryPort>,
         search: Arc<dyn SearchPort>,
-        player: Arc<dyn PlayerPort>,
         spawner: Arc<dyn TaskSpawner>,
     ) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
@@ -622,7 +594,6 @@ impl Gateway {
             session: RwLock::new(None),
             downloads: RwLock::new(Vec::new()),
             library: RwLock::new(None),
-            player_state: Mutex::new(PlayerState::default()),
             next_download_id: AtomicU64::new(1),
             revision: AtomicU64::new(1),
             events,
@@ -632,7 +603,6 @@ impl Gateway {
             torrent,
             history,
             search,
-            player,
             spawner,
         })
     }
@@ -660,17 +630,6 @@ impl Gateway {
     }
 
     #[must_use]
-    pub fn player(&self) -> PlayerSnapshot {
-        let state = self.player_state.lock().unwrap_or_else(|e| e.into_inner());
-        PlayerSnapshot {
-            running: self.player.is_running(),
-            title: state.title.clone(),
-            stream_path: state.stream_path.clone(),
-            download_id: state.download_id,
-        }
-    }
-
-    #[must_use]
     pub fn config(&self) -> Config {
         self.config.read().unwrap_or_else(|e| e.into_inner()).clone()
     }
@@ -681,7 +640,6 @@ impl Gateway {
         ConfigView {
             theme: config.web_theme,
             download_dir: config.download_dir.display().to_string(),
-            player: config.player,
         }
     }
 
@@ -697,7 +655,6 @@ impl Gateway {
             config: self.config_view(),
             session: self.session(),
             downloads: self.downloads(),
-            player: self.player(),
             themes: theme::THEMES.to_vec(),
             search_configured: !self.search_config().url.is_empty(),
         }
@@ -713,17 +670,6 @@ impl Gateway {
         let _ = self.events.send(event);
     }
 }
-/// Build an absolute media URL for a native player.  Browsers authenticate
-/// with the HttpOnly cookie; mpv/VLC need the query token instead.
-pub(super) fn stream_url(base_url: &str, stream_path: &str, token: Option<&str>) -> String {
-    let mut url = format!("{}{}", base_url.trim_end_matches('/'), stream_path);
-    if let Some(token) = token.filter(|token| !token.is_empty()) {
-        url.push_str(if stream_path.contains('?') { "&token=" } else { "?token=" });
-        url.push_str(token);
-    }
-    url
-}
-
 fn apply_stats(entry: &mut DownloadEntry, stats: &TorrentStats) {
     entry.progress = stats.progress.clamp(0.0, 1.0);
     entry.speed = stats.download_speed;
@@ -773,27 +719,6 @@ mod playable_tests {
         let queue = playable_queue(&files);
         assert_eq!(queue.iter().map(|file| file.index).collect::<Vec<_>>(), vec![0, 2, 4]);
         assert_eq!(queue[1].name, "Show.S01E02.MKV");
-    }
-}
-
-#[cfg(test)]
-mod stream_url_tests {
-    use super::stream_url;
-
-    #[test]
-    fn adds_only_media_tokens_when_present() {
-        assert_eq!(
-            stream_url("http://127.0.0.1:7878/", "/api/stream/7/0", None),
-            "http://127.0.0.1:7878/api/stream/7/0"
-        );
-        assert_eq!(
-            stream_url("http://127.0.0.1:7878", "/api/stream/7/0", Some("abc")),
-            "http://127.0.0.1:7878/api/stream/7/0?token=abc"
-        );
-        assert_eq!(
-            stream_url("http://127.0.0.1:7878", "/api/library/cache-id/stream", Some("abc")),
-            "http://127.0.0.1:7878/api/library/cache-id/stream?token=abc"
-        );
     }
 }
 

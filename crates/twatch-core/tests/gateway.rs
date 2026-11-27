@@ -15,12 +15,11 @@ use twatch_core::config::Config;
 use twatch_core::domain::common::spawner::TaskSpawner;
 use twatch_core::domain::history::ports::HistoryPort;
 use twatch_core::domain::history::{HistoryEntry, PlaybackProgress};
-use twatch_core::domain::player::ports::PlayerPort;
 use twatch_core::domain::search::ports::SearchPort;
 use twatch_core::domain::search::{SearchConfig, SearchResult};
 use twatch_core::domain::torrent::ports::TorrentPort;
 use twatch_core::domain::torrent::{TorrentFile, TorrentId, TorrentInfo, TorrentStats};
-use twatch_core::gateway::{DownloadId, DownloadState, Gateway, GatewayError};
+use twatch_core::gateway::{DownloadId, DownloadState, Gateway};
 
 struct MockTorrent {
     stats: Mutex<TorrentStats>,
@@ -286,29 +285,6 @@ impl SearchPort for MockSearch {
     }
 }
 
-struct MockPlayer {
-    url: Mutex<Option<String>>,
-}
-
-impl MockPlayer {
-    fn new() -> Self {
-        Self { url: Mutex::new(None) }
-    }
-}
-
-impl PlayerPort for MockPlayer {
-    fn play(&self, url: &str, _title: &str) -> Result<()> {
-        *self.url.lock().unwrap() = Some(url.into());
-        Ok(())
-    }
-    fn is_running(&self) -> bool {
-        self.url.lock().unwrap().is_some()
-    }
-    fn kill(&self) {
-        *self.url.lock().unwrap() = None;
-    }
-}
-
 struct TokioSpawner;
 impl TaskSpawner for TokioSpawner {
     fn spawn(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
@@ -326,14 +302,6 @@ fn gateway(dir: &Path) -> Arc<Gateway> {
 }
 
 fn gateway_with_torrent(dir: &Path, torrent: Arc<dyn TorrentPort>) -> Arc<Gateway> {
-    gateway_with_player(dir, torrent, Arc::new(MockPlayer::new()))
-}
-
-fn gateway_with_player(
-    dir: &Path,
-    torrent: Arc<dyn TorrentPort>,
-    player: Arc<dyn PlayerPort>,
-) -> Arc<Gateway> {
     let config = Config {
         config_dir: dir.join("config"),
         download_dir: dir.join("downloads"),
@@ -347,7 +315,6 @@ fn gateway_with_player(
         torrent,
         Arc::new(MockHistory::new()),
         Arc::new(MockSearch),
-        player,
         Arc::new(TokioSpawner),
     )
 }
@@ -599,59 +566,12 @@ async fn rename_file_moves_disk_state_and_rejects_unsafe_names() {
 }
 
 #[tokio::test]
-async fn player_can_open_and_stop_a_ready_stream() {
-    let dir = temp_dir();
-    let gateway = gateway(&dir);
-    gateway.preview("magnet:test").await.unwrap();
-    gateway.watch_file(0).unwrap();
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    gateway.tick();
-
-    let player = gateway.open_player(DownloadId::new(1), "http://127.0.0.1:7878").unwrap();
-    assert!(player.running);
-    assert_eq!(player.download_id, Some(1));
-    assert_eq!(player.stream_path.as_deref(), Some("/api/stream/7/0"));
-
-    gateway.stop_player();
-    assert!(!gateway.player().running);
-}
-
-struct FailingPlayer;
-
-impl PlayerPort for FailingPlayer {
-    fn play(&self, _url: &str, _title: &str) -> Result<()> {
-        anyhow::bail!("no native player installed")
-    }
-    fn is_running(&self) -> bool {
-        false
-    }
-    fn kill(&self) {}
-}
-
-#[tokio::test]
-async fn open_player_surfaces_a_missing_native_player() {
-    let dir = temp_dir();
-    let gateway = gateway_with_player(&dir, Arc::new(MockTorrent::new()), Arc::new(FailingPlayer));
-    gateway.preview("magnet:test").await.unwrap();
-    gateway.watch_file(0).unwrap();
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    gateway.tick();
-
-    let error = gateway.open_player(DownloadId::new(1), "http://127.0.0.1:7878").unwrap_err();
-    assert!(matches!(error, GatewayError::PlayerUnavailable(_)));
-    assert!(!gateway.player().running);
-}
-
-#[tokio::test]
-async fn config_updates_validate_theme_and_player() {
+async fn config_updates_validate_theme() {
     let dir = temp_dir();
     let gateway = gateway(&dir);
     assert!(gateway.update_theme("emerald-dark").is_ok());
     assert!(gateway.update_theme("not-a-theme").is_err());
-    assert!(gateway.update_player("mpv").is_ok());
-    assert!(gateway.update_player("not-a-player").is_err());
     assert_eq!(gateway.config_view().theme, "emerald-dark");
-    assert_eq!(gateway.config_view().player, "mpv");
 }
 
 #[tokio::test]

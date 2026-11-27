@@ -56,7 +56,6 @@ beforeEach(() => {
     bootstrap: null,
     session: null,
     downloads: [],
-    player: { running: false, title: null, streamPath: null, downloadId: null },
     config: null,
     themes: [],
     searchConfigured: false,
@@ -73,7 +72,6 @@ describe('realtime store', () => {
       revision: 5,
       session: session(),
       downloads: [download],
-      player: { running: false, title: null, streamPath: null, downloadId: null },
     })
     expect(useAppStore.getState().revision).toBe(5)
     expect(useAppStore.getState().downloads).toHaveLength(1)

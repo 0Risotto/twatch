@@ -1,5 +1,4 @@
 import type { DownloadSnapshot } from './generated/DownloadSnapshot'
-import type { PlayerSnapshot } from './generated/PlayerSnapshot'
 import type { SessionSnapshot } from './generated/SessionSnapshot'
 import type { ToastLevel } from './generated/ToastLevel'
 
@@ -15,7 +14,6 @@ export type { LibraryEntry } from './generated/LibraryEntry'
 export type { LibraryMediaKind } from './generated/LibraryMediaKind'
 export type { LibraryRoot } from './generated/LibraryRoot'
 export type { PlaybackProgress } from './generated/PlaybackProgress'
-export type { PlayerSnapshot } from './generated/PlayerSnapshot'
 export type { QueueFile } from './generated/QueueFile'
 export type { SearchConfigDto as SearchConfig } from './generated/SearchConfigDto'
 export type { SearchResult } from './generated/SearchResult'
@@ -37,10 +35,8 @@ export type WsFrame =
       revision: number
       session: SessionSnapshot | null
       downloads: DownloadSnapshot[]
-      player: PlayerSnapshot
     }
   | { type: 'session'; revision: number; session: SessionSnapshot | null }
   | { type: 'downloads'; revision: number; downloads: DownloadSnapshot[] }
-  | { type: 'player'; revision: number; player: PlayerSnapshot }
   | { type: 'toast'; revision: number; level: ToastLevel; message: string }
   | { type: 'resync'; revision: number }

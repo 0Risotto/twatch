@@ -4,8 +4,7 @@
 //! (from [`crate::service`]) into an [`AppModule`].
 
 use crate::service::{
-    RealPlayer, RealStorage, SearchServiceImpl, StreamUrlProvider, TokioTaskSpawner,
-    TorrentEngineImpl,
+    RealStorage, SearchServiceImpl, StreamUrlProvider, TokioTaskSpawner, TorrentEngineImpl,
 };
 use shaku::module;
 
@@ -15,7 +14,6 @@ module! {
             TorrentEngineImpl,
             StreamUrlProvider,
             TokioTaskSpawner,
-            RealPlayer,
             RealStorage,
             SearchServiceImpl,
         ],
