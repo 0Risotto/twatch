@@ -96,6 +96,12 @@ impl SearchPort for SearchServiceImpl {
                 let leechers = int_val(item, &fm.leechers).unwrap_or(0);
                 let size = int_val(item, &fm.size).unwrap_or(0);
                 let username = string_val(item, &fm.username).unwrap_or_default();
+                if is_blocked_category(
+                    &category_values(item, &fm.category),
+                    &config.blocked_categories,
+                ) {
+                    return None;
+                }
 
                 Some(SearchResult { name, info_hash, seeders, leechers, size, username })
             })
@@ -107,6 +113,53 @@ impl SearchPort for SearchServiceImpl {
 
 fn string_val(item: &Value, field: &str) -> Option<String> {
     item.get(field).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+fn category_values(item: &Value, field: &str) -> Vec<String> {
+    let Some(value) = item.get(field) else {
+        return Vec::new();
+    };
+    match value {
+        Value::Array(values) => values.iter().filter_map(scalar_string).collect(),
+        other => scalar_string(other).into_iter().collect(),
+    }
+}
+
+fn scalar_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
+}
+
+fn is_blocked_category(values: &[String], rules: &[String]) -> bool {
+    values.iter().any(|value| {
+        let value = value.trim().to_lowercase();
+        let numeric = value.parse::<u64>().ok();
+        rules.iter().any(|rule| rule_matches(&value, numeric, rule))
+    })
+}
+
+fn rule_matches(value: &str, numeric: Option<u64>, rule: &str) -> bool {
+    let rule = rule.trim().to_lowercase();
+    if rule.is_empty() {
+        return false;
+    }
+    if let Some((start, end)) = parse_range(&rule) {
+        return numeric.is_some_and(|category| (start..=end).contains(&category));
+    }
+    if let Ok(category) = rule.parse::<u64>() {
+        return numeric == Some(category);
+    }
+    value.contains(&rule)
+}
+
+fn parse_range(rule: &str) -> Option<(u64, u64)> {
+    let (start, end) = rule.split_once('-')?;
+    let start = start.trim().parse().ok()?;
+    let end = end.trim().parse().ok()?;
+    (start <= end).then_some((start, end))
 }
 
 fn int_val(item: &Value, field: &str) -> Option<u64> {
@@ -139,5 +192,32 @@ const fn hex(n: u8) -> char {
     match n {
         0..=9 => (b'0' + n) as char,
         _ => (b'A' + (n - 10)) as char,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{category_values, int_val, is_blocked_category};
+    use serde_json::json;
+
+    #[test]
+    fn category_values_accept_strings_numbers_and_arrays() {
+        assert_eq!(int_val(&json!({"category": "505"}), "category"), Some(505));
+        assert_eq!(int_val(&json!({"category": 505}), "category"), Some(505));
+        assert_eq!(int_val(&json!({}), "category"), None);
+        assert_eq!(
+            category_values(&json!({"category": ["video", 505]}), "category"),
+            vec!["video", "505"]
+        );
+    }
+
+    #[test]
+    fn category_rules_accept_numbers_ranges_and_words() {
+        assert!(is_blocked_category(&["700".into()], &["700".into()]));
+        assert!(is_blocked_category(&["750".into()], &["700-799".into()]));
+        assert!(!is_blocked_category(&["699".into()], &["700-799".into()]));
+        assert!(is_blocked_category(&["blocked-tag".into()], &["blocked".into()]));
+        assert!(!is_blocked_category(&["video".into()], &["blocked".into()]));
+        assert!(!is_blocked_category(&["700".into()], &[]));
     }
 }

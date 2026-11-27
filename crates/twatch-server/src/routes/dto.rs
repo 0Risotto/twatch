@@ -106,6 +106,10 @@ impl From<HistoryEntry> for HistoryEntryDto {
     }
 }
 
+fn default_category_field() -> String {
+    "category".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -116,6 +120,8 @@ pub struct FieldMapDto {
     pub leechers: String,
     pub size: String,
     pub username: String,
+    #[serde(default = "default_category_field")]
+    pub category: String,
 }
 
 impl From<FieldMap> for FieldMapDto {
@@ -127,6 +133,7 @@ impl From<FieldMap> for FieldMapDto {
             leechers: field_map.leechers,
             size: field_map.size,
             username: field_map.username,
+            category: field_map.category,
         }
     }
 }
@@ -140,6 +147,7 @@ impl From<FieldMapDto> for FieldMap {
             leechers: field_map.leechers,
             size: field_map.size,
             username: field_map.username,
+            category: field_map.category,
         }
     }
 }
@@ -151,17 +159,29 @@ pub struct SearchConfigDto {
     pub url: String,
     pub headers: std::collections::HashMap<String, String>,
     pub field_map: FieldMapDto,
+    #[serde(default)]
+    pub blocked_categories: Vec<String>,
 }
 
 impl From<SearchConfig> for SearchConfigDto {
     fn from(config: SearchConfig) -> Self {
-        Self { url: config.url, headers: config.headers, field_map: config.field_map.into() }
+        Self {
+            url: config.url,
+            headers: config.headers,
+            field_map: config.field_map.into(),
+            blocked_categories: config.blocked_categories,
+        }
     }
 }
 
 impl From<SearchConfigDto> for SearchConfig {
     fn from(config: SearchConfigDto) -> Self {
-        Self { url: config.url, headers: config.headers, field_map: config.field_map.into() }
+        Self {
+            url: config.url,
+            headers: config.headers,
+            field_map: config.field_map.into(),
+            blocked_categories: config.blocked_categories,
+        }
     }
 }
 

@@ -9,13 +9,20 @@ interface CoverBackdropProps {
   /** Fade toward the left for horizontal cards, or upward for poster cards. */
   direction?: 'left' | 'bottom'
   className?: string
+  /** What to show when no cover resolves. */
+  fallback?: 'icon' | 'none'
 }
 
 /**
  * Full-bleed artwork for media cards. The gradient sits over the image so text
  * stays readable while the cover remains visible on the right or at the top.
  */
-export function CoverBackdrop({ title, direction = 'left', className }: CoverBackdropProps) {
+export function CoverBackdrop({
+  title,
+  direction = 'left',
+  className,
+  fallback = 'icon',
+}: CoverBackdropProps) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '240px' })
   const cover = useCover(title, undefined, inView)
@@ -49,7 +56,7 @@ export function CoverBackdrop({ title, direction = 'left', className }: CoverBac
           className="h-full w-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-[1.03]"
           onError={() => setFailed(true)}
         />
-      ) : (
+      ) : fallback === 'none' ? null : (
         <div className="absolute -right-2 bottom-[-12%] text-[var(--border-strong)] opacity-50">
           <MediaIcon name={title} className="size-28" />
         </div>

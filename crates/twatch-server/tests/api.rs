@@ -327,8 +327,10 @@ async fn search_config_round_trips() {
             "seeders": "seeders",
             "leechers": "leechers",
             "size": "size",
-            "username": "username"
-        }
+            "username": "username",
+            "category": "category"
+        },
+        "blockedCategories": ["700-799", "blocked-tag"]
     });
     let response = app
         .clone()
@@ -339,6 +341,7 @@ async fn search_config_round_trips() {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["url"], config["url"]);
+    assert_eq!(json["blockedCategories"], config["blockedCategories"]);
 
     let response = app
         .clone()

@@ -11,6 +11,8 @@ interface CoverArtProps {
   file?: boolean
   /** For grids that need a stable aspect box even before the image lands. */
   eager?: boolean
+  /** What to show when no cover resolves. */
+  fallback?: 'icon' | 'none'
 }
 
 /**
@@ -18,7 +20,14 @@ interface CoverArtProps {
  * same file-type icon used elsewhere, so a missing provider never leaves a hole.
  * Images are loaded near the viewport, not all at once for a 100-row search.
  */
-export function CoverArt({ title, kind, className, file = false, eager = false }: CoverArtProps) {
+export function CoverArt({
+  title,
+  kind,
+  className,
+  file = false,
+  eager = false,
+  fallback = 'icon',
+}: CoverArtProps) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '240px' })
   const cover = useCover(title, kind, eager || inView)
@@ -46,7 +55,7 @@ export function CoverArt({ title, kind, className, file = false, eager = false }
           className="h-full w-full object-cover"
           onError={() => setFailed(true)}
         />
-      ) : (
+      ) : fallback === 'none' ? null : (
         <div className="grid h-full w-full place-items-center">
           {file ? (
             <FileTypeIcon name={title} className="size-1/2 opacity-80" />

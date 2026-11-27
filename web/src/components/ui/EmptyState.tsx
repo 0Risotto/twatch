@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 import { fade } from '@/lib/motion'
 
 interface EmptyStateProps {
-  icon: ReactNode
+  icon?: ReactNode
   title: string
   description?: string
   action?: ReactNode
@@ -22,9 +22,11 @@ export function EmptyState({ icon, title, description, action, className }: Empt
         className,
       )}
     >
-      <div className="mb-4 grid size-14 place-items-center rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)] shadow-[var(--shadow-sm)]">
-        {icon}
-      </div>
+      {icon && (
+        <div className="mb-4 grid size-14 place-items-center rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)] shadow-[var(--shadow-sm)]">
+          {icon}
+        </div>
+      )}
       <h3 className="text-base font-semibold tracking-[-0.01em] text-[var(--fg)]">{title}</h3>
       {description && (
         <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-[var(--muted)]">{description}</p>

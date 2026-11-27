@@ -18,6 +18,7 @@ import { Field, Label, Select, TextInput } from '@/components/ui/Field'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 import { PageHeader } from '@/components/PageHeader'
+import { BlockedCategoriesEditor } from '@/features/settings/BlockedCategoriesEditor'
 import { SettingsSection } from '@/features/settings/SettingsSection'
 import { ThemeCard } from '@/features/settings/ThemeCard'
 import { api } from '@/lib/api'
@@ -33,6 +34,7 @@ const defaultFieldMap: FieldMap = {
   leechers: 'leechers',
   size: 'size',
   username: 'username',
+  category: 'category',
 }
 
 export function SettingsPage() {
@@ -50,6 +52,7 @@ export function SettingsPage() {
   const [searchUrl, setSearchUrl] = useState('')
   const [headersText, setHeadersText] = useState('{}')
   const [fieldMap, setFieldMap] = useState<FieldMap>(defaultFieldMap)
+  const [blockedCategories, setBlockedCategories] = useState<string[]>([])
   const [savingSearch, setSavingSearch] = useState(false)
   const [testingSearch, setTestingSearch] = useState(false)
   const [savingTheme, setSavingTheme] = useState<string | null>(null)
@@ -65,6 +68,7 @@ export function SettingsPage() {
     setSearchUrl(searchConfig.data.url)
     setHeadersText(JSON.stringify(searchConfig.data.headers, null, 2))
     setFieldMap({ ...defaultFieldMap, ...searchConfig.data.fieldMap })
+    setBlockedCategories(searchConfig.data.blockedCategories ?? [])
   }, [searchConfig.data])
 
   useEffect(() => {
@@ -121,7 +125,12 @@ export function SettingsPage() {
           ]),
         )
       }
-      const next: SearchConfig = { url: searchUrl.trim(), headers, fieldMap }
+      const next: SearchConfig = {
+        url: searchUrl.trim(),
+        headers,
+        fieldMap,
+        blockedCategories,
+      }
       await api.putSearchConfig(next)
       setSearchConfigured(Boolean(next.url))
       await searchConfig.refetch()
@@ -348,6 +357,12 @@ export function SettingsPage() {
                 ))}
               </div>
             </div>
+            <Field
+              label="Blocked categories"
+              hint="Add category values, ranges, or words to match against the category field."
+            >
+              <BlockedCategoriesEditor value={blockedCategories} onChange={setBlockedCategories} />
+            </Field>
           </div>
         )}
       </SettingsSection>

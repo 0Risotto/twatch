@@ -79,3 +79,14 @@ test('persists the selected theme', async ({ page, isMobile }) => {
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'gruvbox-dark')
 })
+
+test('adds and removes blocked categories', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'the category editor is exercised in the desktop project')
+  await page.goto('/settings')
+  const input = page.getByLabel('Add blocked category')
+  await input.fill('blocked-tag')
+  await input.press('Enter')
+  await expect(page.getByText('blocked-tag')).toBeVisible()
+  await page.getByLabel('Remove blocked-tag').click()
+  await expect(page.getByText('blocked-tag')).not.toBeVisible()
+})

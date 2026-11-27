@@ -43,6 +43,9 @@ fn default_size() -> String {
 fn default_username() -> String {
     "username".into()
 }
+fn default_category() -> String {
+    "category".into()
+}
 
 /// Maps the user-configured API response fields to the fields twatch
 /// cares about.
@@ -60,6 +63,8 @@ pub struct FieldMap {
     pub size: String,
     #[serde(default = "default_username")]
     pub username: String,
+    #[serde(default = "default_category")]
+    pub category: String,
 }
 
 impl Default for FieldMap {
@@ -71,6 +76,7 @@ impl Default for FieldMap {
             leechers: default_leechers(),
             size: default_size(),
             username: default_username(),
+            category: default_category(),
         }
     }
 }
@@ -90,4 +96,7 @@ pub struct SearchConfig {
     pub headers: HashMap<String, String>,
     #[serde(default)]
     pub field_map: FieldMap,
+    /// Category values or ranges to block.
+    #[serde(default)]
+    pub blocked_categories: Vec<String>,
 }

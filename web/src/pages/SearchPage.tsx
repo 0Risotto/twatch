@@ -6,7 +6,6 @@ import {
   ArrowDown,
   HardDrive,
   Loader2,
-  Magnet,
   Search,
   Settings2,
   Sparkles,
@@ -179,7 +178,6 @@ export function SearchPage() {
 
       {searchReady && !search.isLoading && !search.isError && results.length === 0 && (
         <EmptyState
-          icon={<Magnet className="size-6" />}
           title="No results"
           description="Nothing matched that query. Try a shorter title or a different uploader."
         />
@@ -199,9 +197,10 @@ export function SearchPage() {
               )}
               onMouseEnter={() => setActiveIndex(index)}
             >
-              <CoverBackdrop title={result.name} />
+              <CoverBackdrop title={result.name} fallback="none" />
               <CoverArt
                 title={result.name}
+                fallback="none"
                 className="relative z-10 h-[80px] w-[56px] shrink-0 shadow-[var(--shadow-md)]"
               />
               <div className="relative z-10 min-w-0 flex-1">
