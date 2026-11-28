@@ -17,6 +17,7 @@ import { PlayerDock } from './PlayerDock'
 import { useExternalSubtitle } from './useExternalSubtitle'
 import { useMediaPlayer } from './useMediaPlayer'
 import { usePlayerShortcuts } from './usePlayerShortcuts'
+import { useSingleMediaPlayback } from './useSingleMediaPlayback'
 import { useSubtitleTracks } from './useSubtitleTracks'
 import { useThumbnails } from './useThumbnails'
 
@@ -49,6 +50,7 @@ function forgetActiveDownload(): void {
 }
 
 export function PlaybackProvider({ children }: { children: ReactNode }) {
+  useSingleMediaPlayback()
   const downloads = useAppStore(state => state.downloads)
   const booted = useAppStore(state => state.booted)
   const addToast = useAppStore(state => state.addToast)

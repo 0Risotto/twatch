@@ -8,8 +8,9 @@ import type { DownloadSnapshot } from '@/types/api'
 import { cn } from '@/lib/cn'
 import { formatPlaybackTimes } from '@/lib/format'
 
+import { VideoSurface } from '@/components/media/VideoSurface'
+
 import { PlayerControls } from './PlayerControls'
-import { useHlsPlayback } from './useHlsPlayback'
 import type { useMediaPlayer } from './useMediaPlayer'
 import type { useSubtitleTracks } from './useSubtitleTracks'
 
@@ -64,7 +65,6 @@ export function PlayerStage({
   const { state } = player
   const [controlsVisible, setControlsVisible] = useState(true)
   const hideTimer = useRef(0)
-  const { hlsError, isHls, retry: retryHls } = useHlsPlayback(streamUrl, mediaRef)
   const { elapsed, remaining } = formatPlaybackTimes(state.currentTime, state.duration)
 
   const showControls = () => {
@@ -104,16 +104,21 @@ export function PlayerStage({
       onTouchStart={showControls}
     >
       {kind === 'video' && streamUrl && !state.error && (
-        <video
-          key={streamUrl}
-          ref={mediaRef as RefObject<HTMLVideoElement | null>}
-          src={isHls ? undefined : (streamUrl ?? undefined)}
+        <VideoSurface
+          source={streamUrl}
+          mediaRef={mediaRef}
           poster={coverUrl ?? undefined}
           autoPlay={autoPlay}
-          playsInline
+          containerClassName="h-full w-full"
           className="h-full w-full bg-black object-contain"
           onClick={() => player.toggle()}
           onDoubleClick={toggleFullscreen}
+          errorCopy={{
+            title: 'Could not prepare browser playback',
+            description:
+              'The local transcoder did not start. Check that ffmpeg is available, then retry.',
+            retryLabel: 'Retry transcode',
+          }}
         >
           {subtitles.nativeTracks.map(track => (
             <track
@@ -124,7 +129,7 @@ export function PlayerStage({
               label={track.label}
             />
           ))}
-        </video>
+        </VideoSurface>
       )}
 
       {kind === 'video' && streamUrl && !state.error && (
@@ -206,23 +211,6 @@ export function PlayerStage({
           <div className="grid size-16 place-items-center rounded-full bg-black/55 backdrop-blur">
             <Loader2 className="size-7 animate-spin text-white/85" />
           </div>
-        </div>
-      )}
-
-      {hlsError && !state.error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center text-white">
-          <TriangleAlert className="size-8 text-[var(--warning)]" />
-          <p className="text-sm font-semibold">Could not prepare browser playback</p>
-          <p className="max-w-md text-xs leading-relaxed text-white/60">
-            The local transcoder did not start. Check that ffmpeg is available, then retry.
-          </p>
-          <button
-            type="button"
-            onClick={retryHls}
-            className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
-          >
-            Retry transcode
-          </button>
         </div>
       )}
 

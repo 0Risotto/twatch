@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 
+import { clampMiniPosition, defaultMiniPosition, miniWidth } from './miniPlayerPosition'
 import type { PlaybackContextValue } from './playbackContext'
 import { PlayerStage } from './PlayerStage'
 
@@ -13,29 +14,17 @@ interface SlotRect {
   height: number
 }
 
-const MINI_WIDTH = 340
 const MINI_POSITION_KEY = 'twatch.miniplayer-position'
 
-function miniWidth() {
-  return Math.min(MINI_WIDTH, Math.max(200, window.innerWidth - 32))
-}
-
-function clampMiniPosition(x: number, y: number) {
-  const width = miniWidth()
-  const height = (width * 9) / 16
-  const maxX = Math.max(8, window.innerWidth - width - 8)
-  const maxY = Math.max(8, window.innerHeight - height - 8)
-  return {
-    x: Math.min(Math.max(8, x), maxX),
-    y: Math.min(Math.max(8, y), maxY),
+function hasStoredMiniPosition(): boolean {
+  try {
+    const raw = window.localStorage.getItem(MINI_POSITION_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as { x?: number; y?: number }
+    return Number.isFinite(parsed.x) && Number.isFinite(parsed.y)
+  } catch {
+    return false
   }
-}
-
-function defaultMiniPosition() {
-  const width = miniWidth()
-  const height = (width * 9) / 16
-  const bottom = window.innerWidth < 640 ? 80 : 16
-  return clampMiniPosition(window.innerWidth - width - 16, window.innerHeight - height - bottom)
 }
 
 function readMiniPosition() {
@@ -82,6 +71,7 @@ export function PlayerDock({
   } = playback
   const navigate = useNavigate()
   const [rect, setRect] = useState<SlotRect | null>(null)
+  const [customPosition, setCustomPosition] = useState(hasStoredMiniPosition)
   const [position, setPosition] = useState(readMiniPosition)
   const positionRef = useRef(position)
   positionRef.current = position
@@ -93,17 +83,31 @@ export function PlayerDock({
     originY: number
   } | null>(null)
 
+  // Keep the default corner in sync with the real viewport. Electron can mount
+  // before the window has its final size, and a stale mount-time corner would
+  // otherwise leave the mini player at the top instead of bottom-right.
+  useEffect(() => {
+    if (mode !== 'mini' || customPosition) return
+    setPosition(() => {
+      const next = defaultMiniPosition()
+      positionRef.current = next
+      return next
+    })
+  }, [customPosition, mode])
+
   useEffect(() => {
     const onResize = () => {
       setPosition(current => {
-        const next = clampMiniPosition(current.x, current.y)
+        const next = customPosition
+          ? clampMiniPosition(current.x, current.y)
+          : defaultMiniPosition()
         positionRef.current = next
         return next
       })
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [])
+  }, [customPosition])
 
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (mode !== 'mini') return
@@ -132,6 +136,7 @@ export function PlayerDock({
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return
     dragRef.current = null
+    setCustomPosition(true)
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {

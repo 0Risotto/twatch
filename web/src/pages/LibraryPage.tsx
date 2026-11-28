@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -31,9 +31,8 @@ import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 
+import { VideoSurface } from '@/components/media/VideoSurface'
 import { PageHeader } from '@/components/PageHeader'
-
-import { useHlsPlayback } from '@/features/player/useHlsPlayback'
 
 type RootFilter = 'all' | 'cache' | 'downloads'
 
@@ -48,37 +47,18 @@ function streamPathFor(entry: LibraryEntry): string {
 }
 
 function LibraryVideo({ entry }: { entry: LibraryEntry }) {
-  const ref = useRef<HTMLVideoElement | null>(null)
-  const source = streamPathFor(entry)
-  const { attempt, hlsError, isHls, retry } = useHlsPlayback(source, ref)
-
   return (
-    <div className="relative">
-      <video
-        key={`${source}:${attempt}`}
-        ref={ref}
-        controls
-        autoPlay
-        playsInline
-        src={isHls ? undefined : source}
-        className="aspect-video max-h-[62vh] w-full bg-black object-contain"
-      />
-      {hlsError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 px-6 text-center text-white">
-          <p className="text-sm font-semibold">Could not start the local transcoder</p>
-          <p className="max-w-md text-xs text-white/60">
-            Make sure ffmpeg is available, then try again.
-          </p>
-          <button
-            type="button"
-            onClick={retry}
-            className="rounded-[2px] border border-white/20 bg-white/10 px-3 py-1 text-xs"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-    </div>
+    <VideoSurface
+      source={streamPathFor(entry)}
+      controls
+      autoPlay
+      reloadOnRetry
+      className="aspect-video max-h-[62vh] w-full bg-black object-contain"
+      errorCopy={{
+        title: 'Could not start the local transcoder',
+        description: 'Make sure ffmpeg is available, then try again.',
+      }}
+    />
   )
 }
 
