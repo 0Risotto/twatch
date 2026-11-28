@@ -3,13 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
 import type { RefObject } from 'react'
 
-import type { DownloadSnapshot } from '@/types/api'
-
 import { cn } from '@/lib/cn'
 import { formatPlaybackTimes } from '@/lib/format'
 
 import { VideoSurface } from '@/components/media/VideoSurface'
 
+import type { PlaybackTrack } from './playbackTrack'
 import { PlayerControls } from './PlayerControls'
 import type { useMediaPlayer } from './useMediaPlayer'
 import type { useSubtitleTracks } from './useSubtitleTracks'
@@ -18,7 +17,7 @@ type Player = ReturnType<typeof useMediaPlayer>
 type Subtitles = ReturnType<typeof useSubtitleTracks>
 
 interface PlayerStageProps {
-  download: DownloadSnapshot
+  track: PlaybackTrack
   kind: 'video' | 'audio' | 'image'
   streamUrl: string | null
   coverUrl?: string | null
@@ -41,7 +40,7 @@ interface PlayerStageProps {
 }
 
 export function PlayerStage({
-  download,
+  track,
   kind,
   streamUrl,
   coverUrl,
@@ -174,10 +173,10 @@ export function PlayerStage({
           )}
           <div className={cn('text-center', compact ? 'max-w-[14rem]' : 'max-w-lg')}>
             <p className={cn('truncate font-semibold text-white', compact ? 'text-xs' : 'text-sm')}>
-              {download.label}
+              {track.title}
             </p>
             <p className={cn('mt-1 truncate text-white/55', compact ? 'text-[10px]' : 'text-xs')}>
-              {download.torrentName}
+              {track.subtitle}
             </p>
           </div>
           <audio
@@ -198,11 +197,7 @@ export function PlayerStage({
           className="flex h-full items-center justify-center p-2"
           title="Open original image"
         >
-          <img
-            src={streamUrl}
-            alt={download.label}
-            className="max-h-full max-w-full object-contain"
-          />
+          <img src={streamUrl} alt={track.title} className="max-h-full max-w-full object-contain" />
         </a>
       )}
 
@@ -287,7 +282,7 @@ export function PlayerStage({
                   )}
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[11px] font-semibold text-white">{download.label}</p>
+                  <p className="truncate text-[11px] font-semibold text-white">{track.title}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <div className="h-[2px] flex-1 overflow-hidden rounded-[1px] bg-white/20">
                       <div

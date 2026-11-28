@@ -44,6 +44,7 @@ vi.mock('jassub/dist/jassub-worker-modern.wasm?url', () => ({
 }))
 vi.mock('jassub/dist/default.woff2?url', () => ({ default: '/assets/default.woff2' }))
 
+import { downloadTrack } from './playbackTrack'
 import { useSubtitleTracks } from './useSubtitleTracks'
 
 import { withMedia } from '@/test/fixtures'
@@ -88,7 +89,7 @@ describe('useSubtitleTracks ASS rendering', () => {
     mockState.instances.length = 0
     const { media, mediaRef, containerRef, canvasRef } = refs()
     const { result } = renderHook(() =>
-      useSubtitleTracks(download, mediaRef, containerRef, canvasRef, null),
+      useSubtitleTracks(downloadTrack(download), mediaRef, containerRef, canvasRef, null),
     )
 
     await waitFor(() => expect(mockState.instances).toHaveLength(1))
@@ -106,7 +107,7 @@ describe('useSubtitleTracks ASS rendering', () => {
     mockState.instances.length = 0
     const { mediaRef, containerRef, canvasRef } = refs()
     const { result } = renderHook(() =>
-      useSubtitleTracks(download, mediaRef, containerRef, canvasRef, null),
+      useSubtitleTracks(downloadTrack(download), mediaRef, containerRef, canvasRef, null),
     )
 
     await waitFor(() => expect(mockState.instances).toHaveLength(1))
@@ -125,7 +126,7 @@ describe('useSubtitleTracks ASS rendering', () => {
     }
     const { result } = renderHook(() =>
       useSubtitleTracks(
-        { ...download, subtitles: [] },
+        downloadTrack({ ...download, subtitles: [] }),
         mediaRef,
         containerRef,
         canvasRef,

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { RefObject } from 'react'
 
-import type { DownloadSnapshot } from '@/types/api'
-
 import { api } from '@/lib/api'
 import { formatTime } from '@/lib/format'
 
 import { useAppStore } from '@/store/app'
+
+import type { PlaybackTrack } from './playbackTrack'
 
 export interface BufferedRange {
   start: number
@@ -64,7 +64,7 @@ function readBuffered(media: HTMLMediaElement): BufferedRange[] {
  * all controls go through the returned actions.
  */
 export function useMediaPlayer(
-  download: DownloadSnapshot | null,
+  track: PlaybackTrack | null,
   mediaRef: RefObject<HTMLMediaElement | null>,
   options: PlayerOptions = {},
 ) {
@@ -72,16 +72,16 @@ export function useMediaPlayer(
   const addToast = useAppStore(state => state.addToast)
   const [state, setState] = useState<MediaPlayerState>(initialState)
   const lastSaved = useRef(0)
-  const lastDownload = useRef<string | null>(null)
+  const lastTrack = useRef<string | null>(null)
   const resumeApplied = useRef(false)
   const onEndedRef = useRef(onEnded)
   onEndedRef.current = onEnded
 
-  const streamPath = download?.streamPath ?? null
-  const url = download?.url ?? ''
-  const label = download?.label ?? ''
-  const torrentName = download?.torrentName ?? ''
-  const resumePosition = download?.resumePosition ?? null
+  const streamPath = track?.streamPath ?? null
+  const url = track?.historyUrl ?? ''
+  const label = track?.title ?? ''
+  const torrentName = track?.torrentName ?? ''
+  const resumePosition = track?.resumePosition ?? null
 
   const saveProgress = useCallback(
     (force = false) => {
@@ -215,19 +215,19 @@ export function useMediaPlayer(
       media.removeEventListener('enterpictureinpicture', onEnterPip)
       media.removeEventListener('leavepictureinpicture', onLeavePip)
     }
-  }, [addToast, download?.id, mediaRef, resumePosition, saveProgress, streamPath])
+  }, [addToast, mediaRef, resumePosition, saveProgress, streamPath, track?.key])
 
   // Reset per-stream UI state when the stream changes.
   useEffect(() => {
-    const key = `${download?.id ?? 0}:${streamPath ?? ''}`
-    if (lastDownload.current === key) return
-    lastDownload.current = key
+    const key = `${track?.key ?? ''}:${streamPath ?? ''}`
+    if (lastTrack.current === key) return
+    lastTrack.current = key
     lastSaved.current = 0
     resumeApplied.current = false
     setState({ ...initialState, volume: state.volume, muted: state.muted })
     // Intentionally do not depend on volume; this must only run per stream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [download?.id, streamPath])
+  }, [streamPath, track?.key])
 
   // Persist every five seconds while playing.
   useEffect(() => {

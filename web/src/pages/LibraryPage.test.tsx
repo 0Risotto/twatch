@@ -1,3 +1,5 @@
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -52,13 +54,23 @@ const entries: LibraryEntry[] = [
   },
 ]
 
+function PlayerRoute() {
+  const location = useLocation()
+  return <div>Player route {location.search}</div>
+}
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={client}>
-      <LibraryPage />
+      <MemoryRouter initialEntries={['/library']}>
+        <Routes>
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/player" element={<PlayerRoute />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -83,14 +95,14 @@ describe('LibraryPage', () => {
     expect(screen.getByText('Show.mp4')).toBeInTheDocument()
   })
 
-  it('opens the local player for unsupported video', async () => {
+  it('opens the global player for a library entry', async () => {
     vi.mocked(api.library).mockResolvedValue(entries)
     renderPage()
 
-    const buttons = await screen.findAllByRole('button', { name: /preview/i })
+    const buttons = await screen.findAllByRole('button', { name: 'Play' })
     fireEvent.click(buttons[0])
-    await waitFor(() => expect(document.querySelector('video')).not.toBeNull())
-    expect(screen.getAllByText('Movie.mkv').length).toBeGreaterThan(0)
+    expect(await screen.findByText(/Player route/)).toBeInTheDocument()
+    expect(screen.getByText(/library=cache-6d6f766965/)).toBeInTheDocument()
   })
 
   it('rescans and updates the list', async () => {

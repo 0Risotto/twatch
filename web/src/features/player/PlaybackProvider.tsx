@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import type { ReactNode } from 'react'
 
-import type { DownloadSnapshot } from '@/types/api'
+import type { DownloadSnapshot, LibraryEntry } from '@/types/api'
 
 import { api } from '@/lib/api'
 import { useCover } from '@/lib/covers'
@@ -13,6 +13,7 @@ import { useAppStore } from '@/store/app'
 
 import type { PlaybackContextValue } from './playbackContext'
 import { PlaybackContext } from './playbackContext'
+import { downloadTrack, libraryTrack } from './playbackTrack'
 import { PlayerDock } from './PlayerDock'
 import { useExternalSubtitle } from './useExternalSubtitle'
 import { useMediaPlayer } from './useMediaPlayer'
@@ -58,6 +59,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
 
   const [activeId, setActiveId] = useState<number | null>(null)
+  const [activeLibrary, setActiveLibrary] = useState<LibraryEntry | null>(null)
   const [fallback, setFallback] = useState<DownloadSnapshot | null>(null)
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const [restoredPause, setRestoredPause] = useState(false)
@@ -78,18 +80,23 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (storeDownload && fallback?.id === activeId) setFallback(null)
   }, [activeId, fallback, storeDownload])
 
-  const { externalSubtitle, setExternalSubtitle } = useExternalSubtitle(download, addToast)
+  const track = useMemo(
+    () => (activeLibrary ? libraryTrack(activeLibrary) : download ? downloadTrack(download) : null),
+    [activeLibrary, download],
+  )
+
+  const { externalSubtitle, setExternalSubtitle } = useExternalSubtitle(track, addToast)
 
   const cover = useCover(
-    download?.torrentName,
-    download ? mediaKind(download.torrentName) : undefined,
+    track?.source === 'download' ? track.torrentName : null,
+    track ? mediaKind(track.torrentName) : undefined,
+    track?.source === 'download',
   )
-  const video = download?.media?.kind === 'video'
-  const audio = download?.media?.kind === 'audio'
-  const streamUrl = download?.media?.streamPath ?? null
-  const inlineVideo = download?.media?.playback === 'direct' && video
-  const transcodePath =
-    download?.media?.playback === 'hls' && video ? download.media.streamPath : null
+  const video = track?.media.kind === 'video'
+  const audio = track?.media.kind === 'audio'
+  const streamUrl = track?.streamPath ?? null
+  const inlineVideo = track?.media.playback === 'direct' && video
+  const transcodePath = track?.media.playback === 'hls' && video ? track.streamPath : null
   const mode: 'full' | 'mini' = location.pathname === '/player' ? 'full' : 'mini'
 
   useEffect(() => {
@@ -127,8 +134,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [addToast, download?.id, download?.media?.streamPath])
 
-  const queue = useMemo(() => download?.queue ?? [], [download?.queue])
-  const queueIndex = queue.findIndex(file => file.index === (download?.fileIndex ?? 0))
+  const queue = useMemo(() => track?.queue ?? [], [track?.queue])
+  const queueIndex = queue.findIndex(file => file.index === (track?.fileIndex ?? 0))
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex >= 0 && queueIndex + 1 < queue.length
 
@@ -136,6 +143,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (id === null) {
       activeRef.current = null
       setActiveId(null)
+      setActiveLibrary(null)
       forgetActiveDownload()
       return
     }
@@ -144,6 +152,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       activeRef.current = id
       setFallback(null)
     }
+    setActiveLibrary(null)
     rememberActiveDownload(id)
     setActiveId(id)
     const state = useAppStore.getState()
@@ -157,12 +166,25 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const activateLibrary = useCallback((entry: LibraryEntry | null) => {
+    if (!entry) {
+      setActiveLibrary(null)
+      return
+    }
+    activeRef.current = null
+    setRestoredPause(false)
+    setFallback(null)
+    setActiveId(null)
+    setActiveLibrary(entry)
+    forgetActiveDownload()
+  }, [])
+
   // Restore the last stream after a reload, but keep it paused. If the daemon
   // restarted and the stream is gone, leave the saved download in the list
   // rather than opening an empty miniplayer.
   useEffect(() => {
     if (restoreTried.current || !booted) return
-    if (activeId !== null) {
+    if (activeId !== null || activeLibrary) {
       restoreTried.current = true
       return
     }
@@ -176,7 +198,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     } else {
       forgetActiveDownload()
     }
-  }, [activate, activeId, booted, downloads])
+  }, [activate, activeId, activeLibrary, booted, downloads])
 
   const switchTo = useCallback(
     async (index: number) => {
@@ -210,12 +232,12 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (hasNext) playNext()
   }, [hasNext, playNext])
 
-  const player = useMediaPlayer(download, mediaRef, {
+  const player = useMediaPlayer(track, mediaRef, {
     artworkUrl: cover?.url,
     onEnded: handleEnded,
   })
   const subtitles = useSubtitleTracks(
-    download,
+    track,
     mediaRef,
     containerRef,
     subtitleCanvasRef,
@@ -238,7 +260,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [subtitles])
 
   usePlayerShortcuts({
-    enabled: mode === 'full' && Boolean(download && streamUrl && (video || audio)),
+    enabled: mode === 'full' && Boolean(track && streamUrl && (video || audio)),
     toggle: player.toggle,
     seek: player.seek,
     skip: player.skip,
@@ -269,17 +291,18 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     activeRef.current = null
     setRestoredPause(false)
     setActiveId(null)
+    setActiveLibrary(null)
     setFallback(null)
     forgetActiveDownload()
   }, [player])
 
   const registerSlot = useCallback((node: HTMLDivElement | null) => setSlot(node), [])
 
-  const dockActive = Boolean(download && streamUrl && (audio || inlineVideo || transcodePath))
+  const dockActive = Boolean(track && streamUrl && (audio || inlineVideo || transcodePath))
 
   const value = useMemo<PlaybackContextValue>(
     () => ({
-      download,
+      track,
       cover,
       player,
       subtitles,
@@ -295,6 +318,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       playNext,
       switchTo,
       activate,
+      activateLibrary,
       deactivate,
       registerSlot,
       mode,
@@ -306,11 +330,11 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }),
     [
       activate,
+      activateLibrary,
       subtitleCanvasRef,
       cover,
       deactivate,
       dockActive,
-      download,
       externalSubtitle,
       getCachedThumbnail,
       getThumbnail,
@@ -328,6 +352,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setExternalSubtitle,
       subtitles,
       switchTo,
+      track,
     ],
   )
 

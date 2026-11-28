@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Copy,
   Download,
   FolderOpen,
   HardDrive,
@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   Tv,
-  X,
 } from 'lucide-react'
 import { motion } from 'motion/react'
 
@@ -27,64 +26,23 @@ import { springs } from '@/lib/motion'
 import { useAppStore } from '@/store/app'
 
 import { Badge } from '@/components/ui/Badge'
-import { Button, IconButton } from '@/components/ui/Button'
+import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 
-import { VideoSurface } from '@/components/media/VideoSurface'
 import { PageHeader } from '@/components/PageHeader'
 
 type RootFilter = 'all' | 'cache' | 'downloads'
 
 const ROOT_LABEL = { cache: 'Cache', downloads: 'Downloads' } as const
 
-function inlinePlayable(entry: LibraryEntry): boolean {
-  return entry.media.playback === 'direct'
-}
-
-function streamPathFor(entry: LibraryEntry): string {
-  return entry.media.streamPath ?? entry.streamPath
-}
-
-function LibraryVideo({ entry }: { entry: LibraryEntry }) {
+function LibraryRow({ entry, onPlay }: { entry: LibraryEntry; onPlay: () => void }) {
   return (
-    <VideoSurface
-      source={streamPathFor(entry)}
-      controls
-      autoPlay
-      reloadOnRetry
-      className="aspect-video max-h-[62vh] w-full bg-black object-contain"
-      errorCopy={{
-        title: 'Could not start the local transcoder',
-        description: 'Make sure ffmpeg is available, then try again.',
-      }}
-    />
-  )
-}
-
-function LibraryRow({
-  entry,
-  selected,
-  onSelect,
-}: {
-  entry: LibraryEntry
-  selected: boolean
-  onSelect: () => void
-}) {
-  const inline = inlinePlayable(entry)
-  return (
-    <motion.article
-      layout
-      transition={springs.smooth}
-      className={cn(
-        'panel overflow-hidden transition-colors',
-        selected && 'border-[color-mix(in_srgb,var(--accent)_45%,var(--border-soft))]',
-      )}
-    >
+    <motion.article layout transition={springs.smooth} className="panel overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 p-3.5 sm:flex-nowrap">
         <button
           type="button"
-          onClick={onSelect}
+          onClick={onPlay}
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
           <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--border-soft)] bg-[var(--surface-2)] text-[var(--accent)]">
@@ -122,9 +80,9 @@ function LibraryRow({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <Button variant="secondary" size="sm" onClick={onSelect}>
+          <Button variant="secondary" size="sm" onClick={onPlay}>
             <Play className="size-3.5" />
-            {inline ? 'Play' : 'Preview'}
+            Play
           </Button>
         </div>
       </div>
@@ -136,73 +94,12 @@ function FilmIcon({ entry }: { entry: LibraryEntry }) {
   return entry.media.playback === 'direct' ? <Play className="size-4" /> : <Tv className="size-4" />
 }
 
-function LibraryPlayer({
-  entry,
-  onClose,
-  onCopy,
-}: {
-  entry: LibraryEntry
-  onClose: () => void
-  onCopy: () => void
-}) {
-  const inline = inlinePlayable(entry)
-  return (
-    <motion.section
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="panel overflow-hidden"
-    >
-      <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-[var(--fg)]">{entry.name}</h2>
-          <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--muted)]">
-            {entry.relativePath} · {formatBytes(entry.size)}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <IconButton label="Copy stream URL" size="sm" onClick={onCopy}>
-            <Copy className="size-3.5" />
-          </IconButton>
-          <IconButton label="Close player" size="sm" onClick={onClose}>
-            <X className="size-4" />
-          </IconButton>
-        </div>
-      </div>
-
-      <div className="bg-black">
-        {inline && entry.media.kind === 'audio' && (
-          <div className="flex min-h-28 items-center justify-center p-6">
-            <audio controls autoPlay src={streamPathFor(entry)} className="w-full max-w-xl" />
-          </div>
-        )}
-        {entry.media.kind === 'video' && <LibraryVideo entry={entry} />}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] px-4 py-2.5">
-        <Badge tone={entry.root === 'cache' ? 'folder' : 'accent'}>{ROOT_LABEL[entry.root]}</Badge>
-        <a
-          href={streamPathFor(entry)}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
-        >
-          Open stream in browser
-        </a>
-        <span className="ml-auto text-[10px] text-[var(--faint)]">
-          {entry.modifiedMs ? `Modified ${formatRelative(entry.modifiedMs / 1000)}` : 'Local file'}
-        </span>
-      </div>
-    </motion.section>
-  )
-}
-
 export function LibraryPage() {
+  const navigate = useNavigate()
   const addToast = useAppStore(state => state.addToast)
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [root, setRoot] = useState<RootFilter>('all')
-  const [selected, setSelected] = useState<LibraryEntry | null>(null)
   const [scanning, setScanning] = useState(false)
   const library = useQuery({ queryKey: ['library'], queryFn: api.library, staleTime: 30_000 })
 
@@ -228,21 +125,11 @@ export function LibraryPage() {
     try {
       const data = await api.rescanLibrary()
       queryClient.setQueryData(['library'], data)
-      if (selected && !data.some(entry => entry.id === selected.id)) setSelected(null)
       addToast('success', `Library refreshed · ${data.length} files`)
     } catch (error) {
       addToast('error', error instanceof Error ? error.message : 'Could not scan the library')
     } finally {
       setScanning(false)
-    }
-  }
-
-  const copyStream = async (entry: LibraryEntry) => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}${streamPathFor(entry)}`)
-      addToast('success', 'Stream URL copied')
-    } catch {
-      addToast('warning', 'Clipboard is unavailable')
     }
   }
 
@@ -282,14 +169,6 @@ export function LibraryPage() {
           </p>
         </div>
       </div>
-
-      {selected && (
-        <LibraryPlayer
-          entry={selected}
-          onClose={() => setSelected(null)}
-          onCopy={() => void copyStream(selected)}
-        />
-      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
@@ -359,8 +238,11 @@ export function LibraryPage() {
             <LibraryRow
               key={entry.id}
               entry={entry}
-              selected={selected?.id === entry.id}
-              onSelect={() => setSelected(entry)}
+              onPlay={() =>
+                navigate(`/player?library=${encodeURIComponent(entry.id)}`, {
+                  state: { from: '/library' },
+                })
+              }
             />
           ))}
         </div>

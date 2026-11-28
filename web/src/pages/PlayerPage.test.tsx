@@ -1,5 +1,6 @@
 import { MemoryRouter } from 'react-router-dom'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -44,9 +45,11 @@ function renderWith(download: Omit<DownloadSnapshot, 'media'>) {
   })
   return render(
     <MemoryRouter initialEntries={[`/player?download=${item.id}`]}>
-      <PlaybackProvider>
-        <PlayerPage />
-      </PlaybackProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <PlaybackProvider>
+          <PlayerPage />
+        </PlaybackProvider>
+      </QueryClientProvider>
     </MemoryRouter>,
   )
 }

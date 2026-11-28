@@ -86,6 +86,10 @@ test('indexes files from the local cache', async ({ page, isMobile }) => {
 
   await page.getByLabel('Filter local library').fill('sample')
   await expect(page.getByText('Library.Sample.mp4').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Play' }).first().click()
+  await expect(page).toHaveURL(/\/player\?library=/)
+  await expect(page.getByRole('heading', { name: 'Library.Sample.mp4' })).toBeVisible()
+  await page.goto('/library')
   await page.getByLabel('Filter local library').fill('missing')
   await expect(page.getByText('Nothing matches that filter')).toBeVisible()
 

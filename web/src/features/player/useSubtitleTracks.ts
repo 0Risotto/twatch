@@ -8,7 +8,7 @@ import wasmUrl from 'jassub/dist/jassub-worker.wasm?url'
 import modernWasmUrl from 'jassub/dist/jassub-worker-modern.wasm?url'
 import type { RefObject } from 'react'
 
-import type { DownloadSnapshot, SubtitleTrack } from '@/types/api'
+import type { SubtitleTrack } from '@/types/api'
 
 import {
   matchingSubtitles,
@@ -19,6 +19,8 @@ import {
   subtitleToVtt,
   subtitleUrl,
 } from '@/lib/subtitles'
+
+import type { PlaybackTrack } from './playbackTrack'
 
 export type SubtitleSize = 'sm' | 'md' | 'lg'
 
@@ -84,17 +86,17 @@ function defaultTrack(fileName: string, tracks: SubtitleTrack[]): string | null 
  * browser's native `<track>` renderer without a second subtitle engine.
  */
 export function useSubtitleTracks(
-  download: DownloadSnapshot | null,
+  track: PlaybackTrack | null,
   mediaRef: RefObject<HTMLMediaElement | null>,
   containerRef: RefObject<HTMLElement | null>,
   subtitleCanvasRef: RefObject<HTMLCanvasElement | null>,
   externalSubtitle: ExternalSubtitle | null,
 ) {
-  const torrentName = download?.torrentName ?? ''
-  const torrentId = download?.torrentId ?? null
-  const fileName = download?.fileNames[0] ?? download?.label ?? ''
-  const streamPath = download?.streamPath ?? null
-  const baseTracks = useMemo(() => download?.subtitles ?? [], [download?.subtitles])
+  const torrentName = track?.torrentName ?? ''
+  const torrentId = track?.torrentId ?? null
+  const fileName = track?.media.filename ?? ''
+  const streamPath = track?.streamPath ?? null
+  const baseTracks = useMemo(() => track?.subtitles ?? [], [track?.subtitles])
   const tracks = useMemo<SubtitleSource[]>(() => {
     if (!externalSubtitle) return baseTracks
     return [

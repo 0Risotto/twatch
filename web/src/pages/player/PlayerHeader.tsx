@@ -2,35 +2,38 @@ import { Link } from 'react-router-dom'
 
 import { ArrowLeft, Eye } from 'lucide-react'
 
-import type { DownloadSnapshot } from '@/types/api'
-
 import { formatBytes } from '@/lib/format'
 
 import { Button } from '@/components/ui/Button'
 
 import { PageHeader } from '@/components/PageHeader'
 
+import type { PlaybackTrack } from '@/features/player/playbackTrack'
+
 interface PlayerHeaderProps {
-  download: DownloadSnapshot
+  track: PlaybackTrack
   streamUrl: string | null
   previewable: boolean
   onBack: () => void
 }
 
-export function PlayerHeader({ download, streamUrl, previewable, onBack }: PlayerHeaderProps) {
+export function PlayerHeader({ track, streamUrl, previewable, onBack }: PlayerHeaderProps) {
   return (
     <PageHeader
       eyebrow="Playback"
-      title={download.label}
-      description={`${download.torrentName} · ${formatBytes(download.totalSize)}`}
+      title={track.title}
+      description={`${track.subtitle} · ${formatBytes(track.size)}`}
       actions={
         <>
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="size-4" />
             Back
           </Button>
-          <Link to="/downloads" className="btn btn-ghost h-8 px-3 text-xs">
-            Downloads
+          <Link
+            to={track.source === 'library' ? '/library' : '/downloads'}
+            className="btn btn-ghost h-8 px-3 text-xs"
+          >
+            {track.source === 'library' ? 'Library' : 'Downloads'}
           </Link>
           {streamUrl && !previewable && (
             <a

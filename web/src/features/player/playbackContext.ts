@@ -2,8 +2,9 @@ import { createContext, useContext } from 'react'
 
 import type { RefObject } from 'react'
 
-import type { CoverInfo, DownloadSnapshot } from '@/types/api'
+import type { CoverInfo, LibraryEntry } from '@/types/api'
 
+import type { PlaybackTrack } from './playbackTrack'
 import type { useMediaPlayer } from './useMediaPlayer'
 import type { ExternalSubtitle, useSubtitleTracks } from './useSubtitleTracks'
 
@@ -11,7 +12,7 @@ type MediaPlayer = ReturnType<typeof useMediaPlayer>
 type Subtitles = ReturnType<typeof useSubtitleTracks>
 
 export interface PlaybackContextValue {
-  download: DownloadSnapshot | null
+  track: PlaybackTrack | null
   cover: CoverInfo | null
   player: MediaPlayer
   subtitles: Subtitles
@@ -27,6 +28,7 @@ export interface PlaybackContextValue {
   playNext: () => void
   switchTo: (index: number) => void
   activate: (id: number | null) => void
+  activateLibrary: (entry: LibraryEntry | null) => void
   deactivate: () => void
   registerSlot: (node: HTMLDivElement | null) => void
   mode: 'full' | 'mini'

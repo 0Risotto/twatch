@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
+import { useQuery } from '@tanstack/react-query'
 import type { ChangeEvent as ReactChangeEvent } from 'react'
 
+import { api } from '@/lib/api'
 import { fileKind } from '@/lib/fileIcons'
 
 import { useAppStore } from '@/store/app'
 
 import { usePlayback } from '@/features/player/playbackContext'
+import { downloadTrack } from '@/features/player/playbackTrack'
 
 import { PlayerEmptyState } from './player/PlayerEmptyState'
 import { PlayerHeader } from './player/PlayerHeader'
@@ -22,7 +25,7 @@ export function PlayerPage() {
   const addToast = useAppStore(state => state.addToast)
   const subtitleInputRef = useRef<HTMLInputElement | null>(null)
   const {
-    download: activeDownload,
+    track: activeTrack,
     cover,
     player,
     subtitles,
@@ -34,12 +37,24 @@ export function PlayerPage() {
     hasPrev,
     hasNext,
     activate,
+    activateLibrary,
     registerSlot,
   } = usePlayback()
 
   const requestedId = Number(params.get('download')) || null
+  const requestedLibraryId = params.get('library')
+
+  const library = useQuery({
+    queryKey: ['library'],
+    queryFn: api.library,
+    enabled: Boolean(requestedLibraryId),
+    staleTime: 30_000,
+  })
+  const libraryEntry =
+    (requestedLibraryId && library.data?.find(entry => entry.id === requestedLibraryId)) || null
+
   const autoDownload =
-    !requestedId && !activeDownload
+    !requestedId && !requestedLibraryId && !activeTrack
       ? (downloads.find(item => item.media.streamPath) ??
         downloads.find(item => item.isStreaming) ??
         null)
@@ -51,30 +66,40 @@ export function PlayerPage() {
   }, [activate, requestedId])
 
   useEffect(() => {
+    if (libraryEntry) activateLibrary(libraryEntry)
+  }, [activateLibrary, libraryEntry])
+
+  useEffect(() => {
     if (autoId) activate(autoId)
   }, [activate, autoId])
 
-  const download = requestedId
-    ? (downloads.find(item => item.id === requestedId) ?? activeDownload)
-    : (activeDownload ?? autoDownload)
+  const requestedDownload = requestedId ? downloads.find(item => item.id === requestedId) : null
+  const track = requestedLibraryId
+    ? activeTrack?.source === 'library' && activeTrack.library?.id === requestedLibraryId
+      ? activeTrack
+      : null
+    : requestedDownload
+      ? downloadTrack(requestedDownload)
+      : (activeTrack ?? (autoDownload ? downloadTrack(autoDownload) : null))
 
-  const streamUrl = download?.media?.streamPath ?? null
-  const kind = fileKind(download?.fileNames[0] ?? download?.label ?? '')
-  const video = download?.media?.kind === 'video'
-  const audio = download?.media?.kind === 'audio'
-  const image = download?.media?.kind === 'image'
+  const download = track?.download ?? null
+  const streamUrl = track?.streamPath ?? null
+  const kind = fileKind(track?.media.filename ?? '')
+  const video = track?.media.kind === 'video'
+  const audio = track?.media.kind === 'audio'
+  const image = track?.media.kind === 'image'
   const previewable = video || audio || image
   const playable = video || audio
-  const queue = download?.queue ?? []
-  const queueIndex = queue.findIndex(item => item.index === (download?.fileIndex ?? 0))
+  const queue = track?.queue ?? []
+  const queueIndex = queue.findIndex(item => item.index === (track?.fileIndex ?? 0))
   const preparing = Boolean(download) && !streamUrl && download?.state !== 'failed'
   const waitingForPeers = Boolean(download) && download?.peers === 0 && download?.speed === 0
   const bufferedAhead = Math.max(
     0,
     ...player.state.buffered.map(range => range.end - player.state.currentTime),
   )
-  const error = Boolean(download) && (player.state.error || download?.state === 'failed')
-  const dockActive = Boolean(download && streamUrl && playable && !error)
+  const error = Boolean(track) && (player.state.error || download?.state === 'failed')
+  const dockActive = Boolean(track && streamUrl && playable && !error)
 
   const goBack = () => {
     const from = (location.state as { from?: string } | null)?.from
@@ -83,7 +108,7 @@ export function PlayerPage() {
       return
     }
     if (window.history.length > 1) navigate(-1)
-    else navigate('/downloads')
+    else navigate(track?.source === 'library' ? '/library' : '/downloads')
   }
 
   const copyStream = async () => {
@@ -113,20 +138,15 @@ export function PlayerPage() {
     }
   }
 
-  if (!download) return <PlayerEmptyState />
+  if (!track) return <PlayerEmptyState />
 
   return (
     <div className="space-y-4">
-      <PlayerHeader
-        download={download}
-        streamUrl={streamUrl}
-        previewable={previewable}
-        onBack={goBack}
-      />
+      <PlayerHeader track={track} streamUrl={streamUrl} previewable={previewable} onBack={goBack} />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <PlayerSlot
-          download={download}
+          track={track}
           kind={kind}
           streamUrl={streamUrl}
           coverUrl={cover?.url ?? null}
@@ -143,7 +163,7 @@ export function PlayerPage() {
         />
 
         <PlayerSidebar
-          download={download}
+          track={track}
           kind={kind}
           video={video}
           audio={audio}

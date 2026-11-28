@@ -1,16 +1,17 @@
 import { Captions, ListVideo, SkipBack, SkipForward, Upload, X } from 'lucide-react'
 import type { ChangeEvent, RefObject } from 'react'
 
-import type { DownloadSnapshot, QueueFile } from '@/types/api'
+import type { QueueFile } from '@/types/api'
 
 import { cn } from '@/lib/cn'
 import { type FileKind, FileTypeIcon, kindLabel } from '@/lib/fileIcons'
-import { formatBytes, formatEta, formatSpeed, formatTime } from '@/lib/format'
+import { formatBytes, formatEta, formatRelative, formatSpeed, formatTime } from '@/lib/format'
 import { subtitleLabel } from '@/lib/subtitles'
 
 import { Button } from '@/components/ui/Button'
 import { ProgressBar } from '@/components/ui/Progress'
 
+import type { PlaybackTrack } from '@/features/player/playbackTrack'
 import type { useMediaPlayer } from '@/features/player/useMediaPlayer'
 import type { useSubtitleTracks } from '@/features/player/useSubtitleTracks'
 
@@ -18,7 +19,7 @@ type Player = ReturnType<typeof useMediaPlayer>
 type Subtitles = ReturnType<typeof useSubtitleTracks>
 
 interface PlayerSidebarProps {
-  download: DownloadSnapshot
+  track: PlaybackTrack
   kind: FileKind
   video: boolean
   audio: boolean
@@ -42,7 +43,7 @@ interface PlayerSidebarProps {
 }
 
 export function PlayerSidebar({
-  download,
+  track,
   kind,
   video,
   audio,
@@ -64,6 +65,7 @@ export function PlayerSidebar({
   subtitleInputRef,
   onLoadSubtitle,
 }: PlayerSidebarProps) {
+  const download = track.download
   return (
     <aside className="space-y-3">
       {queue.length > 1 && (
@@ -112,37 +114,73 @@ export function PlayerSidebar({
         </section>
       )}
 
-      <section className="panel p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
-          Stream health
-        </h2>
-        <div className="mt-3 space-y-3">
-          <Metric label="Progress" value={`${Math.round(download.progress * 100)}%`} />
-          <ProgressBar
-            progress={download.progress}
-            tone={download.state === 'completed' ? 'success' : 'stream'}
-            height={7}
-          />
-          <Metric label="Download" value={formatSpeed(download.speed)} />
-          <Metric label="Peers" value={String(download.peers)} />
-          <Metric
-            label="Downloaded"
-            value={`${formatBytes(download.downloaded)} / ${formatBytes(download.totalSize)}`}
-          />
-          <Metric label="ETA" value={formatEta(download.etaSeconds)} />
-          {playable && player.state.duration > 0 && (
-            <>
-              <Metric
-                label="Played"
-                value={`${formatTime(player.state.currentTime)} / ${formatTime(
-                  player.state.duration,
-                )}`}
-              />
-              <Metric label="Buffered" value={`${formatTime(bufferedAhead)} ahead`} />
-            </>
-          )}
-        </div>
-      </section>
+      {download && (
+        <section className="panel p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+            Stream health
+          </h2>
+          <div className="mt-3 space-y-3">
+            <Metric label="Progress" value={`${Math.round(download.progress * 100)}%`} />
+            <ProgressBar
+              progress={download.progress}
+              tone={download.state === 'completed' ? 'success' : 'stream'}
+              height={7}
+            />
+            <Metric label="Download" value={formatSpeed(download.speed)} />
+            <Metric label="Peers" value={String(download.peers)} />
+            <Metric
+              label="Downloaded"
+              value={`${formatBytes(download.downloaded)} / ${formatBytes(download.totalSize)}`}
+            />
+            <Metric label="ETA" value={formatEta(download.etaSeconds)} />
+            {playable && player.state.duration > 0 && (
+              <>
+                <Metric
+                  label="Played"
+                  value={`${formatTime(player.state.currentTime)} / ${formatTime(
+                    player.state.duration,
+                  )}`}
+                />
+                <Metric label="Buffered" value={`${formatTime(bufferedAhead)} ahead`} />
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {track.library && (
+        <section className="panel p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-strong)]">
+            Local file
+          </h2>
+          <div className="mt-3 space-y-3">
+            <Metric label="Root" value={track.library.root === 'cache' ? 'Cache' : 'Downloads'} />
+            <Metric label="Size" value={formatBytes(track.size)} />
+            <Metric
+              label="Modified"
+              value={
+                track.library.modifiedMs
+                  ? formatRelative(track.library.modifiedMs / 1000)
+                  : 'Unknown'
+              }
+            />
+            {playable && player.state.duration > 0 && (
+              <>
+                <Metric
+                  label="Played"
+                  value={`${formatTime(player.state.currentTime)} / ${formatTime(
+                    player.state.duration,
+                  )}`}
+                />
+                <Metric label="Buffered" value={`${formatTime(bufferedAhead)} ahead`} />
+              </>
+            )}
+          </div>
+          <p className="mt-3 break-all font-mono text-[10px] leading-relaxed text-[var(--muted)]">
+            {track.library.relativePath}
+          </p>
+        </section>
+      )}
 
       {video && (
         <section className="panel p-4">
@@ -165,13 +203,13 @@ export function PlayerSidebar({
             aria-label="Subtitle track"
           >
             <option value="off">Off</option>
-            {subtitles.tracks.map(track => (
+            {subtitles.tracks.map(subtitle => (
               <option
-                key={`${track.external ? 'external' : 'torrent'}:${track.index}`}
-                value={track.name}
+                key={`${subtitle.external ? 'external' : 'torrent'}:${subtitle.index}`}
+                value={subtitle.name}
               >
-                {subtitleLabel(track)}
-                {track.external ? ' · external' : ''}
+                {subtitleLabel(subtitle)}
+                {subtitle.external ? ' · external' : ''}
               </option>
             ))}
           </select>
@@ -266,9 +304,9 @@ export function PlayerSidebar({
             </div>
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
-            Tracks come from this torrent or an external file. SRT/VTT use native tracks; ASS/SSA
+            Tracks come from this file or an external subtitle. SRT/VTT use native tracks; ASS/SSA
             renders through libass. Accepted external formats: SRT, VTT, ASS, SSA. Your track, delay
-            and size are remembered per torrent.
+            and size are remembered per file.
           </p>
         </section>
       )}
@@ -278,11 +316,10 @@ export function PlayerSidebar({
           File
         </h2>
         <p className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] leading-relaxed text-[var(--muted)]">
-          <FileTypeIcon
-            name={download.fileNames[0] ?? download.label}
-            className="mt-0.5 size-4 shrink-0"
-          />
-          <span>{download.fileNames.join(', ')}</span>
+          <FileTypeIcon name={track.media.filename} className="mt-0.5 size-4 shrink-0" />
+          <span>
+            {download?.fileNames.join(', ') ?? track.library?.relativePath ?? track.title}
+          </span>
         </p>
         {streamUrl && (
           <p className="mt-3 break-all font-mono text-[10px] text-[var(--faint)]">{streamUrl}</p>

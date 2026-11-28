@@ -14,7 +14,7 @@ interface SlotRect {
   height: number
 }
 
-const MINI_POSITION_KEY = 'twatch.miniplayer-position'
+const MINI_POSITION_KEY = 'twatch.miniplayer-position:v2'
 
 function hasStoredMiniPosition(): boolean {
   try {
@@ -49,7 +49,7 @@ export function PlayerDock({
   playback: PlaybackContextValue
 }) {
   const {
-    download,
+    track,
     dockActive,
     mode,
     streamUrl,
@@ -81,6 +81,7 @@ export function PlayerDock({
     startY: number
     originX: number
     originY: number
+    moved: boolean
   } | null>(null)
 
   // Keep the default corner in sync with the real viewport. Electron can mount
@@ -119,29 +120,32 @@ export function PlayerDock({
       startY: event.clientY,
       originX: position.x,
       originY: position.y,
+      moved: false,
     }
   }
 
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
-    const next = clampMiniPosition(
-      drag.originX + event.clientX - drag.startX,
-      drag.originY + event.clientY - drag.startY,
-    )
+    const deltaX = event.clientX - drag.startX
+    const deltaY = event.clientY - drag.startY
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) drag.moved = true
+    const next = clampMiniPosition(drag.originX + deltaX, drag.originY + deltaY)
     positionRef.current = next
     setPosition(next)
   }
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return
+    const drag = dragRef.current
+    if (!drag) return
     dragRef.current = null
-    setCustomPosition(true)
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
       // The pointer may already be released.
     }
+    if (!drag.moved) return
+    setCustomPosition(true)
     try {
       window.localStorage.setItem(MINI_POSITION_KEY, JSON.stringify(positionRef.current))
     } catch {
@@ -188,9 +192,15 @@ export function PlayerDock({
     }
   }, [mode, slot])
 
-  if (!download || !dockActive) return null
+  if (!track || !dockActive) return null
 
-  const kind = download.media.kind === 'video' ? 'video' : 'audio'
+  const kind = track.media.kind === 'video' ? 'video' : 'audio'
+  const playerPath =
+    track.source === 'library' && track.library
+      ? `/player?library=${encodeURIComponent(track.library.id)}`
+      : track.download
+        ? `/player?download=${track.download.id}`
+        : '/player'
   const style: CSSProperties =
     mode === 'full'
       ? rect && rect.width > 0
@@ -231,7 +241,7 @@ export function PlayerDock({
       data-player-dock={mode}
     >
       <PlayerStage
-        download={download}
+        track={track}
         kind={kind}
         streamUrl={streamUrl}
         coverUrl={cover?.url}
@@ -249,7 +259,7 @@ export function PlayerDock({
         prefetchThumbnail={prefetchThumbnail}
         compact={mode === 'mini'}
         autoPlay={autoPlay}
-        onExpand={() => navigate(`/player?download=${download.id}`)}
+        onExpand={() => navigate(playerPath)}
         onClose={deactivate}
       />
       {mode === 'mini' && (
