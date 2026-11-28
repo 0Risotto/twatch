@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
+
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'motion/react'
 import {
   Copy,
   Download,
@@ -15,18 +15,25 @@ import {
   Tv,
   X,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+
+import type { LibraryEntry } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { cn } from '@/lib/cn'
+import { formatBytes, formatRelative } from '@/lib/format'
+import { springs } from '@/lib/motion'
+
+import { useAppStore } from '@/store/app'
+
 import { Badge } from '@/components/ui/Badge'
 import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
+
 import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
+
 import { useHlsPlayback } from '@/features/player/useHlsPlayback'
-import { formatBytes, formatRelative } from '@/lib/format'
-import { springs } from '@/lib/motion'
-import { useAppStore } from '@/store/app'
-import type { LibraryEntry } from '@/types/api'
-import { cn } from '@/lib/cn'
 
 type RootFilter = 'all' | 'cache' | 'downloads'
 

@@ -1,10 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { LibraryPage } from './LibraryPage'
-import { api } from '@/lib/api'
-import { mediaForFiles } from '@/test/fixtures'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import type { LibraryEntry } from '@/types/api'
+
+import { api } from '@/lib/api'
+
+import { LibraryPage } from './LibraryPage'
+
+import { mediaForFiles } from '@/test/fixtures'
 
 vi.mock('@/lib/api', () => ({
   api: {

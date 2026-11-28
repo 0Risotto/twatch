@@ -1,10 +1,14 @@
-import { motion } from 'motion/react'
-import { ArrowDownToLine, Clock3, Home, LibraryBig, Play, Search, Settings } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
+
+import { ArrowDownToLine, Clock3, Home, LibraryBig, Play, Search, Settings } from 'lucide-react'
+import { motion } from 'motion/react'
+
 import { cn } from '@/lib/cn'
 import { springs } from '@/lib/motion'
-import { Tooltip } from '@/components/ui/Tooltip'
+
 import { useAppStore } from '@/store/app'
+
+import { Tooltip } from '@/components/ui/Tooltip'
 
 export const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, match: (path: string) => path === '/' },

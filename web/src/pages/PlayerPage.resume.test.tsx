@@ -1,11 +1,17 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { PlayerPage } from './PlayerPage'
-import { PlaybackProvider } from '@/features/player/PlaybackProvider'
-import { useAppStore } from '@/store/app'
-import { withMedia } from '@/test/fixtures'
+
+import { cleanup, render, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import type { DownloadSnapshot } from '@/types/api'
+
+import { useAppStore } from '@/store/app'
+
+import { PlaybackProvider } from '@/features/player/PlaybackProvider'
+
+import { PlayerPage } from './PlayerPage'
+
+import { withMedia } from '@/test/fixtures'
 
 const paused = withMedia({
   id: 9,

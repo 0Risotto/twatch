@@ -1,6 +1,8 @@
 import { Check } from 'lucide-react'
-import { cn } from '@/lib/cn'
+
 import type { ThemeMode } from '@/types/api'
+
+import { cn } from '@/lib/cn'
 
 export function ThemeCard({
   base,

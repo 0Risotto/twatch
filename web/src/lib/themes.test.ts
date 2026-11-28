@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { applyTheme, splitTheme, themeLabel, themeName } from './themes'
 
 describe('theme helpers', () => {

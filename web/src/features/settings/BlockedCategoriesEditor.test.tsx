@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
+
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
 import { BlockedCategoriesEditor } from './BlockedCategoriesEditor'
 
 function Harness() {

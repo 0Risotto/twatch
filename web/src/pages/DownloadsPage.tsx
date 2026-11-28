@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
 import { Link, useNavigate } from 'react-router-dom'
+
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -13,20 +13,26 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+
+import type { DownloadSnapshot } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { cn } from '@/lib/cn'
+import { fileKind, FileTypeIcon, previewLabel } from '@/lib/fileIcons'
+import { formatBytes, formatEta, formatPercent, formatSpeed } from '@/lib/format'
+import { springs } from '@/lib/motion'
+
+import { useAppStore } from '@/store/app'
+
 import { Badge } from '@/components/ui/Badge'
 import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressRing, Sparkline } from '@/components/ui/Progress'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { PageHeader, SectionHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
-import { formatBytes, formatEta, formatPercent, formatSpeed } from '@/lib/format'
-import { fileKind, previewLabel, FileTypeIcon } from '@/lib/fileIcons'
+
 import { CoverArt } from '@/components/CoverArt'
-import { springs } from '@/lib/motion'
-import { useAppStore } from '@/store/app'
-import type { DownloadSnapshot } from '@/types/api'
-import { cn } from '@/lib/cn'
+import { PageHeader, SectionHeader } from '@/components/PageHeader'
 
 type Tab = 'active' | 'completed' | 'failed'
 

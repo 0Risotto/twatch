@@ -1,11 +1,15 @@
 import { AlertTriangle, Copy, Eye, MonitorPlay, Music2, Play } from 'lucide-react'
+
+import type { DownloadSnapshot } from '@/types/api'
+
+import { type FileKind, FileTypeIcon, kindLabel } from '@/lib/fileIcons'
+import { formatEta, formatPercent, formatSpeed } from '@/lib/format'
+
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ProgressBar } from '@/components/ui/Progress'
-import { FileTypeIcon, kindLabel, type FileKind } from '@/lib/fileIcons'
-import { formatEta, formatPercent, formatSpeed } from '@/lib/format'
+
 import type { useMediaPlayer } from '@/features/player/useMediaPlayer'
-import type { DownloadSnapshot } from '@/types/api'
 
 type Player = ReturnType<typeof useMediaPlayer>
 

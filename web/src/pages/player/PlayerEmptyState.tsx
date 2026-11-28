@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom'
+
 import { MonitorPlay, Play } from 'lucide-react'
+
 import { EmptyState } from '@/components/ui/EmptyState'
+
 import { PageHeader } from '@/components/PageHeader'
 
 export function PlayerEmptyState() {

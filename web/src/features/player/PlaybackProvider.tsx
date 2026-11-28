@@ -1,48 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+
+import type { ReactNode } from 'react'
+
+import type { DownloadSnapshot } from '@/types/api'
+
 import { api } from '@/lib/api'
-import { mediaKind } from '@/lib/fileIcons'
 import { useCover } from '@/lib/covers'
+import { mediaKind } from '@/lib/fileIcons'
+
 import { useAppStore } from '@/store/app'
-import type { CoverInfo, DownloadSnapshot } from '@/types/api'
+
+import type { PlaybackContextValue } from './playbackContext'
+import { PlaybackContext } from './playbackContext'
 import { PlayerDock } from './PlayerDock'
+import { useExternalSubtitle } from './useExternalSubtitle'
 import { useMediaPlayer } from './useMediaPlayer'
 import { usePlayerShortcuts } from './usePlayerShortcuts'
-import { useExternalSubtitle } from './useExternalSubtitle'
 import { useSubtitleTracks } from './useSubtitleTracks'
-import type { ExternalSubtitle } from './useSubtitleTracks'
 import { useThumbnails } from './useThumbnails'
-
-type MediaPlayer = ReturnType<typeof useMediaPlayer>
-type Subtitles = ReturnType<typeof useSubtitleTracks>
-
-export interface PlaybackContextValue {
-  download: DownloadSnapshot | null
-  cover: CoverInfo | null
-  player: MediaPlayer
-  subtitles: Subtitles
-  mediaRef: RefObject<HTMLMediaElement | null>
-  containerRef: RefObject<HTMLDivElement | null>
-  subtitleCanvasRef: RefObject<HTMLCanvasElement | null>
-  getThumbnail: (time: number) => Promise<string | null>
-  getCachedThumbnail: (time: number) => string | null
-  prefetchThumbnail: (time: number) => void
-  hasPrev: boolean
-  hasNext: boolean
-  playPrev: () => void
-  playNext: () => void
-  switchTo: (index: number) => void
-  activate: (id: number | null) => void
-  deactivate: () => void
-  registerSlot: (node: HTMLDivElement | null) => void
-  mode: 'full' | 'mini'
-  streamUrl: string | null
-  dockActive: boolean
-  autoPlay: boolean
-  externalSubtitle: ExternalSubtitle | null
-  setExternalSubtitle: (subtitle: ExternalSubtitle | null) => void
-}
 
 const ACTIVE_DOWNLOAD_KEY = 'twatch.active-download'
 
@@ -70,14 +46,6 @@ function forgetActiveDownload(): void {
   } catch {
     // Best-effort persistence.
   }
-}
-
-const PlaybackContext = createContext<PlaybackContextValue | null>(null)
-
-export function usePlayback(): PlaybackContextValue {
-  const context = useContext(PlaybackContext)
-  if (!context) throw new Error('usePlayback must be used inside PlaybackProvider')
-  return context
 }
 
 export function PlaybackProvider({ children }: { children: ReactNode }) {

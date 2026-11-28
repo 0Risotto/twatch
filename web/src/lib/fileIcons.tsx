@@ -12,12 +12,13 @@ import {
   FileText,
   FileType2,
   Gamepad2,
+  type LucideProps,
   Music2,
   Package,
   Presentation,
   Tv,
-  type LucideProps,
 } from 'lucide-react'
+
 import { cn } from '@/lib/cn'
 
 export type FileKind =

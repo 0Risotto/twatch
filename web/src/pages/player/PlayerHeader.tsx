@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom'
+
 import { ArrowLeft, Eye } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/PageHeader'
-import { formatBytes } from '@/lib/format'
+
 import type { DownloadSnapshot } from '@/types/api'
+
+import { formatBytes } from '@/lib/format'
+
+import { Button } from '@/components/ui/Button'
+
+import { PageHeader } from '@/components/PageHeader'
 
 interface PlayerHeaderProps {
   download: DownloadSnapshot

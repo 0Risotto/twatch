@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
+
+import type { WsFrame } from '@/types/api'
+
 import { api } from '@/lib/api'
 import { applyTheme, isKnownTheme } from '@/lib/themes'
+
 import { useAppStore } from '@/store/app'
-import type { WsFrame } from '@/types/api'
 
 const MAX_RETRY_MS = 5000
 

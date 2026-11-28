@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import * as Dialog from '@radix-ui/react-dialog'
 import { useNavigate } from 'react-router-dom'
+
+import * as Dialog from '@radix-ui/react-dialog'
 import {
   ArrowDownToLine,
   Clock3,
@@ -13,9 +13,12 @@ import {
   Search,
   Settings,
 } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+
 import { cn } from '@/lib/cn'
 import { fade, modalPanel } from '@/lib/motion'
 import { commandKeyLabel } from '@/lib/platform'
+
 import { useUiStore } from '@/store/ui'
 
 interface Action {

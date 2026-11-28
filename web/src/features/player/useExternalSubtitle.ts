@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ExternalSubtitle } from './useSubtitleTracks'
+
 import type { DownloadSnapshot, ToastLevel } from '@/types/api'
+
+import type { ExternalSubtitle } from './useSubtitleTracks'
 
 const EXTERNAL_SUBTITLE_PREFIX = 'twatch.external-subtitle:'
 

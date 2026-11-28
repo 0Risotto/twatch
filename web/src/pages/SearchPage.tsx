@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { motion } from 'motion/react'
+
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowDown,
   HardDrive,
@@ -12,21 +12,28 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+
+import type { SearchResult } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { cn } from '@/lib/cn'
+import { formatBytes, magnetFor } from '@/lib/format'
+import { riseItem, stagger } from '@/lib/motion'
+import { useDebounced } from '@/lib/useDebounced'
+
+import { useAppStore } from '@/store/app'
+
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonRows } from '@/components/ui/Skeleton'
-import { PageHeader } from '@/components/PageHeader'
-import { PreviewDialog, type PreviewTarget } from '@/components/PreviewDialog'
-import { api } from '@/lib/api'
-import { formatBytes, magnetFor } from '@/lib/format'
+
 import { CoverArt } from '@/components/CoverArt'
 import { CoverBackdrop } from '@/components/CoverBackdrop'
-import { riseItem, stagger } from '@/lib/motion'
-import { useDebounced } from '@/lib/useDebounced'
-import { useAppStore } from '@/store/app'
-import { cn } from '@/lib/cn'
-import type { SearchResult } from '@/types/api'
+import { PageHeader } from '@/components/PageHeader'
+
+import { PreviewDialog, type PreviewTarget } from '@/features/torrent/PreviewDialog'
 
 type Sort = 'seeders' | 'size'
 

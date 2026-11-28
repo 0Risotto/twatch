@@ -1,21 +1,27 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'motion/react'
+
+import { useQuery } from '@tanstack/react-query'
 import { ArrowUpRight, Clock3, Download, Pencil, Play, Search, Trash2 } from 'lucide-react'
+import { motion } from 'motion/react'
+
+import type { HistoryEntry, PlaybackProgress } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { displayName, formatDate, formatRelative, formatTime } from '@/lib/format'
+import { riseItem, stagger } from '@/lib/motion'
+
+import { useAppStore } from '@/store/app'
+
 import { Badge } from '@/components/ui/Badge'
 import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { ProgressBar } from '@/components/ui/Progress'
 import { SkeletonRows } from '@/components/ui/Skeleton'
-import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
-import { displayName, formatDate, formatRelative, formatTime } from '@/lib/format'
+
 import { CoverArt } from '@/components/CoverArt'
-import { riseItem, stagger } from '@/lib/motion'
-import { useAppStore } from '@/store/app'
-import type { HistoryEntry, PlaybackProgress } from '@/types/api'
+import { PageHeader } from '@/components/PageHeader'
 
 interface ResumePoint {
   name: string

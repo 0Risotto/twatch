@@ -1,5 +1,5 @@
+import { type ConsoleMessage, expect, type Page, test } from '@playwright/test'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
 
 const TOKEN = 'e2e-token'
 

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+
 import JASSUB from 'jassub'
-import workerUrl from 'jassub/dist/jassub-worker.js?url'
-import wasmUrl from 'jassub/dist/jassub-worker.wasm?url'
-import legacyWasmUrl from 'jassub/dist/jassub-worker.wasm.js?url'
-import modernWasmUrl from 'jassub/dist/jassub-worker-modern.wasm?url'
 import defaultFontUrl from 'jassub/dist/default.woff2?url'
+import workerUrl from 'jassub/dist/jassub-worker.js?url'
+import legacyWasmUrl from 'jassub/dist/jassub-worker.wasm.js?url'
+import wasmUrl from 'jassub/dist/jassub-worker.wasm?url'
+import modernWasmUrl from 'jassub/dist/jassub-worker-modern.wasm?url'
+import type { RefObject } from 'react'
+
+import type { DownloadSnapshot, SubtitleTrack } from '@/types/api'
+
 import {
   matchingSubtitles,
   rawSubtitleUrl,
@@ -15,7 +19,6 @@ import {
   subtitleToVtt,
   subtitleUrl,
 } from '@/lib/subtitles'
-import type { DownloadSnapshot, SubtitleTrack } from '@/types/api'
 
 export type SubtitleSize = 'sm' | 'md' | 'lg'
 

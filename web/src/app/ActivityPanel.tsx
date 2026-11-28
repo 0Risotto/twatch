@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom'
+
 import { ArrowDownToLine, ArrowUpRight, Radio, Server } from 'lucide-react'
+
+import { formatBytes, formatEta, formatSpeed } from '@/lib/format'
+
+import { useAppStore } from '@/store/app'
+
 import { ProgressBar } from '@/components/ui/Progress'
 import { StatusDot } from '@/components/ui/StatusDot'
-import { formatBytes, formatEta, formatSpeed } from '@/lib/format'
+
 import { CoverArt } from '@/components/CoverArt'
-import { useAppStore } from '@/store/app'
 
 export function ActivityPanel() {
   const downloads = useAppStore(state => state.downloads)

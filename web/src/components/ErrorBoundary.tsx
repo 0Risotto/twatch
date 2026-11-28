@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+
 import { AlertTriangle, Home, RotateCcw } from 'lucide-react'
 
 interface Props {

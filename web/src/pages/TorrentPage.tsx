@@ -1,21 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'motion/react'
+
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Download, Eye, Play, Search, Trash2, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+
+import type { DownloadSnapshot, FileSnapshot } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { cn } from '@/lib/cn'
+import { canPreview, fileKind, previewLabel } from '@/lib/fileIcons'
+import { formatBytes, pluralize } from '@/lib/format'
+
+import { useAppStore } from '@/store/app'
+
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
-import { PageHeader } from '@/components/PageHeader'
-import { api } from '@/lib/api'
-import { formatBytes, pluralize } from '@/lib/format'
-import { cn } from '@/lib/cn'
-import { useAppStore } from '@/store/app'
-import type { DownloadSnapshot, FileSnapshot } from '@/types/api'
-import { allFolderPaths, buildTreeRows, type FolderInfo } from '@/features/torrent/tree'
-import { canPreview, fileKind, previewLabel } from '@/lib/fileIcons'
-import { Checkbox, TreeRowView } from '@/features/torrent/FileTree'
+
 import { CoverArt } from '@/components/CoverArt'
+import { PageHeader } from '@/components/PageHeader'
+
+import { Checkbox, TreeRowView } from '@/features/torrent/FileTree'
+import { allFolderPaths, buildTreeRows, type FolderInfo } from '@/features/torrent/tree'
 
 export function TorrentPage() {
   const session = useAppStore(state => state.session)

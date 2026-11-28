@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { useUiStore } from '@/store/ui'
 
 function isTyping(target: EventTarget | null): boolean {

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAppStore } from './app'
-import { withMedia } from '@/test/fixtures'
+
 import type { DownloadSnapshot, FileSnapshot, SessionSnapshot } from '@/types/api'
+
+import { useAppStore } from './app'
+
+import { withMedia } from '@/test/fixtures'
 
 function file(index: number, name: string): FileSnapshot {
   return {

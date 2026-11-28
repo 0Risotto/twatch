@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+
 import { motion, useSpring, useTransform } from 'motion/react'
+
 import { cn } from '@/lib/cn'
 
 interface ProgressBarProps {

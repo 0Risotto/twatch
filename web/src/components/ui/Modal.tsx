@@ -1,8 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+
 import { cn } from '@/lib/cn'
 import { fade, modalPanel } from '@/lib/motion'
+
 import { IconButton } from './Button'
 
 interface ModalProps {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'motion/react'
+
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -12,16 +12,22 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+
+import { api } from '@/lib/api'
+import { displayName, formatBytes, formatRelative, isTorrentInput, pluralize } from '@/lib/format'
+import { riseItem, stagger } from '@/lib/motion'
+
+import { useAppStore } from '@/store/app'
+
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRows } from '@/components/ui/Skeleton'
-import { PageHeader, SectionHeader } from '@/components/PageHeader'
-import { PreviewDialog, type PreviewTarget } from '@/components/PreviewDialog'
-import { api } from '@/lib/api'
-import { displayName, formatBytes, formatRelative, isTorrentInput, pluralize } from '@/lib/format'
+
 import { CoverArt } from '@/components/CoverArt'
-import { riseItem, stagger } from '@/lib/motion'
-import { useAppStore } from '@/store/app'
+import { PageHeader, SectionHeader } from '@/components/PageHeader'
+
+import { PreviewDialog, type PreviewTarget } from '@/features/torrent/PreviewDialog'
 
 export function HomePage() {
   const navigate = useNavigate()

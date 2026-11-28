@@ -1,9 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { TorrentPage } from './TorrentPage'
-import { useAppStore } from '@/store/app'
+
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+
 import type { FileSnapshot, SessionSnapshot } from '@/types/api'
+
+import { useAppStore } from '@/store/app'
+
+import { TorrentPage } from './TorrentPage'
 
 function file(index: number, name: string, selected = false): FileSnapshot {
   return {

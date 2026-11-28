@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
 import type { DownloadSnapshot } from '@/types/api'
 
 const mockState = vi.hoisted(() => {
@@ -43,8 +44,9 @@ vi.mock('jassub/dist/jassub-worker-modern.wasm?url', () => ({
 }))
 vi.mock('jassub/dist/default.woff2?url', () => ({ default: '/assets/default.woff2' }))
 
-import { withMedia } from '@/test/fixtures'
 import { useSubtitleTracks } from './useSubtitleTracks'
+
+import { withMedia } from '@/test/fixtures'
 
 const download: DownloadSnapshot = withMedia({
   id: 1,

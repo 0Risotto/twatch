@@ -1,12 +1,16 @@
-import { AnimatePresence, motion } from 'motion/react'
 import { Outlet, useLocation } from 'react-router-dom'
+
+import { AnimatePresence, motion } from 'motion/react'
+
 import { pageVariants } from '@/lib/motion'
-import { NavRail, MobileNav } from './NavRail'
-import { TopBar } from './TopBar'
+
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+
 import { ActivityPanel } from './ActivityPanel'
 import { CommandPalette } from './CommandPalette'
+import { MobileNav, NavRail } from './NavRail'
 import { ShortcutsHelp } from './ShortcutsHelp'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { TopBar } from './TopBar'
 import { useGlobalShortcuts } from './useGlobalShortcuts'
 
 export function Shell() {

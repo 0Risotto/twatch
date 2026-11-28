@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
+
 import { Compass, Home } from 'lucide-react'
+
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export function NotFoundPage() {

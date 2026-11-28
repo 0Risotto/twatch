@@ -1,10 +1,14 @@
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+
 import { Command, Plus, Search } from 'lucide-react'
-import { Button, IconButton } from '@/components/ui/Button'
+
+import { commandKeyLabel } from '@/lib/platform'
+
 import { useAppStore } from '@/store/app'
 import { useUiStore } from '@/store/ui'
-import { commandKeyLabel } from '@/lib/platform'
+
+import { Button, IconButton } from '@/components/ui/Button'
 
 const titles: Record<string, string> = {
   '/': 'Home',

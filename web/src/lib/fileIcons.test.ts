@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { canPreview, extensionOf, fileKind, mediaKind, previewLabel } from './fileIcons'
 
 describe('file icons', () => {

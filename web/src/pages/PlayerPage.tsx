@@ -1,9 +1,14 @@
 import { useEffect, useRef } from 'react'
-import type { ChangeEvent as ReactChangeEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { usePlayback } from '@/features/player/PlaybackProvider'
+
+import type { ChangeEvent as ReactChangeEvent } from 'react'
+
 import { fileKind } from '@/lib/fileIcons'
+
 import { useAppStore } from '@/store/app'
+
+import { usePlayback } from '@/features/player/playbackContext'
+
 import { PlayerEmptyState } from './player/PlayerEmptyState'
 import { PlayerHeader } from './player/PlayerHeader'
 import { PlayerSidebar } from './player/PlayerSidebar'

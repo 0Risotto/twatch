@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import prettier from 'eslint-config-prettier'
 import reactHooks from 'eslint-plugin-react-hooks'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
@@ -16,7 +17,7 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.es2022 },
     },
-    plugins: { 'react-hooks': reactHooks },
+    plugins: { 'react-hooks': reactHooks, 'simple-import-sort': simpleImportSort },
     rules: {
       ...reactHooks.configs.recommended.rules,
       // These compiler-oriented rules require larger hook rewrites. The web
@@ -24,6 +25,26 @@ export default tseslint.config(
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/refs': 'off',
       'react-hooks/incompatible-library': 'off',
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [
+            ['^react$', '^react-dom', '^react-router'],
+            ['^@?\\w'],
+            ['^@/types(/.*)?$'],
+            ['^@/lib(/.*)?$'],
+            ['^@/store(/.*)?$'],
+            ['^@/components/ui(/.*)?$'],
+            ['^@/components(/.*)?$'],
+            ['^@/features(/.*)?$'],
+            ['^@/pages(/.*)?$'],
+            ['^@/app(/.*)?$'],
+            ['^\\.'],
+            ['^\\u0000'],
+          ],
+        },
+      ],
+      'simple-import-sort/exports': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -38,6 +59,10 @@ export default tseslint.config(
   {
     files: ['public/**/*.js'],
     languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    files: ['*.cjs'],
+    languageOptions: { globals: { ...globals.node } },
   },
   prettier,
 )

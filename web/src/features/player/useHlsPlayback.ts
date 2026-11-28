@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { RefObject } from 'react'
+
 import Hls from 'hls.js'
+import type { RefObject } from 'react'
 
 /**
  * Attach an HLS source to a media element when the browser cannot play it

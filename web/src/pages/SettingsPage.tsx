@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
+
+import { useQuery } from '@tanstack/react-query'
 import {
   Database,
   ExternalLink,
@@ -11,19 +12,25 @@ import {
   Server,
   Sparkles,
 } from 'lucide-react'
+
+import type { FieldMap, SearchConfig, ThemeMode } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { applyTheme, splitTheme, THEME_BASES, themeLabel, themeName } from '@/lib/themes'
+
+import { useAppStore } from '@/store/app'
+import { type MotionPreference, useUiStore } from '@/store/ui'
+
 import { Button } from '@/components/ui/Button'
 import { Field, Label, TextInput } from '@/components/ui/Field'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { SkeletonRows } from '@/components/ui/Skeleton'
+
 import { PageHeader } from '@/components/PageHeader'
+
 import { BlockedCategoriesEditor } from '@/features/settings/BlockedCategoriesEditor'
 import { SettingsSection } from '@/features/settings/SettingsSection'
 import { ThemeCard } from '@/features/settings/ThemeCard'
-import { api } from '@/lib/api'
-import { applyTheme, splitTheme, themeLabel, themeName, THEME_BASES } from '@/lib/themes'
-import { useAppStore } from '@/store/app'
-import { useUiStore, type MotionPreference } from '@/store/ui'
-import type { FieldMap, SearchConfig, ThemeMode } from '@/types/api'
 
 const defaultFieldMap: FieldMap = {
   name: 'name',

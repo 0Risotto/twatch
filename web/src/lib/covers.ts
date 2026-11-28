@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+
+import type { CoverInfo } from '@/types/api'
+
 import { api } from './api'
 import { mediaKind } from './fileIcons'
-import type { CoverInfo } from '@/types/api'
 
 const cache = new Map<string, CoverInfo | null>()
 const listeners = new Map<string, Set<() => void>>()

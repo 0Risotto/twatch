@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+
 import { useInView } from 'motion/react'
+
 import { cn } from '@/lib/cn'
-import { FileTypeIcon, MediaIcon } from '@/lib/fileIcons'
 import { useCover } from '@/lib/covers'
+import { FileTypeIcon, MediaIcon } from '@/lib/fileIcons'
 
 interface CoverArtProps {
   title: string

@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
+import type { ReactNode } from 'react'
+
 import { cn } from '@/lib/cn'
 import { fade } from '@/lib/motion'
 

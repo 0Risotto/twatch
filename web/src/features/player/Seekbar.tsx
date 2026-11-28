@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+
 import { Loader2 } from 'lucide-react'
-import { formatTime } from '@/lib/format'
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+
 import { cn } from '@/lib/cn'
+import { formatTime } from '@/lib/format'
+
 import type { BufferedRange } from './useMediaPlayer'
 
 interface SeekbarProps {

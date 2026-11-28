@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
+
+import type { PlaybackContextValue } from './playbackContext'
 import { PlayerStage } from './PlayerStage'
-import type { PlaybackContextValue } from './PlaybackProvider'
 
 interface SlotRect {
   top: number

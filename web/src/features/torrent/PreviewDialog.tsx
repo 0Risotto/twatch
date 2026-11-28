@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Eye, Play, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+
+import { ArrowRight, Eye, Play, RefreshCw, TriangleAlert } from 'lucide-react'
+
+import type { FileSnapshot, SessionSnapshot } from '@/types/api'
+
+import { api } from '@/lib/api'
+import { canPreview, fileKind, FileTypeIcon, isAudio, isImage, MediaIcon } from '@/lib/fileIcons'
+import { formatBytes, pluralize } from '@/lib/format'
+
+import { useAppStore } from '@/store/app'
+
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { SkeletonRows } from '@/components/ui/Skeleton'
+
 import { CoverArt } from '@/components/CoverArt'
-import { FileTypeIcon, MediaIcon, canPreview, fileKind, isAudio, isImage } from '@/lib/fileIcons'
-import { api } from '@/lib/api'
-import { formatBytes, pluralize } from '@/lib/format'
-import { useAppStore } from '@/store/app'
-import type { FileSnapshot, SessionSnapshot } from '@/types/api'
 
 export interface PreviewTarget {
   url: string

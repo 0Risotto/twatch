@@ -1,5 +1,7 @@
 import { forwardRef } from 'react'
+
 import * as SwitchPrimitive from '@radix-ui/react-switch'
+
 import { cn } from '@/lib/cn'
 
 export function Label({ children, className }: { children: React.ReactNode; className?: string }) {

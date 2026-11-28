@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { allFolderPaths, buildTreeRows } from './tree'
+
 import type { FileSnapshot } from '@/types/api'
+
+import { allFolderPaths, buildTreeRows } from './tree'
 
 function file(index: number, name: string, selected = false): FileSnapshot {
   return {

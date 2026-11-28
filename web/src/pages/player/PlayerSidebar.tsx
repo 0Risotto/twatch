@@ -1,14 +1,18 @@
-import type { ChangeEvent, RefObject } from 'react'
 import { Captions, ListVideo, SkipBack, SkipForward, Upload, X } from 'lucide-react'
+import type { ChangeEvent, RefObject } from 'react'
+
+import type { DownloadSnapshot, QueueFile } from '@/types/api'
+
+import { cn } from '@/lib/cn'
+import { type FileKind, FileTypeIcon, kindLabel } from '@/lib/fileIcons'
+import { formatBytes, formatEta, formatSpeed, formatTime } from '@/lib/format'
+import { subtitleLabel } from '@/lib/subtitles'
+
 import { Button } from '@/components/ui/Button'
 import { ProgressBar } from '@/components/ui/Progress'
-import { formatBytes, formatEta, formatSpeed, formatTime } from '@/lib/format'
-import { FileTypeIcon, kindLabel, type FileKind } from '@/lib/fileIcons'
-import { subtitleLabel } from '@/lib/subtitles'
-import { cn } from '@/lib/cn'
+
 import type { useMediaPlayer } from '@/features/player/useMediaPlayer'
 import type { useSubtitleTracks } from '@/features/player/useSubtitleTracks'
-import type { DownloadSnapshot, QueueFile } from '@/types/api'
 
 type Player = ReturnType<typeof useMediaPlayer>
 type Subtitles = ReturnType<typeof useSubtitleTracks>

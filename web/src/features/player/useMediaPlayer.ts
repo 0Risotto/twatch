@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import type { RefObject } from 'react'
+
+import type { DownloadSnapshot } from '@/types/api'
+
 import { api } from '@/lib/api'
 import { formatTime } from '@/lib/format'
+
 import { useAppStore } from '@/store/app'
-import type { DownloadSnapshot } from '@/types/api'
 
 export interface BufferedRange {
   start: number

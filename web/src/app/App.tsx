@@ -1,21 +1,27 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
-import { TooltipProvider } from '@/components/ui/Tooltip'
-import { ToastViewport } from '@/components/ui/Toast'
-import { PlaybackProvider } from '@/features/player/PlaybackProvider'
+
 import { useUiStore } from '@/store/ui'
-import { Shell } from './Shell'
-import { useLive, useThemeSync } from './useLive'
+
+import { TooltipProvider } from '@/components/ui/Tooltip'
+
+import { PlaybackProvider } from '@/features/player/PlaybackProvider'
+
+import { DownloadsPage } from '@/pages/DownloadsPage'
+import { HistoryPage } from '@/pages/HistoryPage'
 import { HomePage } from '@/pages/HomePage'
 import { LibraryPage } from '@/pages/LibraryPage'
-import { SearchPage } from '@/pages/SearchPage'
-import { TorrentPage } from '@/pages/TorrentPage'
-import { DownloadsPage } from '@/pages/DownloadsPage'
-import { PlayerPage } from '@/pages/PlayerPage'
-import { HistoryPage } from '@/pages/HistoryPage'
-import { SettingsPage } from '@/pages/SettingsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { PlayerPage } from '@/pages/PlayerPage'
+import { SearchPage } from '@/pages/SearchPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { TorrentPage } from '@/pages/TorrentPage'
+
+import { Shell } from './Shell'
+import { ToastViewport } from './ToastViewport'
+import { useLive, useThemeSync } from './useLive'
 
 const queryClient = new QueryClient({
   defaultOptions: {

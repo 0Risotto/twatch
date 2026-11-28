@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+
 import {
   Captions,
   CaptionsOff,
@@ -15,13 +16,16 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
+
+import type { SubtitleTrack } from '@/types/api'
+
+import { cn } from '@/lib/cn'
 import { formatPlaybackTimes, formatTime } from '@/lib/format'
 import { subtitleLabel } from '@/lib/subtitles'
-import { cn } from '@/lib/cn'
+
 import { Seekbar } from './Seekbar'
-import type { SubtitleSize } from './useSubtitleTracks'
 import type { BufferedRange, MediaPlayerState } from './useMediaPlayer'
-import type { SubtitleTrack } from '@/types/api'
+import type { SubtitleSize } from './useSubtitleTracks'
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 

@@ -1,9 +1,13 @@
 import { useEffect } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react'
-import { useAppStore } from '@/store/app'
-import { springs } from '@/lib/motion'
+import { AnimatePresence, motion } from 'motion/react'
+
 import type { ToastItem, ToastLevel } from '@/types/api'
+
+import { springs } from '@/lib/motion'
+
+import { useAppStore } from '@/store/app'
 
 const icons: Record<ToastLevel, typeof Info> = {
   info: Info,

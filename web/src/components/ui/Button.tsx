@@ -1,5 +1,6 @@
-import { motion, type HTMLMotionProps } from 'motion/react'
 import { Loader2 } from 'lucide-react'
+import { type HTMLMotionProps, motion } from 'motion/react'
+
 import { cn } from '@/lib/cn'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'glass'

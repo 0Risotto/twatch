@@ -1,5 +1,6 @@
-import { Modal } from '@/components/ui/Modal'
 import { useUiStore } from '@/store/ui'
+
+import { Modal } from '@/components/ui/Modal'
 
 const shortcuts: Array<[string, string]> = [
   ['⌘K / Ctrl K', 'Command palette'],

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+
 import { useInView } from 'motion/react'
-import { MediaIcon } from '@/lib/fileIcons'
-import { useCover } from '@/lib/covers'
+
 import { cn } from '@/lib/cn'
+import { useCover } from '@/lib/covers'
+import { MediaIcon } from '@/lib/fileIcons'
 
 interface CoverBackdropProps {
   title: string

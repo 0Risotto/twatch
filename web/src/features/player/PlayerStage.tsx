@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+
 import { Loader2, Maximize2, Pause, Play, TriangleAlert, X } from 'lucide-react'
-import { formatPlaybackTimes } from '@/lib/format'
+import type { RefObject } from 'react'
+
+import type { DownloadSnapshot } from '@/types/api'
+
 import { cn } from '@/lib/cn'
+import { formatPlaybackTimes } from '@/lib/format'
+
 import { PlayerControls } from './PlayerControls'
 import { useHlsPlayback } from './useHlsPlayback'
 import type { useMediaPlayer } from './useMediaPlayer'
 import type { useSubtitleTracks } from './useSubtitleTracks'
-import type { DownloadSnapshot } from '@/types/api'
 
 type Player = ReturnType<typeof useMediaPlayer>
 type Subtitles = ReturnType<typeof useSubtitleTracks>

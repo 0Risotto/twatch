@@ -9,13 +9,17 @@ import {
   Pencil,
   Play,
 } from 'lucide-react'
+
+import type { FileSnapshot } from '@/types/api'
+
+import { cn } from '@/lib/cn'
+import { canPreview, fileKind, FileTypeIcon, previewLabel } from '@/lib/fileIcons'
+import { formatBytes } from '@/lib/format'
+
 import { Badge } from '@/components/ui/Badge'
 import { IconButton } from '@/components/ui/Button'
+
 import type { FolderInfo, TreeRow } from '@/features/torrent/tree'
-import { cn } from '@/lib/cn'
-import { formatBytes } from '@/lib/format'
-import { canPreview, fileKind, previewLabel, FileTypeIcon } from '@/lib/fileIcons'
-import type { FileSnapshot } from '@/types/api'
 
 export function Checkbox({
   checked,
