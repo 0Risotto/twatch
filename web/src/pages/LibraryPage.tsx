@@ -12,6 +12,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  Trash2,
   Tv,
 } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -26,17 +27,28 @@ import { springs } from '@/lib/motion'
 import { useAppStore } from '@/store/app'
 
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Modal } from '@/components/ui/Modal'
 import { SkeletonRows } from '@/components/ui/Skeleton'
 
 import { PageHeader } from '@/components/PageHeader'
+
+import { usePlayback } from '@/features/player/playbackContext'
 
 type RootFilter = 'all' | 'cache' | 'downloads'
 
 const ROOT_LABEL = { cache: 'Cache', downloads: 'Downloads' } as const
 
-function LibraryRow({ entry, onPlay }: { entry: LibraryEntry; onPlay: () => void }) {
+function LibraryRow({
+  entry,
+  onPlay,
+  onDelete,
+}: {
+  entry: LibraryEntry
+  onPlay: () => void
+  onDelete: () => void
+}) {
   return (
     <motion.article layout transition={springs.smooth} className="panel overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 p-3.5 sm:flex-nowrap">
@@ -84,6 +96,9 @@ function LibraryRow({ entry, onPlay }: { entry: LibraryEntry; onPlay: () => void
             <Play className="size-3.5" />
             Play
           </Button>
+          <IconButton label={`Delete ${entry.name}`} variant="danger" size="sm" onClick={onDelete}>
+            <Trash2 className="size-3.5" />
+          </IconButton>
         </div>
       </div>
     </motion.article>
@@ -97,10 +112,13 @@ function FilmIcon({ entry }: { entry: LibraryEntry }) {
 export function LibraryPage() {
   const navigate = useNavigate()
   const addToast = useAppStore(state => state.addToast)
+  const { track, deactivate } = usePlayback()
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [root, setRoot] = useState<RootFilter>('all')
   const [scanning, setScanning] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<LibraryEntry | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const library = useQuery({ queryKey: ['library'], queryFn: api.library, staleTime: 30_000 })
 
   const entries = useMemo(() => library.data ?? [], [library.data])
@@ -130,6 +148,28 @@ export function LibraryPage() {
       addToast('error', error instanceof Error ? error.message : 'Could not scan the library')
     } finally {
       setScanning(false)
+    }
+  }
+
+  const remove = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const report = await api.deleteLibraryFile(deleteTarget.id)
+      queryClient.setQueryData<LibraryEntry[]>(['library'], current =>
+        (current ?? []).filter(entry => entry.id !== deleteTarget.id),
+      )
+      if (track?.source === 'library' && track.library?.id === deleteTarget.id) deactivate()
+      setDeleteTarget(null)
+      if (report.failed.length > 0) {
+        addToast('warning', `Deleted ${report.deleted}; ${report.failed.length} failed`)
+      } else {
+        addToast('success', 'File deleted')
+      }
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Could not delete that file')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -243,6 +283,7 @@ export function LibraryPage() {
                   state: { from: '/library' },
                 })
               }
+              onDelete={() => setDeleteTarget(entry)}
             />
           ))}
         </div>
@@ -254,6 +295,28 @@ export function LibraryPage() {
           Scanning the cache and downloads folder…
         </p>
       )}
+
+      <Modal
+        open={deleteTarget !== null}
+        onOpenChange={open => {
+          if (!open) setDeleteTarget(null)
+        }}
+        title="Delete this file?"
+        description="This removes the file from disk. It cannot be undone."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={() => void remove()}>
+              <Trash2 className="size-4" />
+              Delete file
+            </Button>
+          </>
+        }
+      >
+        <p className="break-all font-mono text-xs text-[var(--fg)]">{deleteTarget?.relativePath}</p>
+      </Modal>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { type ConsoleMessage, expect, type Page, test } from '@playwright/test'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, rm, writeFile } from 'node:fs/promises'
 
 const TOKEN = 'e2e-token'
 
@@ -94,6 +94,36 @@ test('indexes files from the local cache', async ({ page, isMobile }) => {
   await expect(page.getByText('Nothing matches that filter')).toBeVisible()
 
   await rm(`${cache}/Library.Sample.mp4`, { force: true })
+})
+
+test('deletes a file from the local library', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'library deletion is covered in the desktop project')
+  const cache = '/tmp/twatch-playwright/cache/twatch/session'
+  const path = `${cache}/Delete.Sample.mp4`
+  await mkdir(cache, { recursive: true })
+  await writeFile(path, 'sample media')
+
+  await page.goto('/library')
+  await page.getByRole('button', { name: /rescan/i }).click()
+  await page.getByLabel('Filter local library').fill('delete.sample')
+  await expect(page.getByText('Delete.Sample.mp4').first()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Delete Delete.Sample.mp4' }).click()
+  await expect(page.getByRole('heading', { name: 'Delete this file?' })).toBeVisible()
+  await page.getByRole('button', { name: 'Delete file' }).click()
+
+  await expect(page.getByText('Delete.Sample.mp4')).toHaveCount(0)
+  await expect
+    .poll(async () => {
+      try {
+        await access(path)
+        return true
+      } catch {
+        return false
+      }
+    })
+    .toBe(false)
+  await rm(path, { force: true })
 })
 
 test('persists the selected theme', async ({ page, isMobile }) => {

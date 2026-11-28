@@ -2,6 +2,7 @@ import type {
   BootstrapSnapshot,
   ConfigView,
   CoverInfo,
+  DeleteReport,
   DownloadSnapshot,
   HistoryEntry,
   LibraryEntry,
@@ -89,6 +90,7 @@ export const api = {
 
   library: () => request<LibraryEntry[]>('/api/library'),
   rescanLibrary: () => post<LibraryEntry[]>('/api/library/rescan'),
+  deleteLibraryFile: (id: string) => del<DeleteReport>(`/api/library/${encodeURIComponent(id)}`),
 
   search: (q: string, page = 0) =>
     request<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}&page=${page}`),

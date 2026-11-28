@@ -45,6 +45,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/downloads/{id}", delete(routes::remove_download))
         .route("/api/library", get(routes::library))
         .route("/api/library/rescan", post(routes::rescan_library))
+        .route("/api/library/{id}", delete(routes::delete_library))
         .route("/api/search", get(routes::search))
         .route("/api/search/config", get(routes::get_search_config))
         .route("/api/search/config", put(routes::put_search_config))

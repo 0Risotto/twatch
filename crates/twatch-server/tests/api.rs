@@ -432,6 +432,7 @@ async fn library_lists_and_streams_local_media_with_ranges() {
         .body(Body::empty())
         .unwrap();
     let response = app
+        .clone()
         .oneshot(std::mem::replace(&mut stream_request, Request::new(Body::empty())))
         .await
         .unwrap();
@@ -439,6 +440,24 @@ async fn library_lists_and_streams_local_media_with_ranges() {
     assert_eq!(response.headers()["content-range"], "bytes 2-5/10");
     let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&body[..], b"2345");
+
+    let id = entry["id"].as_str().unwrap();
+    let response = app
+        .clone()
+        .oneshot(json_request("DELETE", &format!("/api/library/{id}"), serde_json::json!({})))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(report["deleted"], 1);
+    assert_eq!(report["failed"], serde_json::json!([]));
+    assert!(!cache.join("Local Movie.mp4").exists());
+
+    let response = app.oneshot(request("/api/library", Some("test-token"))).await.unwrap();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let entries: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(entries, serde_json::json!([]));
 }
 #[tokio::test]
 async fn transcode_routes_reject_missing_sources() {

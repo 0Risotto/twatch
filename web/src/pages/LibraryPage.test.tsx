@@ -8,6 +8,8 @@ import type { LibraryEntry } from '@/types/api'
 
 import { api } from '@/lib/api'
 
+import { PlaybackProvider } from '@/features/player/PlaybackProvider'
+
 import { LibraryPage } from './LibraryPage'
 
 import { mediaForFiles } from '@/test/fixtures'
@@ -16,6 +18,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     library: vi.fn(),
     rescanLibrary: vi.fn(),
+    deleteLibraryFile: vi.fn(),
   },
 }))
 
@@ -66,10 +69,12 @@ function renderPage() {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/library']}>
-        <Routes>
-          <Route path="/library" element={<LibraryPage />} />
-          <Route path="/player" element={<PlayerRoute />} />
-        </Routes>
+        <PlaybackProvider>
+          <Routes>
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/player" element={<PlayerRoute />} />
+          </Routes>
+        </PlaybackProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -103,6 +108,20 @@ describe('LibraryPage', () => {
     fireEvent.click(buttons[0])
     expect(await screen.findByText(/Player route/)).toBeInTheDocument()
     expect(screen.getByText(/library=cache-6d6f766965/)).toBeInTheDocument()
+  })
+
+  it('deletes a library file after confirmation', async () => {
+    vi.mocked(api.library).mockResolvedValue(entries)
+    vi.mocked(api.deleteLibraryFile).mockResolvedValue({ deleted: 1, failed: [] })
+    renderPage()
+
+    expect(await screen.findByText('Movie.mkv')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Movie.mkv' }))
+    expect(await screen.findByRole('heading', { name: 'Delete this file?' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete file' }))
+
+    await waitFor(() => expect(screen.queryByText('Movie.mkv')).not.toBeInTheDocument())
+    expect(api.deleteLibraryFile).toHaveBeenCalledWith('cache-6d6f766965')
   })
 
   it('rescans and updates the list', async () => {

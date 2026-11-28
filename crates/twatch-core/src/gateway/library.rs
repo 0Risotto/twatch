@@ -33,6 +33,36 @@ impl Gateway {
         self.find_library_file(id).map(|file| file.path)
     }
 
+    /// Delete one indexed library file from its cache or downloads root.
+    pub fn delete_library_file(&self, id: &str) -> GatewayResult<DeleteReport> {
+        let file = self.find_library_file(id).ok_or(GatewayError::FileNotFound)?;
+        let config = self.config();
+        let root = match file.entry.root {
+            LibraryRoot::Cache => &config.session_path,
+            LibraryRoot::Downloads => &config.download_dir,
+        };
+        if !file.path.starts_with(root) {
+            return Err(GatewayError::InvalidFileName);
+        }
+        if !file.path.is_file() {
+            self.forget_library_file(id);
+            return Err(GatewayError::FileNotFound);
+        }
+
+        fs::remove_file(&file.path).map_err(anyhow::Error::from)?;
+        prune_empty_parents(&file.path, root);
+        self.forget_library_file(id);
+
+        Ok(DeleteReport { deleted: 1, failed: Vec::new() })
+    }
+
+    fn forget_library_file(&self, id: &str) {
+        let mut guard = self.library.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(files) = guard.as_mut() {
+            files.retain(|file| file.entry.id != id);
+        }
+    }
+
     fn library_entries(&self, force: bool) -> Vec<LibraryEntry> {
         if force {
             let files = scan_library(&self.config());
@@ -183,6 +213,23 @@ fn walk(directory: &Path, depth: usize, state: &mut ScanState<'_>) {
                 modified_ms,
             },
         });
+    }
+}
+
+/// Remove now-empty directories left behind by a deleted file, stopping at the
+/// cache/download root so the roots themselves always remain.
+fn prune_empty_parents(path: &Path, root: &Path) {
+    let Some(mut parent) = path.parent() else {
+        return;
+    };
+    while parent != root && parent.starts_with(root) {
+        if fs::remove_dir(parent).is_err() {
+            break;
+        }
+        let Some(next) = parent.parent() else {
+            break;
+        };
+        parent = next;
     }
 }
 
